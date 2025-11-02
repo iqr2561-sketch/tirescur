@@ -46,16 +46,20 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
+    console.log(`[Brands API] ${req.method} request recibida`);
     const brandsCollection = await getCollection('brands');
 
     // Seeding logic
     const brandCount = await brandsCollection.countDocuments();
+    console.log(`[Brands API] Marcas en base de datos: ${brandCount}`);
     if (brandCount === 0) {
+      console.log('[Brands API] Iniciando seeding de datos...');
       const brandsToInsert = INITIAL_BRANDS_DATA.map(brand => ({
         name: brand.name,
         logoUrl: brand.logoUrl,
       }));
-      await brandsCollection.insertMany(brandsToInsert);
+      const result = await brandsCollection.insertMany(brandsToInsert);
+      console.log(`[Brands API] ✅ ${result.insertedCount} marcas insertadas`);
     }
 
     switch (req.method) {

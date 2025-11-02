@@ -48,9 +48,11 @@ export default clientPromise;
 export async function getDatabase(): Promise<Db> {
   try {
     const client = await clientPromise;
-    return client.db('tires'); // Nombre de la base de datos
+    const db = client.db('tires'); // Nombre de la base de datos
+    console.log('✅ Conectado exitosamente a la base de datos "tires"');
+    return db;
   } catch (error) {
-    console.error('Error connecting to MongoDB:', error);
+    console.error('❌ Error connecting to MongoDB:', error);
     throw new Error('Failed to connect to MongoDB database');
   }
 }

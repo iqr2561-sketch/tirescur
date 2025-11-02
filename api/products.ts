@@ -60,12 +60,15 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
+    console.log(`[Products API] ${req.method} request recibida`);
     const productsCollection = await getCollection('products');
     const brandsCollection = await getCollection('brands');
 
     // Seeding logic
     const productCount = await productsCollection.countDocuments();
+    console.log(`[Products API] Productos en base de datos: ${productCount}`);
     if (productCount === 0) {
+      console.log('[Products API] Iniciando seeding de datos...');
       // Ensure brands also exist for product seeding
       const brandCount = await brandsCollection.countDocuments();
       if (brandCount === 0) {
@@ -73,7 +76,8 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           name: brand.name,
           logoUrl: brand.logoUrl,
         }));
-        await brandsCollection.insertMany(brandsToInsert);
+        const brandsResult = await brandsCollection.insertMany(brandsToInsert);
+        console.log(`[Products API] ✅ ${brandsResult.insertedCount} marcas insertadas`);
       }
 
       const brands = await brandsCollection.find({}).toArray();
@@ -86,13 +90,15 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           brand_logo_url: brand?.logoUrl || p.brandLogoUrl,
         };
       });
-      await productsCollection.insertMany(seededProducts);
+      const productsResult = await productsCollection.insertMany(seededProducts);
+      console.log(`[Products API] ✅ ${productsResult.insertedCount} productos insertados`);
     }
 
     switch (req.method) {
       case 'GET': {
         const products = await productsCollection.find({}).toArray();
         const clientProducts = products.map(toClientProduct);
+        console.log(`[Products API] ✅ Devolviendo ${clientProducts.length} productos`);
         res.statusCode = 200;
         res.json(clientProducts);
         break;
