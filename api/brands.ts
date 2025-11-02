@@ -1,5 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { getSupabaseClient } from '../lib/supabase';
+import { ObjectId } from 'mongodb';
+import { getCollection } from '../lib/mongodb';
 import { Brand } from '../types';
 import { INITIAL_BRANDS_DATA } from '../constants';
 
@@ -19,6 +20,14 @@ interface CustomResponse extends ServerResponse {
   end(cb?: () => void): this;
 }
 
+const toClientBrand = (doc: any): Brand => {
+  return {
+    id: doc._id.toString(),
+    name: doc.name,
+    logoUrl: doc.logoUrl || doc.logo_url,
+  };
+};
+
 const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomResponse) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -36,103 +45,99 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 };
 
 async function handler(req: CustomRequest, res: CustomResponse) {
-  const supabase = getSupabaseClient();
+  try {
+    const brandsCollection = await getCollection('brands');
 
-  // Seeding logic
-  const { data: countData } = await supabase.from('brands').select('id', { count: 'exact' });
-  if (countData?.length === 0) {
-    const { error: upsertError } = await supabase
-      .from('brands')
-      .upsert(INITIAL_BRANDS_DATA, { onConflict: 'name' });
-    if (upsertError) console.error('Error seeding brands:', upsertError);
-  }
-
-  switch (req.method) {
-    case 'GET': {
-      const { data, error } = await supabase.from('brands').select('*');
-      if (error) {
-        res.statusCode = 500;
-        res.json({ message: 'Error fetching brands', error: error.message });
-        return;
-      }
-      res.statusCode = 200;
-      res.json(data);
-      break;
+    // Seeding logic
+    const brandCount = await brandsCollection.countDocuments();
+    if (brandCount === 0) {
+      const brandsToInsert = INITIAL_BRANDS_DATA.map(brand => ({
+        name: brand.name,
+        logoUrl: brand.logoUrl,
+      }));
+      await brandsCollection.insertMany(brandsToInsert);
     }
 
-    case 'POST': {
-      const newBrandData: Omit<Brand, 'id'> = await req.json();
-      const { data, error } = await supabase.from('brands').insert(newBrandData).select('*').single();
-      if (error) {
-        res.statusCode = 500;
-        res.json({ message: 'Error adding brand', error: error.message });
-        return;
+    switch (req.method) {
+      case 'GET': {
+        const brands = await brandsCollection.find({}).toArray();
+        const clientBrands = brands.map(toClientBrand);
+        res.statusCode = 200;
+        res.json(clientBrands);
+        break;
       }
-      res.statusCode = 201;
-      res.json(data);
-      break;
-    }
 
-    case 'PUT': {
-      const id = req.query.id;
-      if (!id) {
-        res.statusCode = 400;
-        res.json({ message: 'Brand ID is required for update' });
-        return;
+      case 'POST': {
+        const newBrandData: Omit<Brand, 'id'> = await req.json();
+        const result = await brandsCollection.insertOne({
+          name: newBrandData.name,
+          logoUrl: newBrandData.logoUrl,
+        });
+        const insertedBrand = await brandsCollection.findOne({ _id: result.insertedId });
+        const clientBrand = toClientBrand(insertedBrand);
+        res.statusCode = 201;
+        res.json(clientBrand);
+        break;
       }
-      const updatedBrandData: Brand = await req.json();
-      const { id: clientSideId, ...updateData } = updatedBrandData; // Exclude 'id' from update payload
-      
-      const { data, error } = await supabase
-        .from('brands')
-        .update(updateData)
-        .eq('id', id)
-        .select('*')
-        .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') { // Supabase error code for "not found"
-          res.statusCode = 404;
-          res.json({ message: 'Brand not found', error: error.message });
+      case 'PUT': {
+        const id = req.query.id;
+        if (!id) {
+          res.statusCode = 400;
+          res.json({ message: 'Brand ID is required for update' });
           return;
         }
-        res.statusCode = 500;
-        res.json({ message: 'Error updating brand', error: error.message });
-        return;
-      }
-      res.statusCode = 200;
-      res.json(data);
-      break;
-    }
+        const updatedBrandData: Brand = await req.json();
+        const { id: clientSideId, ...updateData } = updatedBrandData;
 
-    case 'DELETE': {
-      const idToDelete = req.query.id;
-      if (!idToDelete) {
-        res.statusCode = 400;
-        res.json({ message: 'Brand ID is required for delete' });
-        return;
-      }
-      const { error } = await supabase.from('brands').delete().eq('id', idToDelete);
-      if (error) {
-        if (error.code === 'PGRST116') { // Supabase error code for "not found"
+        const result = await brandsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updateData }
+        );
+
+        if (result.matchedCount === 0) {
           res.statusCode = 404;
-          res.json({ message: 'Brand not found', error: error.message });
+          res.json({ message: 'Brand not found' });
           return;
         }
-        res.statusCode = 500;
-        res.json({ message: 'Error deleting brand', error: error.message });
-        return;
-      }
-      res.statusCode = 204;
-      res.end();
-      break;
-    }
 
-    default: {
-      res.statusCode = 405;
-      res.json({ message: 'Method Not Allowed' });
-      break;
+        const updatedBrand = await brandsCollection.findOne({ _id: new ObjectId(id) });
+        const clientBrand = toClientBrand(updatedBrand);
+        res.statusCode = 200;
+        res.json(clientBrand);
+        break;
+      }
+
+      case 'DELETE': {
+        const idToDelete = req.query.id;
+        if (!idToDelete) {
+          res.statusCode = 400;
+          res.json({ message: 'Brand ID is required for delete' });
+          return;
+        }
+
+        const result = await brandsCollection.deleteOne({ _id: new ObjectId(idToDelete) });
+        if (result.deletedCount === 0) {
+          res.statusCode = 404;
+          res.json({ message: 'Brand not found' });
+          return;
+        }
+
+        res.statusCode = 204;
+        res.end();
+        break;
+      }
+
+      default: {
+        res.statusCode = 405;
+        res.json({ message: 'Method Not Allowed' });
+        break;
+      }
     }
+  } catch (error: any) {
+    console.error('Error in brands API:', error);
+    res.statusCode = 500;
+    res.json({ message: 'Internal server error', error: error.message });
   }
 }
 

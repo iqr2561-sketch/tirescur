@@ -1,5 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { getSupabaseClient } from '../lib/supabase';
+import { ObjectId } from 'mongodb';
+import { getCollection } from '../lib/mongodb';
 import { MenuItem } from '../types';
 import { DEFAULT_MENU_ITEMS } from '../constants';
 
@@ -19,6 +20,17 @@ interface CustomResponse extends ServerResponse {
   end(cb?: () => void): this;
 }
 
+const toClientMenuItem = (doc: any): MenuItem => {
+  return {
+    id: doc._id.toString(),
+    name: doc.name,
+    path: doc.path,
+    location: doc.location,
+    order: doc.order,
+    isExternal: doc.isExternal || false,
+  };
+};
+
 const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomResponse) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -36,103 +48,92 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 };
 
 async function handler(req: CustomRequest, res: CustomResponse) {
-  const supabase = getSupabaseClient();
+  try {
+    const menusCollection = await getCollection('menu_items');
 
-  // Seeding logic
-  const { data: countData } = await supabase.from('menu_items').select('id', { count: 'exact' });
-  if (countData?.length === 0) {
-    const { error: upsertError } = await supabase
-      .from('menu_items')
-      .upsert(DEFAULT_MENU_ITEMS, { onConflict: 'name,location' }); // Assuming name+location is unique
-    if (upsertError) console.error('Error seeding menu items:', upsertError);
-  }
-
-  switch (req.method) {
-    case 'GET': {
-      const { data, error } = await supabase.from('menu_items').select('*').order('order', { ascending: true });
-      if (error) {
-        res.statusCode = 500;
-        res.json({ message: 'Error fetching menu items', error: error.message });
-        return;
-      }
-      res.statusCode = 200;
-      res.json(data);
-      break;
+    // Seeding logic
+    const menuCount = await menusCollection.countDocuments();
+    if (menuCount === 0) {
+      await menusCollection.insertMany(DEFAULT_MENU_ITEMS);
     }
 
-    case 'POST': {
-      const newMenuData: Omit<MenuItem, 'id'> = await req.json();
-      const { data, error } = await supabase.from('menu_items').insert(newMenuData).select('*').single();
-      if (error) {
-        res.statusCode = 500;
-        res.json({ message: 'Error adding menu item', error: error.message });
-        return;
+    switch (req.method) {
+      case 'GET': {
+        const menus = await menusCollection.find({}).sort({ order: 1 }).toArray();
+        const clientMenus = menus.map(toClientMenuItem);
+        res.statusCode = 200;
+        res.json(clientMenus);
+        break;
       }
-      res.statusCode = 201;
-      res.json(data);
-      break;
-    }
 
-    case 'PUT': {
-      const id = req.query.id;
-      if (!id) {
-        res.statusCode = 400;
-        res.json({ message: 'Menu ID is required for update' });
-        return;
+      case 'POST': {
+        const newMenuData: Omit<MenuItem, 'id'> = await req.json();
+        const result = await menusCollection.insertOne(newMenuData);
+        const insertedMenu = await menusCollection.findOne({ _id: result.insertedId });
+        const clientMenu = toClientMenuItem(insertedMenu);
+        res.statusCode = 201;
+        res.json(clientMenu);
+        break;
       }
-      const updatedMenuData: MenuItem = await req.json();
-      const { id: clientSideId, ...updateData } = updatedMenuData; // Exclude 'id' from update payload
-      
-      const { data, error } = await supabase
-        .from('menu_items')
-        .update(updateData)
-        .eq('id', id)
-        .select('*')
-        .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') { // Supabase error code for "not found"
-          res.statusCode = 404;
-          res.json({ message: 'Menu item not found', error: error.message });
+      case 'PUT': {
+        const id = req.query.id;
+        if (!id) {
+          res.statusCode = 400;
+          res.json({ message: 'Menu ID is required for update' });
           return;
         }
-        res.statusCode = 500;
-        res.json({ message: 'Error updating menu item', error: error.message });
-        return;
-      }
-      res.statusCode = 200;
-      res.json(data);
-      break;
-    }
+        const updatedMenuData: MenuItem = await req.json();
+        const { id: clientSideId, ...updateData } = updatedMenuData;
 
-    case 'DELETE': {
-      const idToDelete = req.query.id;
-      if (!idToDelete) {
-        res.statusCode = 400;
-        res.json({ message: 'Menu ID is required for delete' });
-        return;
-      }
-      const { error } = await supabase.from('menu_items').delete().eq('id', idToDelete);
-      if (error) {
-        if (error.code === 'PGRST116') { // Supabase error code for "not found"
+        const result = await menusCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updateData }
+        );
+
+        if (result.matchedCount === 0) {
           res.statusCode = 404;
-          res.json({ message: 'Menu item not found', error: error.message });
+          res.json({ message: 'Menu item not found' });
           return;
         }
-        res.statusCode = 500;
-        res.json({ message: 'Error deleting menu item', error: error.message });
-        return;
-      }
-      res.statusCode = 204;
-      res.end();
-      break;
-    }
 
-    default: {
-      res.statusCode = 405;
-      res.json({ message: 'Method Not Allowed' });
-      break;
+        const updatedMenu = await menusCollection.findOne({ _id: new ObjectId(id) });
+        const clientMenu = toClientMenuItem(updatedMenu);
+        res.statusCode = 200;
+        res.json(clientMenu);
+        break;
+      }
+
+      case 'DELETE': {
+        const idToDelete = req.query.id;
+        if (!idToDelete) {
+          res.statusCode = 400;
+          res.json({ message: 'Menu ID is required for delete' });
+          return;
+        }
+
+        const result = await menusCollection.deleteOne({ _id: new ObjectId(idToDelete) });
+        if (result.deletedCount === 0) {
+          res.statusCode = 404;
+          res.json({ message: 'Menu item not found' });
+          return;
+        }
+
+        res.statusCode = 204;
+        res.end();
+        break;
+      }
+
+      default: {
+        res.statusCode = 405;
+        res.json({ message: 'Method Not Allowed' });
+        break;
+      }
     }
+  } catch (error: any) {
+    console.error('Error in menus API:', error);
+    res.statusCode = 500;
+    res.json({ message: 'Internal server error', error: error.message });
   }
 }
 
