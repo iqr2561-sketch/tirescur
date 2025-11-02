@@ -108,7 +108,16 @@ const App: React.FC = () => {
         // If any request failed or returned null, use fallback data
         if (!productsRes || !productsRes.ok || !brandsRes || !brandsRes.ok || !salesRes || !salesRes.ok || 
             !settingsRes || !settingsRes.ok || !menusRes || !menusRes.ok) {
-          throw new Error('API no disponible en desarrollo local, usando datos predeterminados');
+          console.warn('⚠️ API no disponible. Verificando errores...');
+          if (productsRes && !productsRes.ok) {
+            console.error(`❌ Error en /products: ${productsRes.status} ${productsRes.statusText}`);
+          }
+          if (isLocalhost) {
+            console.warn('💡 Desarrollo local detectado. Las APIs deberían redirigirse a Vercel automáticamente.');
+            console.warn('💡 URL de Vercel: https://tirescur.vercel.app');
+            console.warn('💡 Si ves este error, verifica que el servidor de desarrollo esté corriendo y reinícialo.');
+          }
+          throw new Error('API no disponible, usando datos predeterminados');
         }
 
         const fetchedProductsData = await productsRes.json();
