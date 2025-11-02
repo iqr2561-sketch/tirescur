@@ -149,7 +149,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       const productToUpdate: Product = { ...baseProduct, id: editingProduct.id };
       onUpdateProduct(productToUpdate);
     } else {
-      // For add, we pass the product without ID, Supabase will generate it
+      // For add, we pass the product without ID, MongoDB will generate it
       onAddProduct(baseProduct);
     }
 

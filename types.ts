@@ -1,18 +1,17 @@
 import React from 'react';
-// Removed ObjectId import as we are moving to Supabase
 
 export interface Brand {
-  id: string; // Will map to Supabase UUID
+  id: string; // MongoDB ObjectId as string
   name: string;
   logoUrl?: string; // Optional logo URL for the brand
 }
 
 export interface Product {
-  id: string; // Will map to Supabase UUID
+  id: string; // MongoDB ObjectId as string
   sku: string;
   name: string;
   brand: string; // The name of the brand
-  brandId?: string; // Supabase brand_id for foreign key relationship
+  brandId?: string; // MongoDB brand_id for foreign key relationship
   brandLogoUrl?: string; // Added to Product for direct display
   price: number;
   rating: number;
@@ -81,7 +80,7 @@ export interface DealZoneConfig {
 }
 
 export interface Sale {
-  id: string; // Will map to Supabase UUID
+  id: string; // MongoDB ObjectId as string
   customerName: string;
   total: number;
   status: 'Pendiente' | 'Completado' | 'Cancelado';
@@ -115,7 +114,7 @@ export interface ExcelProductRow {
 
 // New interface for Menu Items
 export interface MenuItem {
-  id: string; // Will map to Supabase UUID
+  id: string; // MongoDB ObjectId as string
   name: string;
   path: string; // The route or external URL
   isExternal: boolean; // True if it's an external link

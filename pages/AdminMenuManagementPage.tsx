@@ -109,7 +109,7 @@ const AdminMenuManagementPage: React.FC<AdminMenuManagementPageProps> = ({
     if (editingMenu) {
       onUpdateMenu({ ...menuToSave, id: editingMenu.id });
     } else {
-      // For add, we pass the menu item without 'id', Supabase will generate it.
+      // For add, we pass the menu item without 'id', MongoDB will generate it.
       onAddMenu(menuToSave);
     }
 

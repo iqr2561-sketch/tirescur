@@ -67,7 +67,7 @@ const AdminBrandManagementPage: React.FC<AdminBrandManagementPageProps> = ({
       };
       onUpdateBrand(brandToUpdate);
     } else {
-      // For add, we pass the brand without 'id', Supabase will generate it.
+      // For add, we pass the brand without 'id', MongoDB will generate it.
       const brandToAdd: Omit<Brand, 'id'> = {
         name: formData.name.trim(),
         logoUrl: formData.logoUrl.trim() || DEFAULT_BRAND_LOGO_URL,

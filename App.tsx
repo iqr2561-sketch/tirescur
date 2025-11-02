@@ -142,7 +142,7 @@ const App: React.FC = () => {
         const fetchedSettings = await settingsRes.json();
         const fetchedMenusData = await menusRes.json(); // Process fetched menus
 
-        // Map Supabase product data to client-side Product interface
+        // Map MongoDB product data to client-side Product interface
         const mappedProducts: Product[] = fetchedProductsData.map((p: any) => ({
           ...p,
           brand: p.brand_name, // Map brand_name from DB to 'brand' for client
@@ -150,7 +150,7 @@ const App: React.FC = () => {
           brandLogoUrl: p.brand_logo_url,
         }));
         
-        // Map Supabase settings data to client-side GlobalSettings interface
+        // Map MongoDB settings data to client-side GlobalSettings interface
         const mappedSettings: GlobalSettings = {
           heroImageUrl: fetchedSettings.heroImageUrl || DEFAULT_HERO_IMAGE_URL,
           whatsappPhoneNumber: fetchedSettings.whatsappPhoneNumber || DEFAULT_WHATSAPP_PHONE_NUMBER,
@@ -247,7 +247,7 @@ const App: React.FC = () => {
 
   const updateProduct = useCallback(async (updatedProduct: Product) => {
     try {
-      // The `id` from `updatedProduct` is the client-facing ID which maps to Supabase's `id`.
+      // The `id` from `updatedProduct` is the client-facing ID which maps to MongoDB's ObjectId.
       // The body sent to the API should not contain `id` as `id` is handled by the URL param.
       const { id, ...productDataToSend } = updatedProduct;
       const res = await fetch(`${API_BASE_URL}/products/${id}`, {
