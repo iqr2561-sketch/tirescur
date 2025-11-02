@@ -28,7 +28,8 @@
   "scripts": {
     "dev": "vite",
     "start": "tsc -p tsconfig.json --watch",
-    "build": "rm -rf dist && tsc -p tsconfig.json && cp index.html metadata.json dist/ && if [ -f favicon.ico ]; then cp favicon.ico dist/; fi",
+    "build": "vite build",
+    "preview": "vite preview",
     "clean": "rm -rf node_modules package-lock.json dist"
   },
   "browserslist": {
