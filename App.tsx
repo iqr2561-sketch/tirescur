@@ -225,7 +225,20 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProduct),
       });
-      if (!res.ok) throw new Error('Failed to add product');
+      
+      if (!res.ok) {
+        // Intentar obtener el mensaje de error del servidor
+        let errorMessage = 'Failed to add product';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (parseError) {
+          // Si no se puede parsear el error, usar el status text
+          errorMessage = `${res.status} ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+      
       const addedProduct = await res.json();
       setProducts(prevProducts => (prevProducts ? [...prevProducts, {
         ...addedProduct,
@@ -239,9 +252,10 @@ const App: React.FC = () => {
         brandLogoUrl: addedProduct.brand_logo_url,
       }]));
       alert('Producto añadido con éxito!');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding product:', err);
-      alert('Error al añadir el producto.');
+      const errorMessage = err?.message || 'Error desconocido';
+      alert(`Error al añadir el producto: ${errorMessage}`);
     }
   }, []);
 
@@ -379,13 +393,27 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newBrand),
       });
-      if (!res.ok) throw new Error('Failed to add brand');
+      
+      if (!res.ok) {
+        // Intentar obtener el mensaje de error del servidor
+        let errorMessage = 'Failed to add brand';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (parseError) {
+          // Si no se puede parsear el error, usar el status text
+          errorMessage = `${res.status} ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+      
       const addedBrand = await res.json();
       setBrands(prevBrands => (prevBrands ? [...prevBrands, addedBrand] : [addedBrand]));
       alert('Marca añadida con éxito!');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding brand:', err);
-      alert('Error al añadir la marca.');
+      const errorMessage = err?.message || 'Error desconocido';
+      alert(`Error al añadir la marca: ${errorMessage}`);
     }
   }, []);
 

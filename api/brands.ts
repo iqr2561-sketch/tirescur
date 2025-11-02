@@ -72,20 +72,49 @@ async function handler(req: CustomRequest, res: CustomResponse) {
       }
 
       case 'POST': {
-        const newBrandData: Omit<Brand, 'id'> = await req.json();
-        const result = await brandsCollection.insertOne({
-          name: newBrandData.name,
-          logoUrl: newBrandData.logoUrl,
-        } as any);
-        const insertedBrand = await brandsCollection.findOne({ _id: result.insertedId });
-        if (!insertedBrand) {
+        try {
+          const newBrandData: Omit<Brand, 'id'> = await req.json();
+          
+          // Validar datos
+          if (!newBrandData.name || !newBrandData.name.trim()) {
+            res.statusCode = 400;
+            res.json({ message: 'Brand name is required' });
+            return;
+          }
+          
+          // Verificar si la marca ya existe
+          const existingBrand = await brandsCollection.findOne({ name: newBrandData.name.trim() });
+          if (existingBrand) {
+            res.statusCode = 409;
+            res.json({ message: 'Brand already exists', brand: toClientBrand(existingBrand) });
+            return;
+          }
+          
+          const result = await brandsCollection.insertOne({
+            name: newBrandData.name.trim(),
+            logoUrl: newBrandData.logoUrl || '',
+          } as any);
+          
+          const insertedBrand = await brandsCollection.findOne({ _id: result.insertedId });
+          if (!insertedBrand) {
+            res.statusCode = 500;
+            res.json({ message: 'Error creating brand: Brand was not created' });
+            return;
+          }
+          
+          const clientBrand = toClientBrand(insertedBrand);
+          console.log(`[Brands API] ✅ Marca creada: ${clientBrand.name}`);
+          res.statusCode = 201;
+          res.json(clientBrand);
+        } catch (postError: any) {
+          console.error('[Brands API] Error en POST:', postError);
           res.statusCode = 500;
-          res.json({ message: 'Error creating brand' });
+          res.json({ 
+            message: 'Error creating brand', 
+            error: postError.message || 'Unknown error' 
+          });
           return;
         }
-        const clientBrand = toClientBrand(insertedBrand);
-        res.statusCode = 201;
-        res.json(clientBrand);
         break;
       }
 
