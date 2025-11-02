@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "module": "NodeNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": false,
+    "outDir": "dist",
+    "typeRoots": ["./node_modules/@types"]
+  },
+  "include": [
+    "index.tsx",
+    "App.tsx",
+    "pages/**/*.tsx",
+    "components/**/*.tsx",
+    "types.ts",
+    "constants.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "api/**/*.ts",
+    "lib/**/*.ts",
+    "dist"
+  ]
+}
