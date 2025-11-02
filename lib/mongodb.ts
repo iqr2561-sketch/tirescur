@@ -1,4 +1,4 @@
-import { MongoClient, MongoClientOptions, Db } from 'mongodb';
+import { MongoClient, MongoClientOptions, Db, Document } from 'mongodb';
 import { attachDatabasePool } from '@vercel/functions';
 
 const uri: string = process.env.MONGODB_URI || '';
@@ -56,7 +56,7 @@ export async function getDatabase(): Promise<Db> {
   }
 }
 
-export async function getCollection<T>(collectionName: string) {
+export async function getCollection<T extends Document>(collectionName: string) {
   try {
     const db = await getDatabase();
     return db.collection<T>(collectionName);

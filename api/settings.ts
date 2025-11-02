@@ -68,6 +68,11 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         }
 
         // Map MongoDB document to client-side format
+        if (!settings) {
+          res.statusCode = 500;
+          res.json({ message: 'Settings not found' });
+          return;
+        }
         const clientSettings = {
           heroImageUrl: settings.hero_image_url,
           whatsappPhoneNumber: settings.whatsapp_phone_number,
@@ -104,6 +109,12 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         }
 
         const updatedSettings = await settingsCollection.findOne({ id: SETTINGS_DOC_ID });
+
+        if (!updatedSettings) {
+          res.statusCode = 500;
+          res.json({ message: 'Error updating settings' });
+          return;
+        }
 
         // Map back to client-side format
         const clientSettings = {

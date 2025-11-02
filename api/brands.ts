@@ -76,8 +76,13 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         const result = await brandsCollection.insertOne({
           name: newBrandData.name,
           logoUrl: newBrandData.logoUrl,
-        });
+        } as any);
         const insertedBrand = await brandsCollection.findOne({ _id: result.insertedId });
+        if (!insertedBrand) {
+          res.statusCode = 500;
+          res.json({ message: 'Error creating brand' });
+          return;
+        }
         const clientBrand = toClientBrand(insertedBrand);
         res.statusCode = 201;
         res.json(clientBrand);
@@ -106,6 +111,11 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         }
 
         const updatedBrand = await brandsCollection.findOne({ _id: new ObjectId(id) });
+        if (!updatedBrand) {
+          res.statusCode = 404;
+          res.json({ message: 'Brand not found' });
+          return;
+        }
         const clientBrand = toClientBrand(updatedBrand);
         res.statusCode = 200;
         res.json(clientBrand);

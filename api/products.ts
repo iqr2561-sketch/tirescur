@@ -115,7 +115,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
           const brands = await brandsCollection.find({}).toArray();
           const productsWithBrandInfo = newProductsData.map((p) => {
-            const brand = brands.find((b: any) => b.name === p.brand);
+            const brand = brands.find((b: any) => b.name === p.brand) as any;
             return {
               ...p,
               brand_name: p.brand,
@@ -136,7 +136,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           const newProductData: Omit<Product, 'id'> = await req.json();
 
           // Find brand by name
-          const brand = await brandsCollection.findOne({ name: newProductData.brand });
+          const brand = await brandsCollection.findOne({ name: newProductData.brand }) as any;
 
           const productToInsert = {
             ...newProductData,
@@ -147,6 +147,11 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
           const result = await productsCollection.insertOne(productToInsert);
           const insertedProduct = await productsCollection.findOne({ _id: result.insertedId });
+          if (!insertedProduct) {
+            res.statusCode = 500;
+            res.json({ message: 'Error creating product' });
+            return;
+          }
           const clientProduct = toClientProduct(insertedProduct);
           res.statusCode = 201;
           res.json(clientProduct);
@@ -168,7 +173,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             let brand_logo_url_to_update = product.brandLogoUrl;
 
             if (product.brand) {
-              const brand = await brandsCollection.findOne({ name: product.brand });
+              const brand = await brandsCollection.findOne({ name: product.brand }) as any;
               if (brand) {
                 brand_id_to_update = brand._id;
                 brand_logo_url_to_update = brand.logoUrl;
@@ -211,7 +216,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           let brand_logo_url_to_update = updatedProductData.brandLogoUrl;
 
           if (updatedProductData.brand) {
-            const brand = await brandsCollection.findOne({ name: updatedProductData.brand });
+            const brand = await brandsCollection.findOne({ name: updatedProductData.brand }) as any;
             if (brand) {
               brand_id_to_update = brand._id;
               brand_logo_url_to_update = brand.logoUrl;
@@ -239,6 +244,11 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           }
 
           const updatedProduct = await productsCollection.findOne({ _id: new ObjectId(id) });
+          if (!updatedProduct) {
+            res.statusCode = 404;
+            res.json({ message: 'Product not found' });
+            return;
+          }
           const clientProduct = toClientProduct(updatedProduct);
           res.statusCode = 200;
           res.json(clientProduct);
