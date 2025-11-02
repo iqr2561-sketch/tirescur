@@ -51,9 +51,24 @@ export async function getDatabase(): Promise<Db> {
     const db = client.db('tires'); // Nombre de la base de datos
     console.log('✅ Conectado exitosamente a la base de datos "tires"');
     return db;
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error connecting to MongoDB:', error);
-    throw new Error('Failed to connect to MongoDB database');
+    console.error('Error details:', {
+      name: error?.name,
+      message: error?.message,
+      code: error?.code
+    });
+    
+    // Proporcionar mensajes más específicos según el tipo de error
+    if (error?.message?.includes('MONGODB_URI')) {
+      throw new Error('MONGODB_URI environment variable is not set. Please configure it in Vercel settings.');
+    }
+    
+    if (error?.name === 'MongoServerError' || error?.name === 'MongoNetworkError') {
+      throw new Error(`MongoDB connection error: ${error.message}`);
+    }
+    
+    throw new Error(`Failed to connect to MongoDB database: ${error?.message || 'Unknown error'}`);
   }
 }
 

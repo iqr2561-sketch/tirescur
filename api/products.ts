@@ -273,9 +273,46 @@ async function handler(req: CustomRequest, res: CustomResponse) {
       }
     }
   } catch (error: any) {
-    console.error('Error in products API:', error);
+    console.error('❌ Error in products API:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    
+    // Verificar si es un error de conexión a MongoDB
+    if (error.message && error.message.includes('MONGODB_URI')) {
+      console.error('⚠️ MONGODB_URI no está configurada');
+      res.statusCode = 503;
+      res.json({ 
+        message: 'Servicio no disponible: MongoDB no configurado', 
+        error: 'MONGODB_URI environment variable is not set',
+        hint: 'Por favor, configura la variable de entorno MONGODB_URI en Vercel'
+      });
+      return;
+    }
+    
+    // Verificar si es un error de conexión
+    if (error.message && (
+      error.message.includes('connect') || 
+      error.message.includes('connection') ||
+      error.message.includes('timeout') ||
+      error.name === 'MongoServerError' ||
+      error.name === 'MongoNetworkError'
+    )) {
+      console.error('⚠️ Error de conexión a MongoDB');
+      res.statusCode = 503;
+      res.json({ 
+        message: 'Servicio no disponible: Error de conexión a la base de datos', 
+        error: error.message,
+        hint: 'Verifica la conexión a MongoDB Atlas y la configuración de red'
+      });
+      return;
+    }
+    
     res.statusCode = 500;
-    res.json({ message: 'Internal server error', error: error.message });
+    res.json({ 
+      message: 'Internal server error', 
+      error: error.message || 'Error desconocido',
+      type: error.name || 'UnknownError'
+    });
   }
 }
 

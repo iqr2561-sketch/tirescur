@@ -109,9 +109,25 @@ const App: React.FC = () => {
         if (!productsRes || !productsRes.ok || !brandsRes || !brandsRes.ok || !salesRes || !salesRes.ok || 
             !settingsRes || !settingsRes.ok || !menusRes || !menusRes.ok) {
           console.warn('⚠️ API no disponible. Verificando errores...');
+          
+          // Intentar obtener más información del error de products
           if (productsRes && !productsRes.ok) {
-            console.error(`❌ Error en /products: ${productsRes.status} ${productsRes.statusText}`);
+            try {
+              const errorData = await productsRes.json().catch(() => null);
+              if (errorData) {
+                console.error(`❌ Error en /products: ${productsRes.status} ${productsRes.statusText}`);
+                console.error('Detalles del error:', errorData);
+                if (errorData.hint) {
+                  console.warn('💡 Hint:', errorData.hint);
+                }
+              } else {
+                console.error(`❌ Error en /products: ${productsRes.status} ${productsRes.statusText}`);
+              }
+            } catch (parseError) {
+              console.error(`❌ Error en /products: ${productsRes.status} ${productsRes.statusText}`);
+            }
           }
+          
           if (isLocalhost) {
             console.warn('💡 Desarrollo local detectado. Las APIs deberían redirigirse a Vercel automáticamente.');
             console.warn('💡 URL de Vercel: https://tirescur.vercel.app');
