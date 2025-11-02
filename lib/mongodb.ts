@@ -11,6 +11,9 @@ const options = {
   maxPoolSize: 10, // Mantener conexiones en el pool
   serverSelectionTimeoutMS: 5000, // Timeout para seleccionar servidor
   socketTimeoutMS: 45000, // Timeout para operaciones de socket
+  connectTimeoutMS: 10000, // Timeout para establecer conexión
+  retryWrites: true, // Reintentos automáticos para escrituras
+  retryReads: true, // Reintentos automáticos para lecturas
 };
 
 let client: MongoClient;
