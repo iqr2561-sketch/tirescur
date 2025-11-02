@@ -1,4 +1,5 @@
-import { MongoClient, Db } from 'mongodb';
+import { MongoClient, MongoClientOptions, Db } from 'mongodb';
+import { attachDatabasePool } from '@vercel/functions';
 
 const uri: string = process.env.MONGODB_URI || '';
 
@@ -7,7 +8,9 @@ if (!uri) {
   throw new Error('MONGODB_URI environment variable is not set. Please configure it in Vercel settings.');
 }
 
-const options = {
+const options: MongoClientOptions = {
+  appName: "devrel.vercel.integration",
+  maxIdleTimeMS: 5000,
   maxPoolSize: 10, // Mantener conexiones en el pool
   serverSelectionTimeoutMS: 5000, // Timeout para seleccionar servidor
   socketTimeoutMS: 45000, // Timeout para operaciones de socket
@@ -16,38 +19,19 @@ const options = {
   retryReads: true, // Reintentos automáticos para lecturas
 };
 
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
+const client = new MongoClient(uri, options);
 
-// Para Vercel serverless functions, usar un patrón singleton
-declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
-}
+// Attach the client to ensure proper cleanup on function suspension
+attachDatabasePool(client);
 
-if (process.env.NODE_ENV === 'development') {
-  // In development mode, use a global variable so that the value
-  // is preserved across module reloads caused by HMR (Hot Module Replacement).
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    global._mongoClientPromise = client.connect();
-  }
-  clientPromise = global._mongoClientPromise;
-} else {
-  // In production mode, también usar global para Vercel serverless
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    global._mongoClientPromise = client.connect();
-  }
-  clientPromise = global._mongoClientPromise;
-}
+// Export a module-scoped MongoClient to ensure the client can be shared across functions.
+export default client;
 
-// Export a module-scoped MongoClient promise. By doing this in a
-// separate module, the client can be shared across functions.
-export default clientPromise;
-
+// Funciones auxiliares para mantener compatibilidad con el código existente
 export async function getDatabase(): Promise<Db> {
   try {
-    const client = await clientPromise;
+    // El cliente se conecta automáticamente cuando se necesite con attachDatabasePool
+    // MongoDB driver maneja la conexión de forma eficiente
     const db = client.db('tires'); // Nombre de la base de datos
     console.log('✅ Conectado exitosamente a la base de datos "tires"');
     return db;
@@ -81,4 +65,3 @@ export async function getCollection<T>(collectionName: string) {
     throw error;
   }
 }
-
