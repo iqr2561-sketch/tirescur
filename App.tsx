@@ -30,7 +30,15 @@ import {
   DEFAULT_MENU_ITEMS // Same
 } from './constants';
 
-const API_BASE_URL = '/api'; // Relative path for Vercel serverless functions
+// Detectar si estamos en desarrollo local (localhost)
+const isLocalhost = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || 
+   window.location.hostname === '127.0.0.1' || 
+   window.location.hostname === '');
+
+// En desarrollo local, Vite proxy redirige /api a Vercel automáticamente
+// En producción (Vercel), usar ruta relativa
+const API_BASE_URL = '/api';
 
 const App: React.FC = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
