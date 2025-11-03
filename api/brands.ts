@@ -46,6 +46,19 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
     console.log(`[Brands API] ${req.method} request recibida`);
+    
+    // Verificar configuración antes de usar Supabase
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    console.log('[Brands API] Variables de entorno:', {
+      SUPABASE_URL: !!supabaseUrl,
+      SUPABASE_ANON_KEY: !!supabaseAnonKey,
+      SUPABASE_SERVICE_ROLE_KEY: !!supabaseServiceRoleKey,
+      usandoServiceRole: !!supabaseServiceRoleKey
+    });
+    
     const supabase = getSupabaseAdmin();
 
     // Seeding logic
@@ -94,7 +107,9 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
       case 'POST': {
         try {
+          console.log('[Brands API] POST request iniciada');
           const newBrandData: Omit<Brand, 'id'> = await req.json();
+          console.log('[Brands API] Datos recibidos:', JSON.stringify(newBrandData));
           
           // Validar datos
           if (!newBrandData.name || !newBrandData.name.trim()) {
@@ -103,12 +118,24 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             return;
           }
 
+          // Verificar conexión y configuración de Supabase
+          console.log('[Brands API] Verificando configuración de Supabase...');
+          const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+          const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+          console.log('[Brands API] Supabase URL configurada:', !!supabaseUrl);
+          console.log('[Brands API] Supabase Key configurada:', !!supabaseKey);
+
           // Verificar si ya existe una marca con el mismo nombre
-          const { data: existingBrand } = await supabase
+          console.log('[Brands API] Verificando marca existente...');
+          const { data: existingBrand, error: checkError } = await supabase
             .from('brands')
             .select('*')
             .eq('name', newBrandData.name.trim())
-            .single();
+            .maybeSingle();
+
+          if (checkError) {
+            console.error('[Brands API] Error verificando marca existente:', checkError);
+          }
 
           if (existingBrand) {
             res.statusCode = 409;
@@ -124,6 +151,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             logo_url: newBrandData.logoUrl || '',
           };
 
+          console.log('[Brands API] Insertando marca:', JSON.stringify(brandToInsert));
           const { data: insertedBrand, error } = await supabase
             .from('brands')
             .insert(brandToInsert)
@@ -132,31 +160,45 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
           if (error) {
             console.error('[Brands API] Error creando marca:', error);
+            console.error('[Brands API] Error code:', error.code);
+            console.error('[Brands API] Error details:', error.details);
+            console.error('[Brands API] Error hint:', error.hint);
             res.statusCode = 500;
             res.json({ 
               message: 'Error al crear la marca.', 
               error: error.message,
-              hint: 'Verifica que todos los campos requeridos estén presentes y sean válidos.'
+              errorCode: error.code,
+              errorDetails: error.details,
+              errorHint: error.hint,
+              hint: 'Verifica que la tabla brands exista y que tengas permisos de escritura. Revisa los logs del servidor para más detalles.'
             });
             return;
           }
 
           if (!insertedBrand) {
+            console.error('[Brands API] No se devolvió ningún dato después del insert');
             res.statusCode = 500;
-            res.json({ message: 'Error al crear la marca.' });
+            res.json({ 
+              message: 'Error al crear la marca.',
+              hint: 'La inserción no devolvió datos. Verifica que la tabla exista y tenga los permisos correctos.'
+            });
             return;
           }
 
+          console.log('[Brands API] Marca creada exitosamente:', insertedBrand.id);
           const clientBrand = toClientBrand(insertedBrand);
           res.statusCode = 201;
           res.json(clientBrand);
         } catch (error: any) {
           console.error('[Brands API] Error en POST:', error);
+          console.error('[Brands API] Error stack:', error.stack);
+          console.error('[Brands API] Error name:', error.name);
           res.statusCode = 500;
           res.json({ 
             message: 'Error al crear la marca.', 
             error: error.message,
-            hint: 'Verifica que todos los campos requeridos estén presentes y sean válidos.'
+            errorType: error.name,
+            hint: 'Verifica que todos los campos requeridos estén presentes y sean válidos. Revisa los logs del servidor para más detalles.'
           });
         }
         break;
