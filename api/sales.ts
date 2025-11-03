@@ -1,6 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { ObjectId } from 'mongodb';
-import { getCollection } from '../lib/mongodb';
+import { supabaseAdmin } from '../lib/supabase';
 import { Sale } from '../types';
 import { INITIAL_SALES_DATA } from '../constants';
 
@@ -20,14 +19,27 @@ interface CustomResponse extends ServerResponse {
   end(cb?: () => void): this;
 }
 
-const toClientSale = (doc: any): Sale => {
+const toClientSale = async (row: any): Promise<Sale> => {
+  // Obtener productos de la venta desde sale_products
+  const { data: saleProducts } = await supabaseAdmin
+    .from('sale_products')
+    .select('*')
+    .eq('sale_id', row.id);
+
+  const products = (saleProducts || []).map((sp: any) => ({
+    productId: sp.product_id || '',
+    name: sp.product_name,
+    quantity: sp.quantity,
+    price: parseFloat(sp.price),
+  }));
+
   return {
-    id: doc._id.toString(),
-    customerName: doc.customerName,
-    total: doc.total,
-    status: doc.status,
-    date: doc.date,
-    products: doc.products,
+    id: row.id,
+    customerName: row.customer_name,
+    total: parseFloat(row.total),
+    status: row.status,
+    date: row.date || row.created_at,
+    products,
   };
 };
 
@@ -49,18 +61,57 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
-    const salesCollection = await getCollection('sales');
-
     // Seeding logic
-    const saleCount = await salesCollection.countDocuments();
+    const { count: saleCount } = await supabaseAdmin
+      .from('sales')
+      .select('*', { count: 'exact', head: true });
+
     if (saleCount === 0 && INITIAL_SALES_DATA.length > 0) {
-      await salesCollection.insertMany(INITIAL_SALES_DATA);
+      // Insertar ventas iniciales con sus productos
+      for (const saleData of INITIAL_SALES_DATA) {
+        const { data: insertedSale, error: saleError } = await supabaseAdmin
+          .from('sales')
+          .insert({
+            customer_name: saleData.customerName,
+            total: saleData.total.toString(),
+            status: saleData.status,
+            date: saleData.date,
+          })
+          .select()
+          .single();
+
+        if (!saleError && insertedSale && saleData.products) {
+          // Insertar productos de la venta
+          const saleProductsToInsert = saleData.products.map((product) => ({
+            sale_id: insertedSale.id,
+            product_id: product.productId || null,
+            product_name: product.name,
+            quantity: product.quantity,
+            price: product.price.toString(),
+          }));
+
+          await supabaseAdmin
+            .from('sale_products')
+            .insert(saleProductsToInsert);
+        }
+      }
     }
 
     switch (req.method) {
       case 'GET': {
-        const sales = await salesCollection.find({}).sort({ date: -1 }).toArray();
-        const clientSales = sales.map(toClientSale);
+        const { data: sales, error } = await supabaseAdmin
+          .from('sales')
+          .select('*')
+          .order('date', { ascending: false });
+
+        if (error) {
+          console.error('[Sales API] Error obteniendo ventas:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error obteniendo ventas', error: error.message });
+          return;
+        }
+
+        const clientSales = await Promise.all((sales || []).map(toClientSale));
         res.statusCode = 200;
         res.json(clientSales);
         break;
@@ -68,9 +119,53 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
       case 'POST': {
         const newSaleData: Omit<Sale, 'id'> = await req.json();
-        const result = await salesCollection.insertOne(newSaleData);
-        const insertedSale = await salesCollection.findOne({ _id: result.insertedId });
-        const clientSale = toClientSale(insertedSale);
+
+        // Insertar la venta
+        const { data: insertedSale, error: saleError } = await supabaseAdmin
+          .from('sales')
+          .insert({
+            customer_name: newSaleData.customerName,
+            total: newSaleData.total.toString(),
+            status: newSaleData.status || 'Pendiente',
+            date: newSaleData.date || new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (saleError) {
+          console.error('[Sales API] Error creando venta:', saleError);
+          res.statusCode = 500;
+          res.json({ message: 'Error creando venta', error: saleError.message });
+          return;
+        }
+
+        if (!insertedSale) {
+          res.statusCode = 500;
+          res.json({ message: 'Error creando venta' });
+          return;
+        }
+
+        // Insertar productos de la venta
+        if (newSaleData.products && newSaleData.products.length > 0) {
+          const saleProductsToInsert = newSaleData.products.map((product) => ({
+            sale_id: insertedSale.id,
+            product_id: product.productId || null,
+            product_name: product.name,
+            quantity: product.quantity,
+            price: product.price.toString(),
+          }));
+
+          const { error: productsError } = await supabaseAdmin
+            .from('sale_products')
+            .insert(saleProductsToInsert);
+
+          if (productsError) {
+            console.error('[Sales API] Error insertando productos de venta:', productsError);
+            // No fallamos aquí, la venta ya está creada
+          }
+        }
+
+        const clientSale = await toClientSale(insertedSale);
         res.statusCode = 201;
         res.json(clientSale);
         break;

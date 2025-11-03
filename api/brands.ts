@@ -1,6 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { ObjectId } from 'mongodb';
-import { getCollection } from '../lib/mongodb';
+import { supabaseAdmin } from '../lib/supabase';
 import { Brand } from '../types';
 import { INITIAL_BRANDS_DATA } from '../constants';
 
@@ -20,11 +19,11 @@ interface CustomResponse extends ServerResponse {
   end(cb?: () => void): this;
 }
 
-const toClientBrand = (doc: any): Brand => {
+const toClientBrand = (row: any): Brand => {
   return {
-    id: doc._id.toString(),
-    name: doc.name,
-    logoUrl: doc.logoUrl || doc.logo_url,
+    id: row.id,
+    name: row.name,
+    logoUrl: row.logo_url || '',
   };
 };
 
@@ -47,25 +46,46 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
     console.log(`[Brands API] ${req.method} request recibida`);
-    const brandsCollection = await getCollection('brands');
 
     // Seeding logic
-    const brandCount = await brandsCollection.countDocuments();
-    console.log(`[Brands API] Marcas en base de datos: ${brandCount}`);
+    const { count: brandCount } = await supabaseAdmin
+      .from('brands')
+      .select('*', { count: 'exact', head: true });
+
+    console.log(`[Brands API] Marcas en base de datos: ${brandCount || 0}`);
     if (brandCount === 0) {
       console.log('[Brands API] Iniciando seeding de datos...');
       const brandsToInsert = INITIAL_BRANDS_DATA.map(brand => ({
         name: brand.name,
-        logoUrl: brand.logoUrl,
+        logo_url: brand.logoUrl,
       }));
-      const result = await brandsCollection.insertMany(brandsToInsert);
-      console.log(`[Brands API] ✅ ${result.insertedCount} marcas insertadas`);
+
+      const { error } = await supabaseAdmin
+        .from('brands')
+        .insert(brandsToInsert);
+
+      if (error) {
+        console.error('[Brands API] Error en seeding:', error);
+      } else {
+        console.log(`[Brands API] ✅ ${brandsToInsert.length} marcas insertadas`);
+      }
     }
 
     switch (req.method) {
       case 'GET': {
-        const brands = await brandsCollection.find({}).toArray();
-        const clientBrands = brands.map(toClientBrand);
+        const { data: brands, error } = await supabaseAdmin
+          .from('brands')
+          .select('*')
+          .order('name');
+
+        if (error) {
+          console.error('[Brands API] Error obteniendo marcas:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error obteniendo marcas', error: error.message });
+          return;
+        }
+
+        const clientBrands = (brands || []).map(toClientBrand);
         res.statusCode = 200;
         res.json(clientBrands);
         break;
@@ -78,42 +98,65 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           // Validar datos
           if (!newBrandData.name || !newBrandData.name.trim()) {
             res.statusCode = 400;
-            res.json({ message: 'Brand name is required' });
+            res.json({ message: 'El nombre de la marca es obligatorio.' });
             return;
           }
-          
-          // Verificar si la marca ya existe
-          const existingBrand = await brandsCollection.findOne({ name: newBrandData.name.trim() });
+
+          // Verificar si ya existe una marca con el mismo nombre
+          const { data: existingBrand } = await supabaseAdmin
+            .from('brands')
+            .select('*')
+            .eq('name', newBrandData.name.trim())
+            .single();
+
           if (existingBrand) {
             res.statusCode = 409;
-            res.json({ message: 'Brand already exists', brand: toClientBrand(existingBrand) });
+            res.json({ 
+              message: 'Ya existe una marca con ese nombre.', 
+              brand: toClientBrand(existingBrand) 
+            });
             return;
           }
-          
-          const result = await brandsCollection.insertOne({
+
+          const brandToInsert = {
             name: newBrandData.name.trim(),
-            logoUrl: newBrandData.logoUrl || '',
-          } as any);
-          
-          const insertedBrand = await brandsCollection.findOne({ _id: result.insertedId });
+            logo_url: newBrandData.logoUrl || '',
+          };
+
+          const { data: insertedBrand, error } = await supabaseAdmin
+            .from('brands')
+            .insert(brandToInsert)
+            .select()
+            .single();
+
+          if (error) {
+            console.error('[Brands API] Error creando marca:', error);
+            res.statusCode = 500;
+            res.json({ 
+              message: 'Error al crear la marca.', 
+              error: error.message,
+              hint: 'Verifica que todos los campos requeridos estén presentes y sean válidos.'
+            });
+            return;
+          }
+
           if (!insertedBrand) {
             res.statusCode = 500;
-            res.json({ message: 'Error creating brand: Brand was not created' });
+            res.json({ message: 'Error al crear la marca.' });
             return;
           }
-          
+
           const clientBrand = toClientBrand(insertedBrand);
-          console.log(`[Brands API] ✅ Marca creada: ${clientBrand.name}`);
           res.statusCode = 201;
           res.json(clientBrand);
-        } catch (postError: any) {
-          console.error('[Brands API] Error en POST:', postError);
+        } catch (error: any) {
+          console.error('[Brands API] Error en POST:', error);
           res.statusCode = 500;
           res.json({ 
-            message: 'Error creating brand', 
-            error: postError.message || 'Unknown error' 
+            message: 'Error al crear la marca.', 
+            error: error.message,
+            hint: 'Verifica que todos los campos requeridos estén presentes y sean válidos.'
           });
-          return;
         }
         break;
       }
@@ -125,26 +168,35 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           res.json({ message: 'Brand ID is required for update' });
           return;
         }
+
         const updatedBrandData: Brand = await req.json();
         const { id: clientSideId, ...updateData } = updatedBrandData;
 
-        const result = await brandsCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: updateData }
-        );
+        const dataToUpdate = {
+          name: updateData.name.trim(),
+          logo_url: updateData.logoUrl || '',
+        };
 
-        if (result.matchedCount === 0) {
-          res.statusCode = 404;
-          res.json({ message: 'Brand not found' });
+        const { data: updatedBrand, error } = await supabaseAdmin
+          .from('brands')
+          .update(dataToUpdate)
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[Brands API] Error actualizando marca:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error actualizando marca', error: error.message });
           return;
         }
 
-        const updatedBrand = await brandsCollection.findOne({ _id: new ObjectId(id) });
         if (!updatedBrand) {
           res.statusCode = 404;
           res.json({ message: 'Brand not found' });
           return;
         }
+
         const clientBrand = toClientBrand(updatedBrand);
         res.statusCode = 200;
         res.json(clientBrand);
@@ -159,15 +211,31 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           return;
         }
 
-        const result = await brandsCollection.deleteOne({ _id: new ObjectId(idToDelete) });
-        if (result.deletedCount === 0) {
-          res.statusCode = 404;
-          res.json({ message: 'Brand not found' });
+        const { error } = await supabaseAdmin
+          .from('brands')
+          .delete()
+          .eq('id', idToDelete);
+
+        if (error) {
+          console.error('[Brands API] Error eliminando marca:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error eliminando marca', error: error.message });
           return;
         }
 
-        res.statusCode = 204;
-        res.end();
+        // Verificar si se eliminó
+        const { count } = await supabaseAdmin
+          .from('brands')
+          .select('*', { count: 'exact', head: true })
+          .eq('id', idToDelete);
+
+        if (count === 0) {
+          res.statusCode = 204;
+          res.end();
+        } else {
+          res.statusCode = 404;
+          res.json({ message: 'Brand not found' });
+        }
         break;
       }
 
@@ -181,37 +249,18 @@ async function handler(req: CustomRequest, res: CustomResponse) {
     console.error('❌ Error in brands API:', error);
     console.error('Error stack:', error.stack);
     console.error('Error name:', error.name);
-    
-    // Verificar si es un error de conexión a MongoDB
-    if (!process.env.MONGODB_URI) {
-      console.error('⚠️ MONGODB_URI no está configurada');
+
+    // Verificar configuración de Supabase
+    if (!process.env.VITE_SUPABASE_URL && !process.env.SUPABASE_URL) {
       res.statusCode = 503;
       res.json({ 
-        message: 'Servicio no disponible: MongoDB no configurado', 
-        error: 'MONGODB_URI environment variable is not set',
-        hint: 'Por favor, configura la variable de entorno MONGODB_URI en Vercel'
+        message: 'Servicio no disponible: Supabase no configurado', 
+        error: 'VITE_SUPABASE_URL or SUPABASE_URL environment variable is not set',
+        hint: 'Por favor, configura la variable de entorno VITE_SUPABASE_URL en Vercel'
       });
       return;
     }
-    
-    // Verificar si es un error de conexión
-    if (error.message && (
-      error.message.includes('connect') || 
-      error.message.includes('connection') ||
-      error.message.includes('timeout') ||
-      error.name === 'MongoServerError' ||
-      error.name === 'MongoNetworkError'
-    )) {
-      console.error('⚠️ Error de conexión a MongoDB');
-      res.statusCode = 503;
-      res.json({ 
-        message: 'Servicio no disponible: Error de conexión a la base de datos', 
-        error: error.message,
-        hint: 'Verifica la conexión a MongoDB Atlas y la configuración de red'
-      });
-      return;
-    }
-    
+
     res.statusCode = 500;
     res.json({ 
       message: 'Error interno del servidor',

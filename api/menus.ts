@@ -1,6 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { ObjectId } from 'mongodb';
-import { getCollection } from '../lib/mongodb';
+import { supabaseAdmin } from '../lib/supabase';
 import { MenuItem } from '../types';
 import { DEFAULT_MENU_ITEMS } from '../constants';
 
@@ -20,14 +19,15 @@ interface CustomResponse extends ServerResponse {
   end(cb?: () => void): this;
 }
 
-const toClientMenuItem = (doc: any): MenuItem => {
+const toClientMenuItem = (row: any): MenuItem => {
   return {
-    id: doc._id.toString(),
-    name: doc.name,
-    path: doc.path,
-    location: doc.location,
-    order: doc.order,
-    isExternal: doc.isExternal || false,
+    id: row.id,
+    name: row.name,
+    path: row.path,
+    location: row.location,
+    order: row.order,
+    isExternal: row.is_external || false,
+    type: row.type,
   };
 };
 
@@ -49,18 +49,45 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
-    const menusCollection = await getCollection('menu_items');
-
     // Seeding logic
-    const menuCount = await menusCollection.countDocuments();
+    const { count: menuCount } = await supabaseAdmin
+      .from('menu_items')
+      .select('*', { count: 'exact', head: true });
+
     if (menuCount === 0) {
-      await menusCollection.insertMany(DEFAULT_MENU_ITEMS);
+      const menuItemsToInsert = DEFAULT_MENU_ITEMS.map(item => ({
+        name: item.name,
+        path: item.path,
+        is_external: item.isExternal || false,
+        order: item.order || 0,
+        location: item.location,
+        type: item.type,
+      }));
+
+      const { error } = await supabaseAdmin
+        .from('menu_items')
+        .insert(menuItemsToInsert);
+
+      if (error) {
+        console.error('[Menus API] Error en seeding:', error);
+      }
     }
 
     switch (req.method) {
       case 'GET': {
-        const menus = await menusCollection.find({}).sort({ order: 1 }).toArray();
-        const clientMenus = menus.map(toClientMenuItem);
+        const { data: menus, error } = await supabaseAdmin
+          .from('menu_items')
+          .select('*')
+          .order('order', { ascending: true });
+
+        if (error) {
+          console.error('[Menus API] Error obteniendo menús:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error obteniendo menús', error: error.message });
+          return;
+        }
+
+        const clientMenus = (menus || []).map(toClientMenuItem);
         res.statusCode = 200;
         res.json(clientMenus);
         break;
@@ -68,8 +95,35 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
       case 'POST': {
         const newMenuData: Omit<MenuItem, 'id'> = await req.json();
-        const result = await menusCollection.insertOne(newMenuData);
-        const insertedMenu = await menusCollection.findOne({ _id: result.insertedId });
+        
+        const menuToInsert = {
+          name: newMenuData.name,
+          path: newMenuData.path,
+          is_external: newMenuData.isExternal || false,
+          order: newMenuData.order || 0,
+          location: newMenuData.location,
+          type: newMenuData.type,
+        };
+
+        const { data: insertedMenu, error } = await supabaseAdmin
+          .from('menu_items')
+          .insert(menuToInsert)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[Menus API] Error creando menú:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error creando menú', error: error.message });
+          return;
+        }
+
+        if (!insertedMenu) {
+          res.statusCode = 500;
+          res.json({ message: 'Error creando menú' });
+          return;
+        }
+
         const clientMenu = toClientMenuItem(insertedMenu);
         res.statusCode = 201;
         res.json(clientMenu);
@@ -83,21 +137,39 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           res.json({ message: 'Menu ID is required for update' });
           return;
         }
+
         const updatedMenuData: MenuItem = await req.json();
         const { id: clientSideId, ...updateData } = updatedMenuData;
 
-        const result = await menusCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: updateData }
-        );
+        const menuToUpdate = {
+          name: updateData.name,
+          path: updateData.path,
+          is_external: updateData.isExternal || false,
+          order: updateData.order || 0,
+          location: updateData.location,
+          type: updateData.type,
+        };
 
-        if (result.matchedCount === 0) {
+        const { data: updatedMenu, error } = await supabaseAdmin
+          .from('menu_items')
+          .update(menuToUpdate)
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[Menus API] Error actualizando menú:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error actualizando menú', error: error.message });
+          return;
+        }
+
+        if (!updatedMenu) {
           res.statusCode = 404;
           res.json({ message: 'Menu item not found' });
           return;
         }
 
-        const updatedMenu = await menusCollection.findOne({ _id: new ObjectId(id) });
         const clientMenu = toClientMenuItem(updatedMenu);
         res.statusCode = 200;
         res.json(clientMenu);
@@ -112,15 +184,31 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           return;
         }
 
-        const result = await menusCollection.deleteOne({ _id: new ObjectId(idToDelete) });
-        if (result.deletedCount === 0) {
-          res.statusCode = 404;
-          res.json({ message: 'Menu item not found' });
+        const { error } = await supabaseAdmin
+          .from('menu_items')
+          .delete()
+          .eq('id', idToDelete);
+
+        if (error) {
+          console.error('[Menus API] Error eliminando menú:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error eliminando menú', error: error.message });
           return;
         }
 
-        res.statusCode = 204;
-        res.end();
+        // Verificar si se eliminó
+        const { count } = await supabaseAdmin
+          .from('menu_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('id', idToDelete);
+
+        if (count === 0) {
+          res.statusCode = 204;
+          res.end();
+        } else {
+          res.statusCode = 404;
+          res.json({ message: 'Menu item not found' });
+        }
         break;
       }
 

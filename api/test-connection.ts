@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { getDatabase, getCollection } from '../lib/mongodb';
+import { supabaseAdmin } from '../lib/supabase';
 
 interface CustomRequest extends IncomingMessage {
   query: { [key: string]: string | string[] | undefined };
@@ -37,54 +37,81 @@ async function handler(req: CustomRequest, res: CustomResponse) {
   try {
     const results: any = {
       timestamp: new Date().toISOString(),
-      mongodbUri: process.env.MONGODB_URI ? '✅ Configurada' : '❌ NO configurada',
+      supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL ? '✅ Configurada' : '❌ NO configurada',
+      supabaseKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY ? '✅ Configurada' : '❌ NO configurada',
       tests: []
     };
 
-    // Test 1: Verificar variable de entorno
+    // Test 1: Verificar variables de entorno
     results.tests.push({
-      test: 'MONGODB_URI variable',
-      status: process.env.MONGODB_URI ? '✅ OK' : '❌ FALTA',
-      details: process.env.MONGODB_URI ? 'Variable configurada (oculta por seguridad)' : 'Variable no encontrada'
+      test: 'VITE_SUPABASE_URL variable',
+      status: (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL) ? '✅ OK' : '❌ FALTA',
+      details: (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL) ? 'Variable configurada (oculta por seguridad)' : 'Variable no encontrada'
     });
 
-    // Test 2: Conectar a MongoDB
+    results.tests.push({
+      test: 'VITE_SUPABASE_ANON_KEY variable',
+      status: (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY) ? '✅ OK' : '❌ FALTA',
+      details: (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY) ? 'Variable configurada (oculta por seguridad)' : 'Variable no encontrada'
+    });
+
+    // Test 2: Conectar a Supabase
     try {
-      const db = await getDatabase();
-      results.tests.push({
-        test: 'Conexión a base de datos',
-        status: '✅ OK',
-        details: `Base de datos "tires" accesible`
-      });
+      // Test 3: Listar tablas (products como ejemplo)
+      const { data: products, error: productsError } = await supabaseAdmin
+        .from('products')
+        .select('*', { count: 'exact', head: true });
 
-      // Test 3: Listar colecciones
-      const collections = await db.listCollections().toArray();
-      results.tests.push({
-        test: 'Colecciones existentes',
-        status: '✅ OK',
-        details: `Encontradas ${collections.length} colecciones: ${collections.map((c: any) => c.name).join(', ') || 'ninguna'}`
-      });
+      if (productsError) {
+        results.tests.push({
+          test: 'Conexión a Supabase',
+          status: '❌ ERROR',
+          details: productsError.message || 'Error desconocido al conectar'
+        });
+      } else {
+        results.tests.push({
+          test: 'Conexión a Supabase',
+          status: '✅ OK',
+          details: 'Conexión exitosa a Supabase'
+        });
+      }
 
-      // Test 4: Contar documentos
-      const productsCollection = await getCollection('products');
-      const productCount = await productsCollection.countDocuments();
+      // Test 4: Contar productos
+      const { count: productCount } = await supabaseAdmin
+        .from('products')
+        .select('*', { count: 'exact', head: true });
+
       results.tests.push({
         test: 'Productos en base de datos',
-        status: productCount > 0 ? '✅ OK' : '⚠️ VACÍA',
-        details: `${productCount} productos encontrados`
+        status: productCount && productCount > 0 ? '✅ OK' : '⚠️ VACÍA',
+        details: `${productCount || 0} productos encontrados`
       });
 
-      const brandsCollection = await getCollection('brands');
-      const brandCount = await brandsCollection.countDocuments();
+      // Test 5: Contar marcas
+      const { count: brandCount } = await supabaseAdmin
+        .from('brands')
+        .select('*', { count: 'exact', head: true });
+
       results.tests.push({
         test: 'Marcas en base de datos',
-        status: brandCount > 0 ? '✅ OK' : '⚠️ VACÍA',
-        details: `${brandCount} marcas encontradas`
+        status: brandCount && brandCount > 0 ? '✅ OK' : '⚠️ VACÍA',
+        details: `${brandCount || 0} marcas encontradas`
+      });
+
+      // Test 6: Contar categorías
+      const { count: categoryCount } = await supabaseAdmin
+        .from('categories')
+        .select('*', { count: 'exact', head: true });
+
+      results.tests.push({
+        test: 'Categorías en base de datos',
+        status: categoryCount && categoryCount > 0 ? '✅ OK' : '⚠️ VACÍA',
+        details: `${categoryCount || 0} categorías encontradas`
       });
 
     } catch (error: any) {
       results.tests.push({
-        test: 'Conexión a MongoDB',
+        test: 'Conexión a Supabase',
         status: '❌ ERROR',
         details: error.message || 'Error desconocido'
       });
@@ -109,4 +136,3 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 }
 
 export default allowCors(handler);
-

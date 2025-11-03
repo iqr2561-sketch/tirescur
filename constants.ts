@@ -45,7 +45,7 @@ export const INITIAL_BRANDS_DATA: Omit<Brand, 'id'>[] = tempUniqueBrandNames.map
   logoUrl: `https://via.placeholder.com/100x50.png?text=${encodeURIComponent(brandName.replace(/\s/g, ''))}`,
 }));
 
-// Define base products for seeding, without 'id' as MongoDB will generate '_id'
+// Define base products for seeding, without 'id' as Supabase will generate UUID
 export const PRODUCTS_DATA: Omit<Product, 'id'>[] = [
   {
     sku: 'SKU: TNR-205-55-R16',

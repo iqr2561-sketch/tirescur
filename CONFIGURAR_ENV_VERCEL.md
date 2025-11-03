@@ -33,43 +33,12 @@ Si tienes un archivo `.env` local con tus variables:
 
 ```bash
 # Cargar variables de entorno para todos los ambientes
-vercel env add MONGODB_URI production
-vercel env add MONGODB_URI preview
-vercel env add MONGODB_URI development
-
-# O importar todas desde un archivo .env (requiere script personalizado)
+vercel env add VITE_SUPABASE_URL production
+vercel env add VITE_SUPABASE_ANON_KEY production
+vercel env add SUPABASE_SERVICE_ROLE_KEY production
 ```
 
-**Nota:** El CLI de Vercel no tiene un comando directo para importar un archivo `.env` completo, pero puedes usar este script:
-
-### Script para importar desde .env
-
-Crea un archivo `import-env.js`:
-
-```javascript
-import { readFileSync } from 'fs';
-import { execSync } from 'child_process';
-
-const envFile = readFileSync('.env', 'utf8');
-const lines = envFile.split('\n');
-
-lines.forEach(line => {
-  if (line.trim() && !line.startsWith('#')) {
-    const [key, ...valueParts] = line.split('=');
-    const value = valueParts.join('=').trim();
-    if (key && value) {
-      console.log(`Importando ${key}...`);
-      try {
-        execSync(`vercel env add ${key} production`, { input: value, stdio: 'inherit' });
-        execSync(`vercel env add ${key} preview`, { input: value, stdio: 'inherit' });
-        execSync(`vercel env add ${key} development`, { input: value, stdio: 'inherit' });
-      } catch (error) {
-        console.error(`Error importando ${key}:`, error.message);
-      }
-    }
-  }
-});
-```
+**Nota:** Repite para `preview` y `development` si es necesario.
 
 ## Opción 3: Manualmente (Copiar y Pegar)
 
@@ -82,7 +51,9 @@ lines.forEach(line => {
 ## Variables Requeridas
 
 ### Críticas (Deben estar configuradas):
-- `MONGODB_URI` - URI de conexión a MongoDB Atlas
+- `VITE_SUPABASE_URL` - URL de tu proyecto en Supabase (https://tu-proyecto.supabase.co)
+- `VITE_SUPABASE_ANON_KEY` - Clave pública (anon key) de Supabase
+- `SUPABASE_SERVICE_ROLE_KEY` - Clave de servicio para el backend (bypass RLS)
 
 ### Opcionales:
 - `VITE_VERCEL_URL` - URL de tu aplicación en Vercel (por defecto: https://tirescur.vercel.app)
@@ -103,14 +74,17 @@ Después de configurar las variables:
    - Busca mensajes de error relacionados con variables de entorno
 
 3. Prueba la conexión:
-   - Visita `/api/test-connection` para verificar MongoDB
+   - Visita `/api/test-connection` para verificar Supabase
    - Revisa la consola del navegador para errores de la API
 
 ## Ejemplo de Valores
 
 ```env
-MONGODB_URI=mongodb+srv://Vercel-Admin-tires:Efqvml4VDrEQiKh@tires.4gopjvs.mongodb.net/?retryWrites=true&w=majority
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 VITE_VERCEL_URL=https://tirescur.vercel.app
+GEMINI_API_KEY=tu_api_key_aqui
 ```
 
 ## Importante
@@ -119,3 +93,6 @@ VITE_VERCEL_URL=https://tirescur.vercel.app
 
 ✅ El archivo `.env.example` es solo una plantilla y NO contiene valores reales.
 
+## Configuración de Supabase
+
+Para más detalles sobre cómo configurar Supabase, revisa el archivo `CONFIGURAR_SUPABASE.md`.

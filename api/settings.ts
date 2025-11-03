@@ -1,6 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { ObjectId } from 'mongodb';
-import { getCollection } from '../lib/mongodb';
+import { supabaseAdmin } from '../lib/supabase';
 import { DEFAULT_HERO_IMAGE_URL, DEFAULT_WHATSAPP_PHONE_NUMBER, DEFAULT_FOOTER_CONTENT, DEFAULT_DEAL_ZONE_CONFIG } from '../constants';
 import { FooterContent, DealZoneConfig } from '../types';
 
@@ -18,15 +17,6 @@ interface CustomResponse extends ServerResponse {
   setHeader(name: string, value: string | string[]): this;
   statusCode: number;
   end(cb?: () => void): this;
-}
-
-interface GlobalSettingsDoc {
-  _id?: ObjectId;
-  id: string;
-  hero_image_url: string;
-  whatsapp_phone_number: string;
-  footer_content: FooterContent;
-  deal_zone_config: DealZoneConfig;
 }
 
 const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomResponse) => {
@@ -47,85 +37,153 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
-    const settingsCollection = await getCollection<GlobalSettingsDoc>('settings');
-    const SETTINGS_DOC_ID = 'app_settings';
-
     switch (req.method) {
       case 'GET': {
-        let settings = await settingsCollection.findOne({ id: SETTINGS_DOC_ID });
+        // Obtener el primer registro de app_settings (singleton)
+        const { data: settings, error } = await supabaseAdmin
+          .from('app_settings')
+          .select('*')
+          .limit(1)
+          .single();
 
-        // If no settings exist, create with defaults
-        if (!settings) {
-          const defaultSettings: GlobalSettingsDoc = {
-            id: SETTINGS_DOC_ID,
+        // Si no existe, crear con valores por defecto
+        if (error && error.code === 'PGRST116') { // No rows returned
+          const defaultSettings = {
             hero_image_url: DEFAULT_HERO_IMAGE_URL,
             whatsapp_phone_number: DEFAULT_WHATSAPP_PHONE_NUMBER,
             footer_content: DEFAULT_FOOTER_CONTENT,
             deal_zone_config: DEFAULT_DEAL_ZONE_CONFIG,
           };
-          await settingsCollection.insertOne(defaultSettings);
-          settings = await settingsCollection.findOne({ id: SETTINGS_DOC_ID });
+
+          const { data: insertedSettings, error: insertError } = await supabaseAdmin
+            .from('app_settings')
+            .insert(defaultSettings)
+            .select()
+            .single();
+
+          if (insertError || !insertedSettings) {
+            console.error('[Settings API] Error creando settings:', insertError);
+            res.statusCode = 500;
+            res.json({ message: 'Error obteniendo configuración', error: insertError?.message });
+            return;
+          }
+
+          res.statusCode = 200;
+          res.json({
+            heroImageUrl: insertedSettings.hero_image_url || DEFAULT_HERO_IMAGE_URL,
+            whatsappPhoneNumber: insertedSettings.whatsapp_phone_number || DEFAULT_WHATSAPP_PHONE_NUMBER,
+            footerContent: insertedSettings.footer_content || DEFAULT_FOOTER_CONTENT,
+            dealZoneConfig: insertedSettings.deal_zone_config || DEFAULT_DEAL_ZONE_CONFIG,
+          });
+          return;
         }
 
-        // Map MongoDB document to client-side format
-        if (!settings) {
+        if (error) {
+          console.error('[Settings API] Error obteniendo settings:', error);
           res.statusCode = 500;
+          res.json({ message: 'Error obteniendo configuración', error: error.message });
+          return;
+        }
+
+        if (!settings) {
+          res.statusCode = 404;
           res.json({ message: 'Settings not found' });
           return;
         }
-        const clientSettings = {
-          heroImageUrl: settings.hero_image_url,
-          whatsappPhoneNumber: settings.whatsapp_phone_number,
-          footerContent: settings.footer_content,
-          dealZoneConfig: settings.deal_zone_config,
-        };
 
         res.statusCode = 200;
-        res.json(clientSettings);
+        res.json({
+          heroImageUrl: settings.hero_image_url || DEFAULT_HERO_IMAGE_URL,
+          whatsappPhoneNumber: settings.whatsapp_phone_number || DEFAULT_WHATSAPP_PHONE_NUMBER,
+          footerContent: settings.footer_content || DEFAULT_FOOTER_CONTENT,
+          dealZoneConfig: settings.deal_zone_config || DEFAULT_DEAL_ZONE_CONFIG,
+        });
         break;
       }
 
-      case 'PUT': {
-        const updatedClientSettings = await req.json();
+      case 'PATCH': {
+        const updates: Partial<{
+          heroImageUrl: string;
+          whatsappPhoneNumber: string;
+          footerContent: FooterContent;
+          dealZoneConfig: DealZoneConfig;
+        }> = await req.json();
 
-        // Map client-side names to MongoDB document format
-        const settingsToUpdate: Partial<GlobalSettingsDoc> = {
-          hero_image_url: updatedClientSettings.heroImageUrl,
-          whatsapp_phone_number: updatedClientSettings.whatsappPhoneNumber,
-          footer_content: updatedClientSettings.footerContent,
-          deal_zone_config: updatedClientSettings.dealZoneConfig,
-        };
+        // Obtener el primer registro
+        const { data: existingSettings } = await supabaseAdmin
+          .from('app_settings')
+          .select('*')
+          .limit(1)
+          .single();
 
-        const result = await settingsCollection.updateOne(
-          { id: SETTINGS_DOC_ID },
-          { $set: settingsToUpdate },
-          { upsert: true }
-        );
-
-        if (result.matchedCount === 0 && result.upsertedCount === 0) {
-          res.statusCode = 500;
-          res.json({ message: 'Error updating settings' });
-          return;
+        const settingsToUpdate: any = {};
+        
+        if (updates.heroImageUrl !== undefined) {
+          settingsToUpdate.hero_image_url = updates.heroImageUrl;
+        }
+        if (updates.whatsappPhoneNumber !== undefined) {
+          settingsToUpdate.whatsapp_phone_number = updates.whatsappPhoneNumber;
+        }
+        if (updates.footerContent !== undefined) {
+          settingsToUpdate.footer_content = updates.footerContent;
+        }
+        if (updates.dealZoneConfig !== undefined) {
+          settingsToUpdate.deal_zone_config = updates.dealZoneConfig;
         }
 
-        const updatedSettings = await settingsCollection.findOne({ id: SETTINGS_DOC_ID });
+        // Si no existe registro, crearlo; si existe, actualizarlo
+        if (!existingSettings) {
+          const defaultSettings = {
+            hero_image_url: DEFAULT_HERO_IMAGE_URL,
+            whatsapp_phone_number: DEFAULT_WHATSAPP_PHONE_NUMBER,
+            footer_content: DEFAULT_FOOTER_CONTENT,
+            deal_zone_config: DEFAULT_DEAL_ZONE_CONFIG,
+            ...settingsToUpdate,
+          };
 
-        if (!updatedSettings) {
-          res.statusCode = 500;
-          res.json({ message: 'Error updating settings' });
-          return;
+          const { data: insertedSettings, error: insertError } = await supabaseAdmin
+            .from('app_settings')
+            .insert(defaultSettings)
+            .select()
+            .single();
+
+          if (insertError || !insertedSettings) {
+            console.error('[Settings API] Error creando settings:', insertError);
+            res.statusCode = 500;
+            res.json({ message: 'Error actualizando configuración', error: insertError?.message });
+            return;
+          }
+
+          res.statusCode = 200;
+          res.json({
+            heroImageUrl: insertedSettings.hero_image_url,
+            whatsappPhoneNumber: insertedSettings.whatsapp_phone_number,
+            footerContent: insertedSettings.footer_content,
+            dealZoneConfig: insertedSettings.deal_zone_config,
+          });
+        } else {
+          const { data: updatedSettings, error: updateError } = await supabaseAdmin
+            .from('app_settings')
+            .update(settingsToUpdate)
+            .eq('id', existingSettings.id)
+            .select()
+            .single();
+
+          if (updateError || !updatedSettings) {
+            console.error('[Settings API] Error actualizando settings:', updateError);
+            res.statusCode = 500;
+            res.json({ message: 'Error actualizando configuración', error: updateError?.message });
+            return;
+          }
+
+          res.statusCode = 200;
+          res.json({
+            heroImageUrl: updatedSettings.hero_image_url,
+            whatsappPhoneNumber: updatedSettings.whatsapp_phone_number,
+            footerContent: updatedSettings.footer_content,
+            dealZoneConfig: updatedSettings.deal_zone_config,
+          });
         }
-
-        // Map back to client-side format
-        const clientSettings = {
-          heroImageUrl: updatedSettings.hero_image_url,
-          whatsappPhoneNumber: updatedSettings.whatsapp_phone_number,
-          footerContent: updatedSettings.footer_content,
-          dealZoneConfig: updatedSettings.deal_zone_config,
-        };
-
-        res.statusCode = 200;
-        res.json(clientSettings);
         break;
       }
 

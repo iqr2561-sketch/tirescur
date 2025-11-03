@@ -1,6 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { ObjectId } from 'mongodb';
-import { getCollection } from '../lib/mongodb';
+import { supabaseAdmin } from '../lib/supabase';
 import { Product, Brand } from '../types';
 import { PRODUCTS_DATA, INITIAL_BRANDS_DATA } from '../constants';
 
@@ -20,30 +19,30 @@ interface CustomResponse extends ServerResponse {
   end(cb?: () => void): this;
 }
 
-// Helper function to convert MongoDB _id to client id
-const toClientProduct = (doc: any): Product => {
+// Helper function to convert Supabase row to client Product
+const toClientProduct = (row: any): Product => {
   return {
-    id: doc._id.toString(),
-    sku: doc.sku,
-    name: doc.name,
-    brand: doc.brand || doc.brand_name,
-    brandId: doc.brand_id?.toString(),
-    brandLogoUrl: doc.brand_logo_url || doc.brandLogoUrl,
-    price: doc.price,
-    rating: doc.rating,
-    reviews: doc.reviews,
-    imageUrl: doc.imageUrl,
-    description: doc.description,
-    tags: doc.tags,
-    stock: doc.stock,
-    width: doc.width,
-    profile: doc.profile,
-    diameter: doc.diameter,
+    id: row.id,
+    sku: row.sku,
+    name: row.name,
+    brand: row.brand_name,
+    brandId: row.brand_id,
+    brandLogoUrl: row.brand_logo_url,
+    price: parseFloat(row.price),
+    rating: parseFloat(row.rating) || 0,
+    reviews: row.reviews || 0,
+    imageUrl: row.image_url || '',
+    description: row.description || '',
+    tags: row.tags || [],
+    stock: row.stock || 0,
+    width: row.width || '',
+    profile: row.profile || '',
+    diameter: row.diameter || '',
     // Deal/Offer fields
-    isOnSale: doc.isOnSale || doc.is_on_sale || false,
-    salePrice: doc.salePrice || doc.sale_price,
-    discountPercentage: doc.discountPercentage || doc.discount_percentage,
-    categoryId: doc.categoryId || doc.category_id?.toString(),
+    isOnSale: row.is_on_sale || false,
+    salePrice: row.sale_price ? parseFloat(row.sale_price) : undefined,
+    discountPercentage: row.discount_percentage || undefined,
+    categoryId: row.category_id,
   };
 };
 
@@ -66,53 +65,94 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
     console.log(`[Products API] ${req.method} request recibida`);
-    const productsCollection = await getCollection('products');
-    const brandsCollection = await getCollection('brands');
 
-    // Seeding logic
-    const productCount = await productsCollection.countDocuments();
-    console.log(`[Products API] Productos en base de datos: ${productCount}`);
+    // Seeding logic - verificar si hay productos
+    const { count: productCount } = await supabaseAdmin
+      .from('products')
+      .select('*', { count: 'exact', head: true });
+
+    console.log(`[Products API] Productos en base de datos: ${productCount || 0}`);
+
     if (productCount === 0) {
       console.log('[Products API] Iniciando seeding de datos...');
-      // Ensure brands also exist for product seeding
-      const brandCount = await brandsCollection.countDocuments();
+
+      // Primero asegurar que existan las marcas
+      const { count: brandCount } = await supabaseAdmin
+        .from('brands')
+        .select('*', { count: 'exact', head: true });
+
       if (brandCount === 0) {
         const brandsToInsert = INITIAL_BRANDS_DATA.map(brand => ({
           name: brand.name,
-          logoUrl: brand.logoUrl,
+          logo_url: brand.logoUrl,
         }));
-        const brandsResult = await brandsCollection.insertMany(brandsToInsert);
-        console.log(`[Products API] ✅ ${brandsResult.insertedCount} marcas insertadas`);
+
+        const { error: brandsError } = await supabaseAdmin
+          .from('brands')
+          .insert(brandsToInsert);
+
+        if (brandsError) {
+          console.error('[Products API] Error insertando marcas:', brandsError);
+        } else {
+          console.log(`[Products API] ✅ ${brandsToInsert.length} marcas insertadas`);
+        }
       }
 
-      const brands = await brandsCollection.find({}).toArray();
+      // Obtener marcas para mapear
+      const { data: brands } = await supabaseAdmin.from('brands').select('*');
+
+      // Insertar productos
       const seededProducts = PRODUCTS_DATA.map(p => {
-        const brand = brands.find((b: any) => b.name === p.brand);
+        const brand = brands?.find((b: any) => b.name === p.brand);
         return {
-          ...p,
+          sku: p.sku,
+          name: p.name,
           brand_name: p.brand,
-          brand_id: brand?._id || null,
-          brand_logo_url: brand?.logoUrl || p.brandLogoUrl,
-          // Deal/Offer fields - mapear a formato MongoDB
+          brand_id: brand?.id || null,
+          brand_logo_url: brand?.logo_url || p.brandLogoUrl || '',
+          price: p.price.toString(),
+          rating: (p.rating || 0).toString(),
+          reviews: p.reviews || 0,
+          image_url: p.imageUrl || '',
+          description: p.description || '',
+          tags: p.tags || [],
+          stock: p.stock || 0,
+          width: p.width || '',
+          profile: p.profile || '',
+          diameter: p.diameter || '',
           is_on_sale: p.isOnSale || false,
-          sale_price: p.salePrice,
-          discount_percentage: p.discountPercentage,
-          category_id: p.categoryId ? new ObjectId(p.categoryId) : null,
-          // Remover campos camelCase
-          isOnSale: undefined,
-          salePrice: undefined,
-          discountPercentage: undefined,
-          categoryId: undefined,
+          sale_price: p.salePrice?.toString() || null,
+          discount_percentage: p.discountPercentage || null,
+          category_id: p.categoryId || null,
         };
       });
-      const productsResult = await productsCollection.insertMany(seededProducts);
-      console.log(`[Products API] ✅ ${productsResult.insertedCount} productos insertados`);
+
+      const { error: productsError } = await supabaseAdmin
+        .from('products')
+        .insert(seededProducts);
+
+      if (productsError) {
+        console.error('[Products API] Error insertando productos:', productsError);
+      } else {
+        console.log(`[Products API] ✅ ${seededProducts.length} productos insertados`);
+      }
     }
 
     switch (req.method) {
       case 'GET': {
-        const products = await productsCollection.find({}).toArray();
-        const clientProducts = products.map(toClientProduct);
+        const { data: products, error } = await supabaseAdmin
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[Products API] Error obteniendo productos:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error obteniendo productos', error: error.message });
+          return;
+        }
+
+        const clientProducts = (products || []).map(toClientProduct);
         console.log(`[Products API] ✅ Devolviendo ${clientProducts.length} productos`);
         res.statusCode = 200;
         res.json(clientProducts);
@@ -128,55 +168,102 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             return;
           }
 
-          const brands = await brandsCollection.find({}).toArray();
-          const productsWithBrandInfo = newProductsData.map((p) => {
-            const brand = brands.find((b: any) => b.name === p.brand) as any;
+          // Obtener marcas para mapear
+          const { data: brands } = await supabaseAdmin.from('brands').select('*');
+
+          const productsToInsert = newProductsData.map((p) => {
+            const brand = brands?.find((b: any) => b.name === p.brand);
             return {
-              ...p,
+              sku: p.sku,
+              name: p.name,
               brand_name: p.brand,
-              brand_id: brand?._id || null,
-              brand_logo_url: brand?.logoUrl || p.brandLogoUrl,
+              brand_id: brand?.id || null,
+              brand_logo_url: brand?.logo_url || p.brandLogoUrl || '',
+              price: p.price.toString(),
+              rating: (p.rating || 0).toString(),
+              reviews: p.reviews || 0,
+              image_url: p.imageUrl || '',
+              description: p.description || '',
+              tags: p.tags || [],
+              stock: p.stock || 0,
+              width: p.width || '',
+              profile: p.profile || '',
+              diameter: p.diameter || '',
+              is_on_sale: p.isOnSale || false,
+              sale_price: p.salePrice?.toString() || null,
+              discount_percentage: p.discountPercentage || null,
+              category_id: p.categoryId || null,
             };
           });
 
-          const result = await productsCollection.insertMany(productsWithBrandInfo);
-          const insertedIds = Object.values(result.insertedIds);
-          const insertedProducts = await productsCollection
-            .find({ _id: { $in: insertedIds } })
-            .toArray();
-          const clientProducts = insertedProducts.map(toClientProduct);
+          const { data: insertedProducts, error } = await supabaseAdmin
+            .from('products')
+            .insert(productsToInsert)
+            .select();
+
+          if (error) {
+            console.error('[Products API] Error en bulk insert:', error);
+            res.statusCode = 500;
+            res.json({ message: 'Error creando productos', error: error.message });
+            return;
+          }
+
+          const clientProducts = (insertedProducts || []).map(toClientProduct);
           res.statusCode = 201;
           res.json(clientProducts);
         } else {
           const newProductData: Omit<Product, 'id'> = await req.json();
 
-          // Find brand by name
-          const brand = await brandsCollection.findOne({ name: newProductData.brand }) as any;
+          // Buscar marca por nombre
+          const { data: brands } = await supabaseAdmin
+            .from('brands')
+            .select('*')
+            .eq('name', newProductData.brand)
+            .single();
+
+          const brand = brands as any;
 
           const productToInsert = {
-            ...newProductData,
+            sku: newProductData.sku,
+            name: newProductData.name,
             brand_name: newProductData.brand,
-            brand_id: brand?._id || null,
-            brand_logo_url: brand?.logoUrl || newProductData.brandLogoUrl,
-            // Deal/Offer fields - mapear a formato MongoDB
+            brand_id: brand?.id || null,
+            brand_logo_url: brand?.logo_url || newProductData.brandLogoUrl || '',
+            price: newProductData.price.toString(),
+            rating: (newProductData.rating || 0).toString(),
+            reviews: newProductData.reviews || 0,
+            image_url: newProductData.imageUrl || '',
+            description: newProductData.description || '',
+            tags: newProductData.tags || [],
+            stock: newProductData.stock || 0,
+            width: newProductData.width || '',
+            profile: newProductData.profile || '',
+            diameter: newProductData.diameter || '',
             is_on_sale: newProductData.isOnSale || false,
-            sale_price: newProductData.salePrice,
-            discount_percentage: newProductData.discountPercentage,
-            category_id: newProductData.categoryId ? new ObjectId(newProductData.categoryId) : null,
-            // Remover campos camelCase que no van a MongoDB
-            isOnSale: undefined,
-            salePrice: undefined,
-            discountPercentage: undefined,
-            categoryId: undefined,
+            sale_price: newProductData.salePrice?.toString() || null,
+            discount_percentage: newProductData.discountPercentage || null,
+            category_id: newProductData.categoryId || null,
           };
 
-          const result = await productsCollection.insertOne(productToInsert);
-          const insertedProduct = await productsCollection.findOne({ _id: result.insertedId });
-          if (!insertedProduct) {
+          const { data: insertedProduct, error } = await supabaseAdmin
+            .from('products')
+            .insert(productToInsert)
+            .select()
+            .single();
+
+          if (error) {
+            console.error('[Products API] Error creando producto:', error);
             res.statusCode = 500;
-            res.json({ message: 'Error creating product' });
+            res.json({ message: 'Error creando producto', error: error.message });
             return;
           }
+
+          if (!insertedProduct) {
+            res.statusCode = 500;
+            res.json({ message: 'Error creando producto' });
+            return;
+          }
+
           const clientProduct = toClientProduct(insertedProduct);
           res.statusCode = 201;
           res.json(clientProduct);
@@ -194,45 +281,65 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           }
 
           const updatePromises = bulkUpdates.map(async (product) => {
-            let brand_id_to_update = product.brandId ? new ObjectId(product.brandId) : null;
+            // Buscar marca si es necesario
+            let brand_id_to_update = product.brandId || null;
             let brand_logo_url_to_update = product.brandLogoUrl;
 
-            if (product.brand) {
-              const brand = await brandsCollection.findOne({ name: product.brand }) as any;
+            if (product.brand && !product.brandId) {
+              const { data: brand } = await supabaseAdmin
+                .from('brands')
+                .select('*')
+                .eq('name', product.brand)
+                .single();
+              
               if (brand) {
-                brand_id_to_update = brand._id;
-                brand_logo_url_to_update = brand.logoUrl;
+                brand_id_to_update = brand.id;
+                brand_logo_url_to_update = brand.logo_url;
               }
             }
 
-            const { id, ...updateData } = product;
             const dataToUpdate: any = {
-              ...updateData,
-              brand_id: brand_id_to_update,
+              sku: product.sku,
+              name: product.name,
               brand_name: product.brand,
-              brand_logo_url: brand_logo_url_to_update,
-              // Deal/Offer fields - mapear a formato MongoDB
+              brand_id: brand_id_to_update,
+              brand_logo_url: brand_logo_url_to_update || '',
+              price: product.price.toString(),
+              rating: (product.rating || 0).toString(),
+              reviews: product.reviews || 0,
+              image_url: product.imageUrl || '',
+              description: product.description || '',
+              tags: product.tags || [],
+              stock: product.stock || 0,
+              width: product.width || '',
+              profile: product.profile || '',
+              diameter: product.diameter || '',
               is_on_sale: product.isOnSale || false,
-              sale_price: product.salePrice,
-              discount_percentage: product.discountPercentage,
-              category_id: product.categoryId ? new ObjectId(product.categoryId) : null,
+              sale_price: product.salePrice?.toString() || null,
+              discount_percentage: product.discountPercentage || null,
+              category_id: product.categoryId || null,
             };
-            delete dataToUpdate.brand;
-            delete dataToUpdate.brandLogoUrl;
-            delete dataToUpdate.isOnSale;
-            delete dataToUpdate.salePrice;
-            delete dataToUpdate.discountPercentage;
-            delete dataToUpdate.categoryId;
 
-            await productsCollection.updateOne(
-              { _id: new ObjectId(id) },
-              { $set: dataToUpdate }
-            );
+            const { error } = await supabaseAdmin
+              .from('products')
+              .update(dataToUpdate)
+              .eq('id', product.id);
+
+            if (error) {
+              console.error(`[Products API] Error actualizando producto ${product.id}:`, error);
+              throw error;
+            }
           });
 
-          await Promise.all(updatePromises);
-          res.statusCode = 200;
-          res.json({ message: 'Products updated in bulk' });
+          try {
+            await Promise.all(updatePromises);
+            res.statusCode = 200;
+            res.json({ message: 'Products updated in bulk' });
+          } catch (error: any) {
+            console.error('[Products API] Error en bulk update:', error);
+            res.statusCode = 500;
+            res.json({ message: 'Error actualizando productos', error: error.message });
+          }
         } else {
           const id = req.query.id;
           if (!id) {
@@ -244,54 +351,65 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           const updatedProductData: Product = await req.json();
           const { id: clientSideId, ...updateData } = updatedProductData;
 
-          let brand_id_to_update = updatedProductData.brandId 
-            ? new ObjectId(updatedProductData.brandId) 
-            : null;
+          // Buscar marca si es necesario
+          let brand_id_to_update = updatedProductData.brandId || null;
           let brand_logo_url_to_update = updatedProductData.brandLogoUrl;
 
-          if (updatedProductData.brand) {
-            const brand = await brandsCollection.findOne({ name: updatedProductData.brand }) as any;
+          if (updatedProductData.brand && !updatedProductData.brandId) {
+            const { data: brand } = await supabaseAdmin
+              .from('brands')
+              .select('*')
+              .eq('name', updatedProductData.brand)
+              .single();
+            
             if (brand) {
-              brand_id_to_update = brand._id;
-              brand_logo_url_to_update = brand.logoUrl;
+              brand_id_to_update = brand.id;
+              brand_logo_url_to_update = brand.logo_url;
             }
           }
 
           const dataToUpdate: any = {
-            ...updateData,
+            sku: updateData.sku,
+            name: updateData.name,
+            brand_name: updateData.brand,
             brand_id: brand_id_to_update,
-            brand_name: updatedProductData.brand,
-            brand_logo_url: brand_logo_url_to_update,
-            // Deal/Offer fields - mapear a formato MongoDB
-            is_on_sale: updatedProductData.isOnSale || false,
-            sale_price: updatedProductData.salePrice,
-            discount_percentage: updatedProductData.discountPercentage,
-            category_id: updatedProductData.categoryId ? new ObjectId(updatedProductData.categoryId) : null,
+            brand_logo_url: brand_logo_url_to_update || '',
+            price: updateData.price.toString(),
+            rating: (updateData.rating || 0).toString(),
+            reviews: updateData.reviews || 0,
+            image_url: updateData.imageUrl || '',
+            description: updateData.description || '',
+            tags: updateData.tags || [],
+            stock: updateData.stock || 0,
+            width: updateData.width || '',
+            profile: updateData.profile || '',
+            diameter: updateData.diameter || '',
+            is_on_sale: updateData.isOnSale || false,
+            sale_price: updateData.salePrice?.toString() || null,
+            discount_percentage: updateData.discountPercentage || null,
+            category_id: updateData.categoryId || null,
           };
-          delete dataToUpdate.brand;
-          delete dataToUpdate.brandLogoUrl;
-          delete dataToUpdate.isOnSale;
-          delete dataToUpdate.salePrice;
-          delete dataToUpdate.discountPercentage;
-          delete dataToUpdate.categoryId;
 
-          const result = await productsCollection.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: dataToUpdate }
-          );
+          const { data: updatedProduct, error } = await supabaseAdmin
+            .from('products')
+            .update(dataToUpdate)
+            .eq('id', id)
+            .select()
+            .single();
 
-          if (result.matchedCount === 0) {
-            res.statusCode = 404;
-            res.json({ message: 'Product not found' });
+          if (error) {
+            console.error('[Products API] Error actualizando producto:', error);
+            res.statusCode = 500;
+            res.json({ message: 'Error actualizando producto', error: error.message });
             return;
           }
 
-          const updatedProduct = await productsCollection.findOne({ _id: new ObjectId(id) });
           if (!updatedProduct) {
             res.statusCode = 404;
             res.json({ message: 'Product not found' });
             return;
           }
+
           const clientProduct = toClientProduct(updatedProduct);
           res.statusCode = 200;
           res.json(clientProduct);
@@ -307,15 +425,31 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           return;
         }
 
-        const result = await productsCollection.deleteOne({ _id: new ObjectId(idToDelete) });
-        if (result.deletedCount === 0) {
-          res.statusCode = 404;
-          res.json({ message: 'Product not found' });
+        const { error } = await supabaseAdmin
+          .from('products')
+          .delete()
+          .eq('id', idToDelete);
+
+        if (error) {
+          console.error('[Products API] Error eliminando producto:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error eliminando producto', error: error.message });
           return;
         }
 
-        res.statusCode = 204;
-        res.end();
+        // Verificar si se eliminó algún registro
+        const { count } = await supabaseAdmin
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('id', idToDelete);
+
+        if (count === 0) {
+          res.statusCode = 204;
+          res.end();
+        } else {
+          res.statusCode = 404;
+          res.json({ message: 'Product not found' });
+        }
         break;
       }
 
@@ -329,42 +463,36 @@ async function handler(req: CustomRequest, res: CustomResponse) {
     console.error('❌ Error in products API:', error);
     console.error('Error stack:', error.stack);
     console.error('Error name:', error.name);
-    
-    // Verificar si es un error de conexión a MongoDB
-    if (!process.env.MONGODB_URI || (error.message && error.message.includes('MONGODB_URI'))) {
-      console.error('⚠️ MONGODB_URI no está configurada');
+
+    // Verificar si es un error de configuración de Supabase
+    if (!process.env.VITE_SUPABASE_URL && !process.env.SUPABASE_URL) {
+      console.error('⚠️ Supabase URL no está configurada');
       res.statusCode = 503;
       res.json({ 
-        message: 'Servicio no disponible: MongoDB no configurado', 
-        error: 'MONGODB_URI environment variable is not set',
-        hint: 'Por favor, configura la variable de entorno MONGODB_URI en Vercel'
+        message: 'Servicio no disponible: Supabase no configurado', 
+        error: 'VITE_SUPABASE_URL or SUPABASE_URL environment variable is not set',
+        hint: 'Por favor, configura la variable de entorno VITE_SUPABASE_URL en Vercel'
       });
       return;
     }
-    
-    // Verificar si es un error de conexión
-    if (error.message && (
-      error.message.includes('connect') || 
-      error.message.includes('connection') ||
-      error.message.includes('timeout') ||
-      error.name === 'MongoServerError' ||
-      error.name === 'MongoNetworkError'
-    )) {
-      console.error('⚠️ Error de conexión a MongoDB');
+
+    if (!process.env.VITE_SUPABASE_ANON_KEY && !process.env.SUPABASE_ANON_KEY) {
+      console.error('⚠️ Supabase Anon Key no está configurada');
       res.statusCode = 503;
       res.json({ 
-        message: 'Servicio no disponible: Error de conexión a la base de datos', 
-        error: error.message,
-        hint: 'Verifica la conexión a MongoDB Atlas y la configuración de red'
+        message: 'Servicio no disponible: Supabase no configurado', 
+        error: 'VITE_SUPABASE_ANON_KEY or SUPABASE_ANON_KEY environment variable is not set',
+        hint: 'Por favor, configura la variable de entorno VITE_SUPABASE_ANON_KEY en Vercel'
       });
       return;
     }
-    
+
     res.statusCode = 500;
     res.json({ 
-      message: 'Internal server error', 
+      message: 'Error interno del servidor',
       error: error.message || 'Error desconocido',
-      type: error.name || 'UnknownError'
+      type: error.name || 'UnknownError',
+      hint: 'Revisa los logs del servidor para más detalles'
     });
   }
 }

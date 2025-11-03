@@ -1,7 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import React from 'react';
-import { ObjectId } from 'mongodb';
-import { getCollection } from '../lib/mongodb';
+import { supabaseAdmin } from '../lib/supabase';
 import { Category } from '../types';
 import { CATEGORIES_DATA } from '../constants';
 
@@ -21,26 +20,15 @@ interface CustomResponse extends ServerResponse {
   end(cb?: () => void): this;
 }
 
-// Icon mapping: we'll store iconType in DB and map it back to React element on client
-const ICON_TYPE_MAP: { [key: string]: string } = {
-  'tire': 'tire',
-  'wheel': 'wheel',
-  'accessory': 'accessory',
-  'valve': 'valve',
-};
-
-const toClientCategory = (doc: any): Category => {
-  // Map iconType back to a placeholder - actual icon will be set on client side
-  // For now, we'll return the category with a minimal icon structure
-  // The client will need to map iconType to actual React element
+const toClientCategory = (row: any): Category => {
   return {
-    id: doc._id.toString(),
-    name: doc.name,
-    icon: React.createElement('div'), // Placeholder - will be set on client based on iconType
-    imageUrl: doc.imageUrl || doc.image_url || '',
-    description: doc.description || '',
-    order: doc.order || 0,
-    isActive: doc.isActive !== false,
+    id: row.id,
+    name: row.name,
+    icon: React.createElement('div'), // Placeholder - icon se mapea en el cliente usando iconType
+    imageUrl: row.image_url || '',
+    description: row.description || '',
+    order: row.order || 0,
+    isActive: row.is_active !== false,
   };
 };
 
@@ -63,13 +51,16 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
     console.log(`[Categories API] ${req.method} request recibida`);
-    const categoriesCollection = await getCollection('categories');
 
     // Seeding logic
-    const categoryCount = await categoriesCollection.countDocuments();
-    console.log(`[Categories API] Categorías en base de datos: ${categoryCount}`);
+    const { count: categoryCount } = await supabaseAdmin
+      .from('categories')
+      .select('*', { count: 'exact', head: true });
+
+    console.log(`[Categories API] Categorías en base de datos: ${categoryCount || 0}`);
     if (categoryCount === 0) {
       console.log('[Categories API] Iniciando seeding de datos...');
+      
       // Map CATEGORIES_DATA to database format (without icon React element, store iconType instead)
       const iconNameMap: { [key: string]: string } = {
         'Neumáticos de Verano': 'tire',
@@ -83,25 +74,44 @@ async function handler(req: CustomRequest, res: CustomResponse) {
       
       const categoriesToInsert = CATEGORIES_DATA.map(cat => ({
         name: cat.name,
-        iconType: iconNameMap[cat.name] || 'tire',
-        imageUrl: cat.imageUrl,
+        icon_type: iconNameMap[cat.name] || 'tire',
+        image_url: cat.imageUrl,
         description: cat.description || '',
         order: cat.order || 0,
-        isActive: cat.isActive !== false,
+        is_active: cat.isActive !== false,
       }));
       
-      const result = await categoriesCollection.insertMany(categoriesToInsert);
-      console.log(`[Categories API] ✅ ${result.insertedCount} categorías insertadas`);
+      const { error } = await supabaseAdmin
+        .from('categories')
+        .insert(categoriesToInsert);
+
+      if (error) {
+        console.error('[Categories API] Error en seeding:', error);
+      } else {
+        console.log(`[Categories API] ✅ ${categoriesToInsert.length} categorías insertadas`);
+      }
     }
 
     switch (req.method) {
       case 'GET': {
-        const categories = await categoriesCollection.find({}).sort({ order: 1 }).toArray();
-        // Include iconType in response so client can map it
-        const clientCategories = categories.map((doc: any) => ({
-          ...toClientCategory(doc),
-          iconType: doc.iconType || 'tire', // Include iconType for client mapping
+        const { data: categories, error } = await supabaseAdmin
+          .from('categories')
+          .select('*')
+          .order('order', { ascending: true });
+
+        if (error) {
+          console.error('[Categories API] Error obteniendo categorías:', error);
+          res.statusCode = 500;
+          res.json({ message: 'Error obteniendo categorías', error: error.message });
+          return;
+        }
+
+        // Incluir iconType en la respuesta para que el cliente pueda mapear el icono
+        const clientCategories = (categories || []).map((cat: any) => ({
+          ...toClientCategory(cat),
+          iconType: cat.icon_type || 'tire',
         }));
+
         res.statusCode = 200;
         res.json(clientCategories);
         break;
@@ -119,30 +129,45 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           }
 
           // Verificar si ya existe una categoría con el mismo nombre
-          const existingCategory = await categoriesCollection.findOne({ 
-            name: newCategoryData.name.trim() 
-          });
-          
+          const { data: existingCategory } = await supabaseAdmin
+            .from('categories')
+            .select('*')
+            .eq('name', newCategoryData.name.trim())
+            .single();
+
           if (existingCategory) {
             res.statusCode = 409;
             res.json({ message: 'Ya existe una categoría con ese nombre.' });
             return;
           }
 
-          // Prepare data for insertion (exclude icon, include iconType)
-          const { icon, ...insertData } = newCategoryData as any;
+          // Prepare data for insertion
           const categoryToInsert = {
             name: newCategoryData.name.trim(),
-            iconType: newCategoryData.iconType || 'tire',
-            imageUrl: newCategoryData.imageUrl || '',
+            icon_type: newCategoryData.iconType || 'tire',
+            image_url: newCategoryData.imageUrl || '',
             description: newCategoryData.description || '',
             order: newCategoryData.order || 0,
-            isActive: newCategoryData.isActive !== false,
+            is_active: newCategoryData.isActive !== false,
           };
 
-          const result = await categoriesCollection.insertOne(categoryToInsert as any);
-          const insertedCategory = await categoriesCollection.findOne({ _id: result.insertedId });
-          
+          const { data: insertedCategory, error } = await supabaseAdmin
+            .from('categories')
+            .insert(categoryToInsert)
+            .select()
+            .single();
+
+          if (error) {
+            console.error('[Categories API] Error creando categoría:', error);
+            res.statusCode = 500;
+            res.json({ 
+              message: 'Error al crear la categoría.', 
+              error: error.message,
+              hint: 'Verifica que todos los campos requeridos estén presentes y sean válidos.'
+            });
+            return;
+          }
+
           if (!insertedCategory) {
             res.statusCode = 500;
             res.json({ message: 'Error al crear la categoría.' });
@@ -151,7 +176,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
           const clientCategory = {
             ...toClientCategory(insertedCategory),
-            iconType: insertedCategory.iconType || 'tire',
+            iconType: insertedCategory.icon_type || 'tire',
           };
           
           res.statusCode = 201;
@@ -178,43 +203,45 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           }
 
           const updatedCategoryData: Category & { iconType?: string } = await req.json();
-          const { id: clientSideId, icon, ...updateData } = updatedCategoryData as any;
+          const { id: clientSideId, icon, ...updateData } = updatedCategoryData;
 
           // Prepare update data
           const categoryToUpdate: any = {
             name: updatedCategoryData.name.trim(),
-            imageUrl: updatedCategoryData.imageUrl || '',
+            image_url: updatedCategoryData.imageUrl || '',
             description: updatedCategoryData.description || '',
             order: updatedCategoryData.order || 0,
-            isActive: updatedCategoryData.isActive !== false,
+            is_active: updatedCategoryData.isActive !== false,
           };
 
           // Include iconType if provided, otherwise keep existing
           if (updatedCategoryData.iconType) {
-            categoryToUpdate.iconType = updatedCategoryData.iconType;
+            categoryToUpdate.icon_type = updatedCategoryData.iconType;
           }
 
-          const result = await categoriesCollection.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: categoryToUpdate }
-          );
+          const { data: updatedCategory, error } = await supabaseAdmin
+            .from('categories')
+            .update(categoryToUpdate)
+            .eq('id', id)
+            .select()
+            .single();
 
-          if (result.matchedCount === 0) {
+          if (error) {
+            console.error('[Categories API] Error actualizando categoría:', error);
+            res.statusCode = 500;
+            res.json({ message: 'Error al actualizar la categoría.', error: error.message });
+            return;
+          }
+
+          if (!updatedCategory) {
             res.statusCode = 404;
             res.json({ message: 'Categoría no encontrada' });
             return;
           }
 
-          const updatedCategory = await categoriesCollection.findOne({ _id: new ObjectId(id) });
-          if (!updatedCategory) {
-            res.statusCode = 500;
-            res.json({ message: 'Error al obtener la categoría actualizada.' });
-            return;
-          }
-
           const clientCategory = {
             ...toClientCategory(updatedCategory),
-            iconType: updatedCategory.iconType || 'tire',
+            iconType: updatedCategory.icon_type || 'tire',
           };
           
           res.statusCode = 200;
@@ -239,15 +266,34 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             return;
           }
 
-          const result = await categoriesCollection.deleteOne({ _id: new ObjectId(idToDelete) });
-          if (result.deletedCount === 0) {
-            res.statusCode = 404;
-            res.json({ message: 'Categoría no encontrada' });
+          const { error } = await supabaseAdmin
+            .from('categories')
+            .delete()
+            .eq('id', idToDelete);
+
+          if (error) {
+            console.error('[Categories API] Error eliminando categoría:', error);
+            res.statusCode = 500;
+            res.json({ 
+              message: 'Error al eliminar la categoría.', 
+              error: error.message 
+            });
             return;
           }
 
-          res.statusCode = 204;
-          res.end();
+          // Verificar si se eliminó
+          const { count } = await supabaseAdmin
+            .from('categories')
+            .select('*', { count: 'exact', head: true })
+            .eq('id', idToDelete);
+
+          if (count === 0) {
+            res.statusCode = 204;
+            res.end();
+          } else {
+            res.statusCode = 404;
+            res.json({ message: 'Categoría no encontrada' });
+          }
         } catch (error: any) {
           console.error('[Categories API] Error en DELETE:', error);
           res.statusCode = 500;
@@ -270,21 +316,11 @@ async function handler(req: CustomRequest, res: CustomResponse) {
     console.error('[Categories API] Stack:', error.stack);
     console.error('[Categories API] Name:', error.name);
     
-    if (!process.env.MONGODB_URI) {
+    if (!process.env.VITE_SUPABASE_URL && !process.env.SUPABASE_URL) {
       res.statusCode = 503;
       res.json({ 
-        message: 'MongoDB no configurado', 
-        hint: 'La variable de entorno MONGODB_URI no está configurada. Por favor, configura las credenciales de MongoDB en Vercel.'
-      });
-      return;
-    }
-
-    if (error.name === 'MongoServerError' || error.message?.includes('MongoDB')) {
-      res.statusCode = 503;
-      res.json({ 
-        message: 'Error de conexión con MongoDB', 
-        error: error.message,
-        hint: 'Verifica que las credenciales de MongoDB sean correctas y que la IP esté permitida en MongoDB Atlas.'
+        message: 'Supabase no configurado', 
+        hint: 'La variable de entorno VITE_SUPABASE_URL o SUPABASE_URL no está configurada. Por favor, configura las credenciales de Supabase en Vercel.'
       });
       return;
     }
@@ -299,4 +335,3 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 }
 
 export default allowCors(handler);
-
