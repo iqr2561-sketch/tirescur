@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { supabaseAdmin } from '../lib/supabase';
+import { getSupabaseAdmin } from '../lib/supabase';
 import { Brand } from '../types';
 import { INITIAL_BRANDS_DATA } from '../constants';
 
@@ -46,9 +46,10 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
     console.log(`[Brands API] ${req.method} request recibida`);
+    const supabase = getSupabaseAdmin();
 
     // Seeding logic
-    const { count: brandCount } = await supabaseAdmin
+    const { count: brandCount } = await supabase
       .from('brands')
       .select('*', { count: 'exact', head: true });
 
@@ -60,7 +61,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         logo_url: brand.logoUrl,
       }));
 
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('brands')
         .insert(brandsToInsert);
 
@@ -73,7 +74,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
     switch (req.method) {
       case 'GET': {
-        const { data: brands, error } = await supabaseAdmin
+        const { data: brands, error } = await supabase
           .from('brands')
           .select('*')
           .order('name');
@@ -103,7 +104,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           }
 
           // Verificar si ya existe una marca con el mismo nombre
-          const { data: existingBrand } = await supabaseAdmin
+          const { data: existingBrand } = await supabase
             .from('brands')
             .select('*')
             .eq('name', newBrandData.name.trim())
@@ -123,7 +124,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             logo_url: newBrandData.logoUrl || '',
           };
 
-          const { data: insertedBrand, error } = await supabaseAdmin
+          const { data: insertedBrand, error } = await supabase
             .from('brands')
             .insert(brandToInsert)
             .select()
@@ -177,7 +178,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           logo_url: updateData.logoUrl || '',
         };
 
-        const { data: updatedBrand, error } = await supabaseAdmin
+        const { data: updatedBrand, error } = await supabase
           .from('brands')
           .update(dataToUpdate)
           .eq('id', id)
@@ -211,7 +212,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           return;
         }
 
-        const { error } = await supabaseAdmin
+        const { error } = await supabase
           .from('brands')
           .delete()
           .eq('id', idToDelete);
@@ -224,7 +225,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         }
 
         // Verificar si se eliminó
-        const { count } = await supabaseAdmin
+        const { count } = await supabase
           .from('brands')
           .select('*', { count: 'exact', head: true })
           .eq('id', idToDelete);

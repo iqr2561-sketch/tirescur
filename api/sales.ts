@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { supabaseAdmin } from '../lib/supabase';
+import { getSupabaseAdmin } from '../lib/supabase';
 import { Sale } from '../types';
 import { INITIAL_SALES_DATA } from '../constants';
 
@@ -21,7 +21,7 @@ interface CustomResponse extends ServerResponse {
 
 const toClientSale = async (row: any): Promise<Sale> => {
   // Obtener productos de la venta desde sale_products
-  const { data: saleProducts } = await supabaseAdmin
+  const { data: saleProducts } = await supabase
     .from('sale_products')
     .select('*')
     .eq('sale_id', row.id);
@@ -61,15 +61,16 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
+    const supabase = getSupabaseAdmin();
     // Seeding logic
-    const { count: saleCount } = await supabaseAdmin
+    const { count: saleCount } = await supabase
       .from('sales')
       .select('*', { count: 'exact', head: true });
 
     if (saleCount === 0 && INITIAL_SALES_DATA.length > 0) {
       // Insertar ventas iniciales con sus productos
       for (const saleData of INITIAL_SALES_DATA) {
-        const { data: insertedSale, error: saleError } = await supabaseAdmin
+        const { data: insertedSale, error: saleError } = await supabase
           .from('sales')
           .insert({
             customer_name: saleData.customerName,
@@ -90,7 +91,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             price: product.price.toString(),
           }));
 
-          await supabaseAdmin
+          await supabase
             .from('sale_products')
             .insert(saleProductsToInsert);
         }
@@ -99,7 +100,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
     switch (req.method) {
       case 'GET': {
-        const { data: sales, error } = await supabaseAdmin
+        const { data: sales, error } = await supabase
           .from('sales')
           .select('*')
           .order('date', { ascending: false });
@@ -111,7 +112,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           return;
         }
 
-        const clientSales = await Promise.all((sales || []).map(toClientSale));
+        const clientSales = await Promise.all((sales || []).map(sale => toClientSale(sale, supabase)));
         res.statusCode = 200;
         res.json(clientSales);
         break;
@@ -121,7 +122,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         const newSaleData: Omit<Sale, 'id'> = await req.json();
 
         // Insertar la venta
-        const { data: insertedSale, error: saleError } = await supabaseAdmin
+        const { data: insertedSale, error: saleError } = await supabase
           .from('sales')
           .insert({
             customer_name: newSaleData.customerName,
@@ -155,7 +156,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             price: product.price.toString(),
           }));
 
-          const { error: productsError } = await supabaseAdmin
+          const { error: productsError } = await supabase
             .from('sale_products')
             .insert(saleProductsToInsert);
 
@@ -165,7 +166,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           }
         }
 
-        const clientSale = await toClientSale(insertedSale);
+        const clientSale = await toClientSale(insertedSale, supabase);
         res.statusCode = 201;
         res.json(clientSale);
         break;

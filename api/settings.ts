@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { supabaseAdmin } from '../lib/supabase';
+import { getSupabaseAdmin } from '../lib/supabase';
 import { DEFAULT_HERO_IMAGE_URL, DEFAULT_WHATSAPP_PHONE_NUMBER, DEFAULT_FOOTER_CONTENT, DEFAULT_DEAL_ZONE_CONFIG } from '../constants';
 import { FooterContent, DealZoneConfig } from '../types';
 
@@ -40,7 +40,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
     switch (req.method) {
       case 'GET': {
         // Obtener el primer registro de app_settings (singleton)
-        const { data: settings, error } = await supabaseAdmin
+        const { data: settings, error } = await supabase
           .from('app_settings')
           .select('*')
           .limit(1)
@@ -55,7 +55,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             deal_zone_config: DEFAULT_DEAL_ZONE_CONFIG,
           };
 
-          const { data: insertedSettings, error: insertError } = await supabaseAdmin
+          const { data: insertedSettings, error: insertError } = await supabase
             .from('app_settings')
             .insert(defaultSettings)
             .select()
@@ -110,7 +110,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         }> = await req.json();
 
         // Obtener el primer registro
-        const { data: existingSettings } = await supabaseAdmin
+        const { data: existingSettings } = await supabase
           .from('app_settings')
           .select('*')
           .limit(1)
@@ -141,7 +141,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             ...settingsToUpdate,
           };
 
-          const { data: insertedSettings, error: insertError } = await supabaseAdmin
+          const { data: insertedSettings, error: insertError } = await supabase
             .from('app_settings')
             .insert(defaultSettings)
             .select()
@@ -162,7 +162,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             dealZoneConfig: insertedSettings.deal_zone_config,
           });
         } else {
-          const { data: updatedSettings, error: updateError } = await supabaseAdmin
+          const { data: updatedSettings, error: updateError } = await supabase
             .from('app_settings')
             .update(settingsToUpdate)
             .eq('id', existingSettings.id)

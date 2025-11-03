@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { supabaseAdmin } from '../lib/supabase';
+import { getSupabaseAdmin } from '../lib/supabase';
 
 interface CustomRequest extends IncomingMessage {
   query: { [key: string]: string | string[] | undefined };
@@ -77,7 +77,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
       }
 
       // Test 4: Contar productos
-      const { count: productCount } = await supabaseAdmin
+      const { count: productCount } = await supabase
         .from('products')
         .select('*', { count: 'exact', head: true });
 
@@ -88,7 +88,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
       });
 
       // Test 5: Contar marcas
-      const { count: brandCount } = await supabaseAdmin
+      const { count: brandCount } = await supabase
         .from('brands')
         .select('*', { count: 'exact', head: true });
 
@@ -99,7 +99,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
       });
 
       // Test 6: Contar categorías
-      const { count: categoryCount } = await supabaseAdmin
+      const { count: categoryCount } = await supabase
         .from('categories')
         .select('*', { count: 'exact', head: true });
 

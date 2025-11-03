@@ -1,6 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import React from 'react';
-import { supabaseAdmin } from '../lib/supabase';
+import { getSupabaseAdmin } from '../lib/supabase';
 import { Category } from '../types';
 import { CATEGORIES_DATA } from '../constants';
 
@@ -53,7 +53,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
     console.log(`[Categories API] ${req.method} request recibida`);
 
     // Seeding logic
-    const { count: categoryCount } = await supabaseAdmin
+    const { count: categoryCount } = await supabase
       .from('categories')
       .select('*', { count: 'exact', head: true });
 
@@ -81,7 +81,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         is_active: cat.isActive !== false,
       }));
       
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('categories')
         .insert(categoriesToInsert);
 
@@ -94,7 +94,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
     switch (req.method) {
       case 'GET': {
-        const { data: categories, error } = await supabaseAdmin
+        const { data: categories, error } = await supabase
           .from('categories')
           .select('*')
           .order('order', { ascending: true });
@@ -129,7 +129,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           }
 
           // Verificar si ya existe una categoría con el mismo nombre
-          const { data: existingCategory } = await supabaseAdmin
+          const { data: existingCategory } = await supabase
             .from('categories')
             .select('*')
             .eq('name', newCategoryData.name.trim())
@@ -151,7 +151,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             is_active: newCategoryData.isActive !== false,
           };
 
-          const { data: insertedCategory, error } = await supabaseAdmin
+          const { data: insertedCategory, error } = await supabase
             .from('categories')
             .insert(categoryToInsert)
             .select()
@@ -219,7 +219,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             categoryToUpdate.icon_type = updatedCategoryData.iconType;
           }
 
-          const { data: updatedCategory, error } = await supabaseAdmin
+          const { data: updatedCategory, error } = await supabase
             .from('categories')
             .update(categoryToUpdate)
             .eq('id', id)
@@ -266,7 +266,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             return;
           }
 
-          const { error } = await supabaseAdmin
+          const { error } = await supabase
             .from('categories')
             .delete()
             .eq('id', idToDelete);
@@ -282,7 +282,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           }
 
           // Verificar si se eliminó
-          const { count } = await supabaseAdmin
+          const { count } = await supabase
             .from('categories')
             .select('*', { count: 'exact', head: true })
             .eq('id', idToDelete);

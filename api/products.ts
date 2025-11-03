@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { supabaseAdmin } from '../lib/supabase';
+import { getSupabaseAdmin } from '../lib/supabase';
 import { Product, Brand } from '../types';
 import { PRODUCTS_DATA, INITIAL_BRANDS_DATA } from '../constants';
 
@@ -67,7 +67,8 @@ async function handler(req: CustomRequest, res: CustomResponse) {
     console.log(`[Products API] ${req.method} request recibida`);
 
     // Seeding logic - verificar si hay productos
-    const { count: productCount } = await supabaseAdmin
+    const supabase = getSupabaseAdmin();
+    const { count: productCount } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true });
 
@@ -77,7 +78,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
       console.log('[Products API] Iniciando seeding de datos...');
 
       // Primero asegurar que existan las marcas
-      const { count: brandCount } = await supabaseAdmin
+      const { count: brandCount } = await supabase
         .from('brands')
         .select('*', { count: 'exact', head: true });
 
@@ -87,7 +88,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           logo_url: brand.logoUrl,
         }));
 
-        const { error: brandsError } = await supabaseAdmin
+        const { error: brandsError } = await supabase
           .from('brands')
           .insert(brandsToInsert);
 
@@ -99,7 +100,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
       }
 
       // Obtener marcas para mapear
-      const { data: brands } = await supabaseAdmin.from('brands').select('*');
+      const { data: brands } = await supabase.from('brands').select('*');
 
       // Insertar productos
       const seededProducts = PRODUCTS_DATA.map(p => {
@@ -127,7 +128,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         };
       });
 
-      const { error: productsError } = await supabaseAdmin
+      const { error: productsError } = await supabase
         .from('products')
         .insert(seededProducts);
 
@@ -140,7 +141,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
     switch (req.method) {
       case 'GET': {
-        const { data: products, error } = await supabaseAdmin
+        const { data: products, error } = await supabase
           .from('products')
           .select('*')
           .order('created_at', { ascending: false });
@@ -169,7 +170,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           }
 
           // Obtener marcas para mapear
-          const { data: brands } = await supabaseAdmin.from('brands').select('*');
+          const { data: brands } = await supabase.from('brands').select('*');
 
           const productsToInsert = newProductsData.map((p) => {
             const brand = brands?.find((b: any) => b.name === p.brand);
@@ -196,7 +197,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             };
           });
 
-          const { data: insertedProducts, error } = await supabaseAdmin
+          const { data: insertedProducts, error } = await supabase
             .from('products')
             .insert(productsToInsert)
             .select();
@@ -215,7 +216,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           const newProductData: Omit<Product, 'id'> = await req.json();
 
           // Buscar marca por nombre
-          const { data: brands } = await supabaseAdmin
+          const { data: brands } = await supabase
             .from('brands')
             .select('*')
             .eq('name', newProductData.brand)
@@ -245,7 +246,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             category_id: newProductData.categoryId || null,
           };
 
-          const { data: insertedProduct, error } = await supabaseAdmin
+          const { data: insertedProduct, error } = await supabase
             .from('products')
             .insert(productToInsert)
             .select()
@@ -286,7 +287,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             let brand_logo_url_to_update = product.brandLogoUrl;
 
             if (product.brand && !product.brandId) {
-              const { data: brand } = await supabaseAdmin
+              const { data: brand } = await supabase
                 .from('brands')
                 .select('*')
                 .eq('name', product.brand)
@@ -320,7 +321,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
               category_id: product.categoryId || null,
             };
 
-            const { error } = await supabaseAdmin
+            const { error } = await supabase
               .from('products')
               .update(dataToUpdate)
               .eq('id', product.id);
@@ -356,7 +357,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           let brand_logo_url_to_update = updatedProductData.brandLogoUrl;
 
           if (updatedProductData.brand && !updatedProductData.brandId) {
-            const { data: brand } = await supabaseAdmin
+            const { data: brand } = await supabase
               .from('brands')
               .select('*')
               .eq('name', updatedProductData.brand)
@@ -390,7 +391,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             category_id: updateData.categoryId || null,
           };
 
-          const { data: updatedProduct, error } = await supabaseAdmin
+          const { data: updatedProduct, error } = await supabase
             .from('products')
             .update(dataToUpdate)
             .eq('id', id)
@@ -425,7 +426,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           return;
         }
 
-        const { error } = await supabaseAdmin
+        const { error } = await supabase
           .from('products')
           .delete()
           .eq('id', idToDelete);
@@ -438,7 +439,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         }
 
         // Verificar si se eliminó algún registro
-        const { count } = await supabaseAdmin
+        const { count } = await supabase
           .from('products')
           .select('*', { count: 'exact', head: true })
           .eq('id', idToDelete);

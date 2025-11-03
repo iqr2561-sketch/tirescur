@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { supabaseAdmin } from '../lib/supabase';
+import { getSupabaseAdmin } from '../lib/supabase';
 import { MenuItem } from '../types';
 import { DEFAULT_MENU_ITEMS } from '../constants';
 
@@ -50,7 +50,7 @@ const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomRespon
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
     // Seeding logic
-    const { count: menuCount } = await supabaseAdmin
+    const { count: menuCount } = await supabase
       .from('menu_items')
       .select('*', { count: 'exact', head: true });
 
@@ -64,7 +64,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         type: item.type,
       }));
 
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('menu_items')
         .insert(menuItemsToInsert);
 
@@ -75,7 +75,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
     switch (req.method) {
       case 'GET': {
-        const { data: menus, error } = await supabaseAdmin
+        const { data: menus, error } = await supabase
           .from('menu_items')
           .select('*')
           .order('order', { ascending: true });
@@ -105,7 +105,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           type: newMenuData.type,
         };
 
-        const { data: insertedMenu, error } = await supabaseAdmin
+        const { data: insertedMenu, error } = await supabase
           .from('menu_items')
           .insert(menuToInsert)
           .select()
@@ -150,7 +150,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           type: updateData.type,
         };
 
-        const { data: updatedMenu, error } = await supabaseAdmin
+        const { data: updatedMenu, error } = await supabase
           .from('menu_items')
           .update(menuToUpdate)
           .eq('id', id)
@@ -184,7 +184,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           return;
         }
 
-        const { error } = await supabaseAdmin
+        const { error } = await supabase
           .from('menu_items')
           .delete()
           .eq('id', idToDelete);
@@ -197,7 +197,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         }
 
         // Verificar si se eliminó
-        const { count } = await supabaseAdmin
+        const { count } = await supabase
           .from('menu_items')
           .select('*', { count: 'exact', head: true })
           .eq('id', idToDelete);
