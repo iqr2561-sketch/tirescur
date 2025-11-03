@@ -37,28 +37,30 @@ async function handler(req: CustomRequest, res: CustomResponse) {
   try {
     const results: any = {
       timestamp: new Date().toISOString(),
-      supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL ? '✅ Configurada' : '❌ NO configurada',
-      supabaseKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY ? '✅ Configurada' : '❌ NO configurada',
+      supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL ? '✅ Configurada' : '❌ NO configurada',
+      supabaseKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY ? '✅ Configurada' : '❌ NO configurada',
       tests: []
     };
 
-    // Test 1: Verificar variables de entorno
+    // Test 1: Verificar variables de entorno (en servidor, priorizar SUPABASE_ sin prefijo)
     results.tests.push({
-      test: 'VITE_SUPABASE_URL variable',
-      status: (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL) ? '✅ OK' : '❌ FALTA',
-      details: (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL) ? 'Variable configurada (oculta por seguridad)' : 'Variable no encontrada'
+      test: 'SUPABASE_URL variable (servidor)',
+      status: process.env.SUPABASE_URL ? '✅ OK' : (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL ? '⚠️ Usando alternativa' : '❌ FALTA'),
+      details: process.env.SUPABASE_URL ? 'Variable configurada (recomendado)' : (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL ? 'Variable alternativa configurada' : 'Variable no encontrada')
     });
 
     results.tests.push({
-      test: 'VITE_SUPABASE_ANON_KEY variable',
-      status: (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY) ? '✅ OK' : '❌ FALTA',
-      details: (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY) ? 'Variable configurada (oculta por seguridad)' : 'Variable no encontrada'
+      test: 'SUPABASE_ANON_KEY variable (servidor)',
+      status: process.env.SUPABASE_ANON_KEY ? '✅ OK' : (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY ? '⚠️ Usando alternativa' : '❌ FALTA'),
+      details: process.env.SUPABASE_ANON_KEY ? 'Variable configurada (recomendado)' : (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY ? 'Variable alternativa configurada' : 'Variable no encontrada')
     });
 
     // Test 2: Conectar a Supabase
     try {
+      const supabase = getSupabaseAdmin();
+      
       // Test 3: Listar tablas (products como ejemplo)
-      const { data: products, error: productsError } = await supabaseAdmin
+      const { data: products, error: productsError } = await supabase
         .from('products')
         .select('*', { count: 'exact', head: true });
 
