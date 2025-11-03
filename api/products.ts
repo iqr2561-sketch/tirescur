@@ -39,6 +39,11 @@ const toClientProduct = (doc: any): Product => {
     width: doc.width,
     profile: doc.profile,
     diameter: doc.diameter,
+    // Deal/Offer fields
+    isOnSale: doc.isOnSale || doc.is_on_sale || false,
+    salePrice: doc.salePrice || doc.sale_price,
+    discountPercentage: doc.discountPercentage || doc.discount_percentage,
+    categoryId: doc.categoryId || doc.category_id?.toString(),
   };
 };
 
@@ -88,6 +93,16 @@ async function handler(req: CustomRequest, res: CustomResponse) {
           brand_name: p.brand,
           brand_id: brand?._id || null,
           brand_logo_url: brand?.logoUrl || p.brandLogoUrl,
+          // Deal/Offer fields - mapear a formato MongoDB
+          is_on_sale: p.isOnSale || false,
+          sale_price: p.salePrice,
+          discount_percentage: p.discountPercentage,
+          category_id: p.categoryId ? new ObjectId(p.categoryId) : null,
+          // Remover campos camelCase
+          isOnSale: undefined,
+          salePrice: undefined,
+          discountPercentage: undefined,
+          categoryId: undefined,
         };
       });
       const productsResult = await productsCollection.insertMany(seededProducts);
@@ -143,6 +158,16 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             brand_name: newProductData.brand,
             brand_id: brand?._id || null,
             brand_logo_url: brand?.logoUrl || newProductData.brandLogoUrl,
+            // Deal/Offer fields - mapear a formato MongoDB
+            is_on_sale: newProductData.isOnSale || false,
+            sale_price: newProductData.salePrice,
+            discount_percentage: newProductData.discountPercentage,
+            category_id: newProductData.categoryId ? new ObjectId(newProductData.categoryId) : null,
+            // Remover campos camelCase que no van a MongoDB
+            isOnSale: undefined,
+            salePrice: undefined,
+            discountPercentage: undefined,
+            categoryId: undefined,
           };
 
           const result = await productsCollection.insertOne(productToInsert);
@@ -186,9 +211,18 @@ async function handler(req: CustomRequest, res: CustomResponse) {
               brand_id: brand_id_to_update,
               brand_name: product.brand,
               brand_logo_url: brand_logo_url_to_update,
+              // Deal/Offer fields - mapear a formato MongoDB
+              is_on_sale: product.isOnSale || false,
+              sale_price: product.salePrice,
+              discount_percentage: product.discountPercentage,
+              category_id: product.categoryId ? new ObjectId(product.categoryId) : null,
             };
             delete dataToUpdate.brand;
             delete dataToUpdate.brandLogoUrl;
+            delete dataToUpdate.isOnSale;
+            delete dataToUpdate.salePrice;
+            delete dataToUpdate.discountPercentage;
+            delete dataToUpdate.categoryId;
 
             await productsCollection.updateOne(
               { _id: new ObjectId(id) },
@@ -228,9 +262,18 @@ async function handler(req: CustomRequest, res: CustomResponse) {
             brand_id: brand_id_to_update,
             brand_name: updatedProductData.brand,
             brand_logo_url: brand_logo_url_to_update,
+            // Deal/Offer fields - mapear a formato MongoDB
+            is_on_sale: updatedProductData.isOnSale || false,
+            sale_price: updatedProductData.salePrice,
+            discount_percentage: updatedProductData.discountPercentage,
+            category_id: updatedProductData.categoryId ? new ObjectId(updatedProductData.categoryId) : null,
           };
           delete dataToUpdate.brand;
           delete dataToUpdate.brandLogoUrl;
+          delete dataToUpdate.isOnSale;
+          delete dataToUpdate.salePrice;
+          delete dataToUpdate.discountPercentage;
+          delete dataToUpdate.categoryId;
 
           const result = await productsCollection.updateOne(
             { _id: new ObjectId(id) },
@@ -288,7 +331,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
     console.error('Error name:', error.name);
     
     // Verificar si es un error de conexión a MongoDB
-    if (error.message && error.message.includes('MONGODB_URI')) {
+    if (!process.env.MONGODB_URI || (error.message && error.message.includes('MONGODB_URI'))) {
       console.error('⚠️ MONGODB_URI no está configurada');
       res.statusCode = 503;
       res.json({ 
