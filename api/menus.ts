@@ -1,7 +1,7 @@
 import { parse } from 'url';
 import allowCors from '../lib/cors.js';
 import { ensureSupabase } from '../lib/supabase.js';
-import { DEFAULT_MENU_ITEMS } from '../constants';
+import { DEFAULT_MENU_ITEMS } from '../constants.server.js';
 
 export default allowCors(async function handler(req, res) {
   try {

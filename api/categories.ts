@@ -1,7 +1,7 @@
 import { parse } from 'url';
 import allowCors from '../lib/cors.js';
 import { ensureSupabase } from '../lib/supabase.js';
-import { CATEGORIES_DATA } from '../constants';
+import { CATEGORIES_DATA } from '../constants.server.js';
 
 const ICON_MAP = {
   'Neumáticos de Verano': 'tire',

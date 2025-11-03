@@ -5,7 +5,7 @@ import {
   DEFAULT_WHATSAPP_PHONE_NUMBER,
   DEFAULT_FOOTER_CONTENT,
   DEFAULT_DEAL_ZONE_CONFIG
-} from '../constants';
+} from '../constants.server.js';
 
 export default allowCors(async function handler(req, res) {
   try {

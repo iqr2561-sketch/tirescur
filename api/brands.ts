@@ -1,7 +1,7 @@
 import { parse } from 'url';
 import allowCors from '../lib/cors.js';
 import { ensureSupabase } from '../lib/supabase.js';
-import { INITIAL_BRANDS_DATA } from '../constants';
+import { INITIAL_BRANDS_DATA } from '../constants.server.js';
 import { Brand } from '../types';
 
 export default allowCors(async function handler(req, res) {
