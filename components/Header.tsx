@@ -50,7 +50,7 @@ const Header: React.FC<HeaderProps> = ({ toggleCart, cartItems, whatsappPhoneNum
         <div className="flex items-center">
           <Link to="/" className="text-3xl font-bold text-red-600 mr-4 sm:mr-8">REDPARTS</Link>
           <nav className="hidden lg:flex space-x-6 text-sm">
-            {headerMenus.map(menuItem => (
+            {headerMenus.map(menuItem => 
               menuItem.isExternal ? (
                 <a
                   key={menuItem.id}
@@ -70,7 +70,7 @@ const Header: React.FC<HeaderProps> = ({ toggleCart, cartItems, whatsappPhoneNum
                   {menuItem.name}
                 </Link>
               )
-            ))}
+            )}
           </nav>
         </div>
 

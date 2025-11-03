@@ -12,13 +12,13 @@ const Footer: React.FC<FooterProps> = ({ footerContent, footerInfoMenus, footerA
   const renderLink = (item: MenuItem) => {
     if (item.isExternal) {
       return (
-        <a key={item.id} href={item.path} target="_blank" rel="noopener noreferrer" className="hover:text-red-600 transition-colors">
+        <a href={item.path} target="_blank" rel="noopener noreferrer" className="hover:text-red-600 transition-colors">
           {item.name}
         </a>
       );
     }
     return (
-      <Link key={item.id} to={item.path} className="hover:text-red-600 transition-colors">
+      <Link to={item.path} className="hover:text-red-600 transition-colors">
         {item.name}
       </Link>
     );
@@ -49,7 +49,7 @@ const Footer: React.FC<FooterProps> = ({ footerContent, footerInfoMenus, footerA
         <div>
           <h3 className="text-white text-lg font-semibold mb-4">Información</h3>
           <ul className="space-y-2 text-sm">
-            {footerInfoMenus.map(renderLink)}
+            {footerInfoMenus.map(item => <div key={item.id}>{renderLink(item)}</div>)}
           </ul>
         </div>
 
@@ -57,7 +57,7 @@ const Footer: React.FC<FooterProps> = ({ footerContent, footerInfoMenus, footerA
         <div>
           <h3 className="text-white text-lg font-semibold mb-4">Mi Cuenta</h3>
           <ul className="space-y-2 text-sm">
-            {footerAccountMenus.map(renderLink)}
+            {footerAccountMenus.map(item => <div key={item.id}>{renderLink(item)}</div>)}
           </ul>
         </div>
 
