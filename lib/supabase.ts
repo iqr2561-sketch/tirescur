@@ -14,23 +14,41 @@ function getEnvVars() {
   
   if (isServer) {
     // En el servidor (serverless functions), usar variables sin prefijo o NEXT_PUBLIC_
-    supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-    supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    // También buscar nombres alternativos que pueden estar en Vercel (español, diferentes formatos)
+    supabaseUrl = process.env.SUPABASE_URL || 
+                  process.env.URL_SUPABASE || // Nombre alternativo en español
+                  process.env.NEXT_PUBLIC_SUPABASE_URL || 
+                  process.env.URL_SUPABASE_PUBLICA_SIGUIENTE || // Nombre alternativo traducido
+                  process.env.VITE_SUPABASE_URL ||
+                  process.env.URL_SUPABASE_VITE || // Nombre alternativo
+                  '';
+    supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 
+                      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+                      process.env.SIGUIENTE_CLAVE_ANONIMA_SUPABASE_P || // Nombre alternativo traducido
+                      process.env.VITE_SUPABASE_ANON_KEY ||
+                      '';
   } else {
     // En el cliente (frontend), Vite expone variables con prefijo VITE_ a través de import.meta.env
     // También intentamos leer de process.env por si está definido en vite.config.ts
     const viteEnv = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
     supabaseUrl = (viteEnv.VITE_SUPABASE_URL as string) || 
                   process.env.VITE_SUPABASE_URL || 
+                  process.env.URL_SUPABASE_VITE || // Nombre alternativo
+                  process.env.VITE_SUPABASE_UR || // Variante truncada
                   (viteEnv.NEXT_PUBLIC_SUPABASE_URL as string) ||
                   process.env.NEXT_PUBLIC_SUPABASE_URL || 
-                  process.env.SUPABASE_URL || '';
+                  process.env.URL_SUPABASE_PUBLICA_SIGUIENTE ||
+                  process.env.SUPABASE_URL ||
+                  process.env.URL_SUPABASE || // Nombre alternativo
+                  '';
                   
     supabaseAnonKey = (viteEnv.VITE_SUPABASE_ANON_KEY as string) || 
                       process.env.VITE_SUPABASE_ANON_KEY || 
                       (viteEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY as string) ||
-                      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
-                      process.env.SUPABASE_ANON_KEY || '';
+                      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+                      process.env.SIGUIENTE_CLAVE_ANONIMA_SUPABASE_P ||
+                      process.env.SUPABASE_ANON_KEY || 
+                      '';
   }
     
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';

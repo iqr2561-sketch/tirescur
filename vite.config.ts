@@ -30,9 +30,20 @@ export default defineConfig(({ mode }) => {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.VITE_VERCEL_URL': JSON.stringify(env.VITE_VERCEL_URL || 'https://tirescur.vercel.app'),
-        // Exponer variables de Supabase para el cliente
-        'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || env.SUPABASE_URL || ''),
-        'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || ''),
+        // Exponer variables de Supabase para el cliente (orden de prioridad: VITE_ > NEXT_PUBLIC_ > sin prefijo)
+        'process.env.VITE_SUPABASE_URL': JSON.stringify(
+          env.VITE_SUPABASE_URL || 
+          env.VITE_SUPABASE_UR || // Variante truncada
+          env.NEXT_PUBLIC_SUPABASE_URL || 
+          env.SUPABASE_URL || 
+          ''
+        ),
+        'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
+          env.VITE_SUPABASE_ANON_KEY || 
+          env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+          env.SUPABASE_ANON_KEY || 
+          ''
+        ),
       },
       resolve: {
         alias: {
