@@ -6,15 +6,32 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 function getEnvVars() {
   const isServer = typeof window === 'undefined';
   
-  // En el servidor (serverless functions), usar variables sin prefijo o NEXT_PUBLIC_
-  // En el cliente (frontend), usar VITE_ o NEXT_PUBLIC_ variables
-  const supabaseUrl = isServer
-    ? (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '')
-    : (process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '');
-    
-  const supabaseAnonKey = isServer
-    ? (process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '')
-    : (process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '');
+  // En Vite, las variables están disponibles como import.meta.env en el cliente
+  // En Node.js (servidor), están en process.env
+  
+  let supabaseUrl = '';
+  let supabaseAnonKey = '';
+  
+  if (isServer) {
+    // En el servidor (serverless functions), usar variables sin prefijo o NEXT_PUBLIC_
+    supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  } else {
+    // En el cliente (frontend), Vite expone variables con prefijo VITE_ a través de import.meta.env
+    // También intentamos leer de process.env por si está definido en vite.config.ts
+    const viteEnv = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
+    supabaseUrl = (viteEnv.VITE_SUPABASE_URL as string) || 
+                  process.env.VITE_SUPABASE_URL || 
+                  (viteEnv.NEXT_PUBLIC_SUPABASE_URL as string) ||
+                  process.env.NEXT_PUBLIC_SUPABASE_URL || 
+                  process.env.SUPABASE_URL || '';
+                  
+    supabaseAnonKey = (viteEnv.VITE_SUPABASE_ANON_KEY as string) || 
+                      process.env.VITE_SUPABASE_ANON_KEY || 
+                      (viteEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY as string) ||
+                      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+                      process.env.SUPABASE_ANON_KEY || '';
+  }
     
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
