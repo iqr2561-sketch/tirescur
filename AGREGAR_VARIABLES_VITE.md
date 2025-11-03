@@ -50,7 +50,7 @@ Después de agregar las variables `VITE_*`, deberías tener:
 
 **IMPORTANTE:** Vi que tienes `SUPABASE_SERVICE_ROLE_` (parece truncada). Asegúrate de que esté completa:
 
-- **Name:** `SUPABASE_SERVICE_ROLE_KEY` (completo)
+- **Name:** `SUPABASE_SERVICE_ROLE_KEY` (completo) ✅ CONFIRMADA
 - **Value:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wbXFubXRsZm9jZ3hoeXVmZ2FzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjE3ODM2MSwiZXhwIjoyMDc3NzU0MzYxfQ.R0L8vKAbMFiGIfXWZb5mPc8TRx9aKSMVOUTVhk9y-rc`
 
 ### Paso 5: Redeploy
