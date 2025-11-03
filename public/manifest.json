@@ -1,0 +1,10 @@
+{
+  "name": "Tienda RedParts",
+  "short_name": "RedParts",
+  "description": "Tienda de neumáticos y accesorios",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#dc2626",
+  "icons": []
+}

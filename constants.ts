@@ -30,6 +30,7 @@ export const DollarSignIcon: React.ReactElement = React.createElement("svg", { x
   React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V9m0 3v2m0 4.5V20m-5-11h10a2 2 0 012 2v2a2 2 0 01-2 2H7a2 2 0 01-2-2v-2a2 2 0 012-2z" })
 );
 
+// Default product image URL
 export const DEFAULT_PRODUCT_IMAGE_URL = 'https://via.placeholder.com/400x300.png?text=Neumático+RedParts';
 export const DEFAULT_BRAND_LOGO_URL = 'https://via.placeholder.com/100x50.png?text=Marca';
 export const DEFAULT_HERO_IMAGE_URL = 'https://images.unsplash.com/photo-1542282088-fe8426682b8f?ixlib=rb-4.0.3&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1920&h=600&fit=crop&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format';

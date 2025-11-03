@@ -11,7 +11,10 @@ export default defineConfig(({ mode }) => {
     return {
       server: {
         port: 3000,
-        host: '0.0.0.0',
+        host: 'localhost',
+        hmr: {
+          protocol: 'ws'
+        },
         // Proxy para redirigir /api a Vercel en desarrollo local
         proxy: {
           '/api': {
@@ -31,7 +34,24 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
-        }
-      }
+        },
+        extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json']
+      },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              // Separar React y ReactDOM en su propio chunk
+              'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+              // Separar Supabase en su propio chunk
+              'supabase-vendor': ['@supabase/supabase-js'],
+              // Separar xlsx en su propio chunk (solo se usa en admin)
+              'xlsx-vendor': ['xlsx'],
+            },
+          },
+        },
+        // Aumentar el límite de warning de chunk size (opcional)
+        chunkSizeWarningLimit: 1000,
+      },
     };
 });

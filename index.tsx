@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { HashRouter } from 'react-router-dom'; // Import HashRouter
+import { HashRouter } from 'react-router-dom';
 import App from './App';
 import { ToastProvider } from './contexts/ToastContext';
 
@@ -12,7 +12,7 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <HashRouter> {/* Wrap App with HashRouter */}
+    <HashRouter>
       <ToastProvider>
         <App />
       </ToastProvider>

@@ -99,16 +99,16 @@ const App: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        // Add timeout to prevent hanging
+        // Add timeout to prevent hanging - reducido a 3 segundos
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
 
-        const productsPromise = fetch(`${API_BASE_URL}/products`, { signal: controller.signal }).catch(() => null);
-        const brandsPromise = fetch(`${API_BASE_URL}/brands`, { signal: controller.signal }).catch(() => null);
-        const salesPromise = fetch(`${API_BASE_URL}/sales`, { signal: controller.signal }).catch(() => null);
-        const settingsPromise = fetch(`${API_BASE_URL}/settings`, { signal: controller.signal }).catch(() => null);
-        const menusPromise = fetch(`${API_BASE_URL}/menus`, { signal: controller.signal }).catch(() => null);
-        const categoriesPromise = fetch(`${API_BASE_URL}/categories`, { signal: controller.signal }).catch(() => null);
+        const productsPromise = fetch(`${API_BASE_URL}/products`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
+        const brandsPromise = fetch(`${API_BASE_URL}/brands`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
+        const salesPromise = fetch(`${API_BASE_URL}/sales`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
+        const settingsPromise = fetch(`${API_BASE_URL}/settings`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
+        const menusPromise = fetch(`${API_BASE_URL}/menus`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
+        const categoriesPromise = fetch(`${API_BASE_URL}/categories`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
 
         const [productsRes, brandsRes, salesRes, settingsRes, menusRes, categoriesRes] = await Promise.all([
           productsPromise, brandsPromise, salesPromise, settingsPromise, menusPromise, categoriesPromise
@@ -116,36 +116,11 @@ const App: React.FC = () => {
 
         clearTimeout(timeoutId);
 
-        // If any request failed or returned null, use fallback data
-        // Note: categories is optional, so we don't require it to be ok
+        // Si todas las peticiones fallan o timeout, usar datos predeterminados inmediatamente
         if (!productsRes || !productsRes.ok || !brandsRes || !brandsRes.ok || !salesRes || !salesRes.ok || 
             !settingsRes || !settingsRes.ok || !menusRes || !menusRes.ok) {
-          console.warn('⚠️ API no disponible. Verificando errores...');
-          
-          // Intentar obtener más información del error de products
-          if (productsRes && !productsRes.ok) {
-            try {
-              const errorData = await productsRes.json().catch(() => null);
-              if (errorData) {
-                console.error(`❌ Error en /products: ${productsRes.status} ${productsRes.statusText}`);
-                console.error('Detalles del error:', errorData);
-                if (errorData.hint) {
-                  console.warn('💡 Hint:', errorData.hint);
-                }
-              } else {
-                console.error(`❌ Error en /products: ${productsRes.status} ${productsRes.statusText}`);
-              }
-            } catch (parseError) {
-              console.error(`❌ Error en /products: ${productsRes.status} ${productsRes.statusText}`);
-            }
-          }
-          
-          if (isLocalhost) {
-            console.warn('💡 Desarrollo local detectado. Las APIs deberían redirigirse a Vercel automáticamente.');
-            console.warn('💡 URL de Vercel: https://tirescur.vercel.app');
-            console.warn('💡 Si ves este error, verifica que el servidor de desarrollo esté corriendo y reinícialo.');
-          }
-          throw new Error('API no disponible, usando datos predeterminados');
+          console.warn('⚠️ API no disponible o timeout. Usando datos predeterminados...');
+          throw new Error('API timeout o no disponible');
         }
 
         const fetchedProductsData = await productsRes.json();
@@ -197,20 +172,17 @@ const App: React.FC = () => {
         setDealZoneConfig(mappedSettings.dealZoneConfig);
 
       } catch (err: any) {
-        console.warn('Error fetching initial data:', err);
-        setError(`Error al cargar los datos iniciales: ${err.message || 'Error de red desconocido'}. Usando datos predeterminados.`);
-        // Fallback to default constants if API fails
-        setProducts(PRODUCTS_DATA as Product[]); // Cast as Product[] for consistency
-        setBrands(INITIAL_BRANDS_DATA as Brand[]); // Cast as Brand[]
-        setSales(INITIAL_SALES_DATA as Sale[]); // Cast as Sale[]
-        setMenus(DEFAULT_MENU_ITEMS as MenuItem[]); // Fallback for menus
-        setCategories(CATEGORIES_DATA); // Fallback for categories
+        console.warn('Error fetching initial data, usando datos predeterminados:', err);
+        // Fallback to default constants if API fails - sin mostrar error al usuario
+        setProducts(PRODUCTS_DATA as Product[]);
+        setBrands(INITIAL_BRANDS_DATA as Brand[]);
+        setSales(INITIAL_SALES_DATA as Sale[]);
+        setMenus(DEFAULT_MENU_ITEMS as MenuItem[]);
+        setCategories(CATEGORIES_DATA);
         setHeroImageUrl(DEFAULT_HERO_IMAGE_URL);
         setWhatsappPhoneNumber(DEFAULT_WHATSAPP_PHONE_NUMBER);
         setFooterContent(DEFAULT_FOOTER_CONTENT);
         setDealZoneConfig(DEFAULT_DEAL_ZONE_CONFIG);
-        // Don't show alert in development to avoid blocking the UI
-        // alert(`Error al cargar los datos iniciales del servidor. Puede que algunas funcionalidades no estén disponibles. Detalle: ${err.message}`);
       } finally {
         setLoading(false);
       }
@@ -674,16 +646,28 @@ const App: React.FC = () => {
   const totalItemsInCart = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   // Show loading spinner if data is not yet loaded
-  if (loading || products === null || brands === null || sales === null || menus === null || heroImageUrl === null || whatsappPhoneNumber === null || footerContent === null || dealZoneConfig === null) {
+  // Mostrar spinner solo si todavía está cargando y no hay datos predeterminados
+  if (loading && products === null && brands === null) {
     return <LoadingSpinner />;
   }
+  
+  // Usar valores predeterminados si los datos son null
+  const finalProducts = products || PRODUCTS_DATA as Product[];
+  const finalBrands = brands || INITIAL_BRANDS_DATA as Brand[];
+  const finalSales = sales || INITIAL_SALES_DATA as Sale[];
+  const finalMenus = menus || DEFAULT_MENU_ITEMS as MenuItem[];
+  const finalCategories = categories || CATEGORIES_DATA;
+  const finalHeroImageUrl = heroImageUrl || DEFAULT_HERO_IMAGE_URL;
+  const finalWhatsappPhoneNumber = whatsappPhoneNumber || DEFAULT_WHATSAPP_PHONE_NUMBER;
+  const finalFooterContent = footerContent || DEFAULT_FOOTER_CONTENT;
+  const finalDealZoneConfig = dealZoneConfig || DEFAULT_DEAL_ZONE_CONFIG;
 
   // Filter menus by location
-  const headerMenus = menus.filter(m => m.location === 'header-desktop').sort((a,b) => a.order - b.order);
-  const mobileMenus = menus.filter(m => m.location === 'mobile-navbar').sort((a,b) => a.order - b.order);
-  const adminMenus = menus.filter(m => m.location === 'admin-sidebar').sort((a,b) => a.order - b.order);
-  const footerInfoMenus = menus.filter(m => m.location === 'footer-info').sort((a,b) => a.order - b.order);
-  const footerAccountMenus = menus.filter(m => m.location === 'footer-account').sort((a,b) => a.order - b.order);
+  const headerMenus = finalMenus.filter(m => m.location === 'header-desktop').sort((a,b) => a.order - b.order);
+  const mobileMenus = finalMenus.filter(m => m.location === 'mobile-navbar').sort((a,b) => a.order - b.order);
+  const adminMenus = finalMenus.filter(m => m.location === 'admin-sidebar').sort((a,b) => a.order - b.order);
+  const footerInfoMenus = finalMenus.filter(m => m.location === 'footer-info').sort((a,b) => a.order - b.order);
+  const footerAccountMenus = finalMenus.filter(m => m.location === 'footer-account').sort((a,b) => a.order - b.order);
 
 
   return (
@@ -692,7 +676,7 @@ const App: React.FC = () => {
         <Header 
           toggleCart={toggleCart} 
           cartItems={cartItems} 
-          whatsappPhoneNumber={whatsappPhoneNumber} 
+          whatsappPhoneNumber={finalWhatsappPhoneNumber} 
           toggleSearchModal={toggleSearchModal} 
           headerMenus={headerMenus} // Pass header menus
         />
@@ -703,13 +687,13 @@ const App: React.FC = () => {
           <AdminSidebar adminMenus={adminMenus} /> {/* Pass admin menus */}
           <main className="flex-1 flex flex-col overflow-hidden">
             <Routes>
-              <Route path="/admin" element={<AdminDashboardPage totalProducts={products.length} />} />
+              <Route path="/admin" element={<AdminDashboardPage totalProducts={finalProducts.length} />} />
               <Route
                 path="/admin/products"
                 element={
                   <AdminProductManagementPage
-                    products={products}
-                    brands={brands}
+                    products={finalProducts}
+                    brands={finalBrands}
                     onAddProduct={addProduct}
                     onUpdateProduct={updateProduct}
                     onDeleteProduct={deleteProduct}
@@ -720,7 +704,7 @@ const App: React.FC = () => {
                 path="/admin/brands"
                 element={
                   <AdminBrandManagementPage
-                    brands={brands}
+                    brands={finalBrands}
                     onAddBrand={addBrand}
                     onUpdateBrand={updateBrand}
                     onDeleteBrand={deleteBrand}
@@ -731,25 +715,25 @@ const App: React.FC = () => {
                 path="/admin/prices"
                 element={
                   <AdminPriceManagementPage
-                    products={products}
-                    brands={brands} // Pass brands for new product creation lookup
+                    products={finalProducts}
+                    brands={finalBrands} // Pass brands for new product creation lookup
                     onUpdateProductsBulk={updateProductsBulk}
                     onAddProductsBulk={addProductsBulk} // New prop
                   />
                 }
               />
-              <Route path="/admin/sales" element={<AdminSalesPage salesData={sales} />} />
+              <Route path="/admin/sales" element={<AdminSalesPage salesData={finalSales} />} />
               <Route
                 path="/admin/settings"
                 element={
                   <AdminSettingsPage
-                    heroImageUrl={heroImageUrl}
+                    heroImageUrl={finalHeroImageUrl}
                     onUpdateHeroImage={handleUpdateHeroImage}
-                    whatsappPhoneNumber={whatsappPhoneNumber}
+                    whatsappPhoneNumber={finalWhatsappPhoneNumber}
                     onUpdatePhoneNumber={handleUpdatePhoneNumber}
-                    footerContent={footerContent}
+                    footerContent={finalFooterContent}
                     onUpdateFooterContent={handleUpdateFooterContent}
-                    dealZoneConfig={dealZoneConfig}
+                    dealZoneConfig={finalDealZoneConfig}
                     onUpdateDealZoneConfig={handleUpdateDealZoneConfig}
                   />
                 }
@@ -758,7 +742,7 @@ const App: React.FC = () => {
                 path="/admin/menus" // New route for menu management
                 element={
                   <AdminMenuManagementPage
-                    menus={menus}
+                    menus={finalMenus}
                     onAddMenu={addMenu}
                     onUpdateMenu={updateMenu}
                     onDeleteMenu={deleteMenu}
@@ -769,7 +753,7 @@ const App: React.FC = () => {
                 path="/admin/categories" // New route for category management
                 element={
                   <AdminCategoryManagementPage
-                    categories={categories || CATEGORIES_DATA}
+                    categories={finalCategories}
                   />
                 }
               />
@@ -784,10 +768,10 @@ const App: React.FC = () => {
               element={
                 <HomePage
                   onAddToCart={addToCart}
-                  heroImageUrl={heroImageUrl}
-                  whatsappPhoneNumber={whatsappPhoneNumber}
-                  dealZoneConfig={dealZoneConfig}
-                  products={products} // Pass all products for variations
+                  heroImageUrl={finalHeroImageUrl}
+                  whatsappPhoneNumber={finalWhatsappPhoneNumber}
+                  dealZoneConfig={finalDealZoneConfig}
+                  products={finalProducts} // Pass all products for variations
                   onInitiateOrder={initiateOrder}
                   onOpenProductSelectionModal={handleOpenProductSelectionModal} // Pass new prop
                 />
@@ -797,8 +781,8 @@ const App: React.FC = () => {
               path="/shop"
               element={
                 <ShopPage
-                  products={products}
-                  brands={brands}
+                  products={finalProducts}
+                  brands={finalBrands}
                   onAddToCart={addToCart}
                   onOpenProductSelectionModal={handleOpenProductSelectionModal}
                 />
@@ -808,7 +792,7 @@ const App: React.FC = () => {
         </main>
       )}
 
-      {!isAdminRoute && <Footer footerContent={footerContent} footerInfoMenus={footerInfoMenus} footerAccountMenus={footerAccountMenus} />} {/* Pass footer menus */}
+      {!isAdminRoute && <Footer footerContent={finalFooterContent} footerInfoMenus={footerInfoMenus} footerAccountMenus={footerAccountMenus} />} {/* Pass footer menus */}
 
       <SidebarCart
         isOpen={isCartOpen}
@@ -816,13 +800,13 @@ const App: React.FC = () => {
         cartItems={cartItems}
         updateQuantity={updateQuantity}
         removeFromCart={removeFromCart}
-        whatsappPhoneNumber={whatsappPhoneNumber}
+        whatsappPhoneNumber={finalWhatsappPhoneNumber}
         onInitiateOrder={initiateOrder}
       />
 
       {!isAdminRoute && <MobileNavbar toggleCart={toggleCart} totalItemsInCart={totalItemsInCart} toggleSearchModal={toggleSearchModal} mobileMenus={mobileMenus} />} {/* Pass mobile menus */}
 
-      <SearchModal isOpen={isSearchModalOpen} onClose={toggleSearchModal} products={products} />
+      <SearchModal isOpen={isSearchModalOpen} onClose={toggleSearchModal} products={finalProducts} />
 
       <CustomerInfoModal
         isOpen={isCustomerInfoModalOpen}
@@ -835,9 +819,9 @@ const App: React.FC = () => {
         isOpen={isProductSelectionModalOpen}
         onClose={handleCloseProductSelectionModal}
         product={selectedProductForModal} // The base product to display variations for
-        allProducts={products} // All products to find variations from
+        allProducts={finalProducts} // All products to find variations from
         onAddToCart={addToCart}
-        whatsappPhoneNumber={whatsappPhoneNumber}
+        whatsappPhoneNumber={finalWhatsappPhoneNumber}
         onInitiateOrder={initiateOrder}
       />
     </div>
