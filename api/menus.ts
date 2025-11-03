@@ -1,25 +1,143 @@
-import { IncomingMessage, ServerResponse } from 'http';
-import { getSupabaseAdmin } from '../lib/supabase';
-import { MenuItem } from '../types';
+import { parse } from 'url';
+import allowCors from '../lib/cors.js';
+import { ensureSupabase } from '../lib/supabase.js';
 import { DEFAULT_MENU_ITEMS } from '../constants';
 
-interface CustomRequest extends IncomingMessage {
-  query: {
-    id?: string;
+export default allowCors(async function handler(req, res) {
+  try {
+    const supabase = ensureSupabase();
+    await seedMenusIfNeeded(supabase);
+
+    const { query, pathname } = parse(req.url ?? '', true);
+
+    if (req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('*')
+        .order('order', { ascending: true });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      res.statusCode = 200;
+      res.json((data || []).map(toClientMenuItem));
+      return;
+    }
+
+    if (req.method === 'POST') {
+      const body = await parseBody(req);
+      const payload = mapMenuForInsert(body);
+
+      const { data, error } = await supabase
+        .from('menu_items')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message || 'Error creando menú');
+      }
+
+      res.statusCode = 201;
+      res.json(toClientMenuItem(data));
+      return;
+    }
+
+    if (req.method === 'PUT') {
+      const menuId = Array.isArray(query.id) ? query.id[0] : query.id;
+      if (!menuId) {
+        res.statusCode = 400;
+        res.json({ error: 'Menu ID is required for update' });
+        return;
+      }
+
+      const body = await parseBody(req);
+      const payload = mapMenuForInsert(body, false);
+
+      const { data, error } = await supabase
+        .from('menu_items')
+        .update(payload)
+        .eq('id', menuId)
+        .select()
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message || 'Error actualizando menú');
+      }
+
+      res.statusCode = 200;
+      res.json(toClientMenuItem(data));
+      return;
+    }
+
+    if (req.method === 'DELETE') {
+      const menuId = Array.isArray(query.id) ? query.id[0] : query.id;
+      if (!menuId) {
+        res.statusCode = 400;
+        res.json({ error: 'Menu ID is required for delete' });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('menu_items')
+        .delete()
+        .eq('id', menuId);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+
+    res.statusCode = 405;
+    res.json({ error: 'Método no permitido' });
+  } catch (error: any) {
+    console.error('[Menus API] Error en endpoint:', error);
+    res.statusCode = 500;
+    res.json({ message: error?.message || 'Error interno del servidor' });
+  }
+});
+
+async function seedMenusIfNeeded(supabase: any) {
+  const { count, error } = await supabase
+    .from('menu_items')
+    .select('*', { count: 'exact', head: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if ((count || 0) > 0) {
+    return;
+  }
+
+  const payload = DEFAULT_MENU_ITEMS.map((item) => mapMenuForInsert(item));
+  const { error: seedError } = await supabase.from('menu_items').insert(payload);
+  if (seedError) {
+    throw new Error(seedError.message);
+  }
+}
+
+function mapMenuForInsert(menu: any, requireName = true) {
+  if (requireName && !menu?.name) {
+    throw new Error('El nombre del menú es obligatorio');
+  }
+
+  return {
+    name: menu.name,
+    path: menu.path,
+    is_external: menu.isExternal || false,
+    order: menu.order || 0,
+    location: menu.location,
+    type: menu.type
   };
-  json: () => Promise<any>;
-  method?: string;
-  url?: string;
 }
 
-interface CustomResponse extends ServerResponse {
-  json: (data: any) => void;
-  setHeader(name: string, value: string | string[]): this;
-  statusCode: number;
-  end(cb?: () => void): this;
-}
-
-const toClientMenuItem = (row: any): MenuItem => {
+function toClientMenuItem(row: any) {
   return {
     id: row.id,
     name: row.name,
@@ -27,202 +145,27 @@ const toClientMenuItem = (row: any): MenuItem => {
     location: row.location,
     order: row.order,
     isExternal: row.is_external || false,
-    type: row.type,
+    type: row.type
   };
-};
-
-const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomResponse) => {
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
-  }
-  return await fn(req, res);
-};
-
-async function handler(req: CustomRequest, res: CustomResponse) {
-  try {
-    // Seeding logic
-    const { count: menuCount } = await supabase
-      .from('menu_items')
-      .select('*', { count: 'exact', head: true });
-
-    if (menuCount === 0) {
-      const menuItemsToInsert = DEFAULT_MENU_ITEMS.map(item => ({
-        name: item.name,
-        path: item.path,
-        is_external: item.isExternal || false,
-        order: item.order || 0,
-        location: item.location,
-        type: item.type,
-      }));
-
-      const { error } = await supabase
-        .from('menu_items')
-        .insert(menuItemsToInsert);
-
-      if (error) {
-        console.error('[Menus API] Error en seeding:', error);
-      }
-    }
-
-    switch (req.method) {
-      case 'GET': {
-        const { data: menus, error } = await supabase
-          .from('menu_items')
-          .select('*')
-          .order('order', { ascending: true });
-
-        if (error) {
-          console.error('[Menus API] Error obteniendo menús:', error);
-          res.statusCode = 500;
-          res.json({ message: 'Error obteniendo menús', error: error.message });
-          return;
-        }
-
-        const clientMenus = (menus || []).map(toClientMenuItem);
-        res.statusCode = 200;
-        res.json(clientMenus);
-        break;
-      }
-
-      case 'POST': {
-        const newMenuData: Omit<MenuItem, 'id'> = await req.json();
-        
-        const menuToInsert = {
-          name: newMenuData.name,
-          path: newMenuData.path,
-          is_external: newMenuData.isExternal || false,
-          order: newMenuData.order || 0,
-          location: newMenuData.location,
-          type: newMenuData.type,
-        };
-
-        const { data: insertedMenu, error } = await supabase
-          .from('menu_items')
-          .insert(menuToInsert)
-          .select()
-          .single();
-
-        if (error) {
-          console.error('[Menus API] Error creando menú:', error);
-          res.statusCode = 500;
-          res.json({ message: 'Error creando menú', error: error.message });
-          return;
-        }
-
-        if (!insertedMenu) {
-          res.statusCode = 500;
-          res.json({ message: 'Error creando menú' });
-          return;
-        }
-
-        const clientMenu = toClientMenuItem(insertedMenu);
-        res.statusCode = 201;
-        res.json(clientMenu);
-        break;
-      }
-
-      case 'PUT': {
-        const id = req.query.id;
-        if (!id) {
-          res.statusCode = 400;
-          res.json({ message: 'Menu ID is required for update' });
-          return;
-        }
-
-        const updatedMenuData: MenuItem = await req.json();
-        const { id: clientSideId, ...updateData } = updatedMenuData;
-
-        const menuToUpdate = {
-          name: updateData.name,
-          path: updateData.path,
-          is_external: updateData.isExternal || false,
-          order: updateData.order || 0,
-          location: updateData.location,
-          type: updateData.type,
-        };
-
-        const { data: updatedMenu, error } = await supabase
-          .from('menu_items')
-          .update(menuToUpdate)
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (error) {
-          console.error('[Menus API] Error actualizando menú:', error);
-          res.statusCode = 500;
-          res.json({ message: 'Error actualizando menú', error: error.message });
-          return;
-        }
-
-        if (!updatedMenu) {
-          res.statusCode = 404;
-          res.json({ message: 'Menu item not found' });
-          return;
-        }
-
-        const clientMenu = toClientMenuItem(updatedMenu);
-        res.statusCode = 200;
-        res.json(clientMenu);
-        break;
-      }
-
-      case 'DELETE': {
-        const idToDelete = req.query.id;
-        if (!idToDelete) {
-          res.statusCode = 400;
-          res.json({ message: 'Menu ID is required for delete' });
-          return;
-        }
-
-        const { error } = await supabase
-          .from('menu_items')
-          .delete()
-          .eq('id', idToDelete);
-
-        if (error) {
-          console.error('[Menus API] Error eliminando menú:', error);
-          res.statusCode = 500;
-          res.json({ message: 'Error eliminando menú', error: error.message });
-          return;
-        }
-
-        // Verificar si se eliminó
-        const { count } = await supabase
-          .from('menu_items')
-          .select('*', { count: 'exact', head: true })
-          .eq('id', idToDelete);
-
-        if (count === 0) {
-          res.statusCode = 204;
-          res.end();
-        } else {
-          res.statusCode = 404;
-          res.json({ message: 'Menu item not found' });
-        }
-        break;
-      }
-
-      default: {
-        res.statusCode = 405;
-        res.json({ message: 'Method Not Allowed' });
-        break;
-      }
-    }
-  } catch (error: any) {
-    console.error('Error in menus API:', error);
-    res.statusCode = 500;
-    res.json({ message: 'Internal server error', error: error.message });
-  }
 }
 
-export default allowCors(handler);
+async function parseBody(req: any) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk: string) => {
+      data += chunk;
+    });
+    req.on('end', () => {
+      if (!data) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(data));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on('error', (error: Error) => reject(error));
+  });
+}

@@ -30,12 +30,12 @@ He actualizado el código para que:
 Debes configurar **AMBAS** versiones de las variables en Vercel:
 
 #### Para Serverless Functions (Backend):
-- ✅ `SUPABASE_URL` = `https://hsidgfdcolglghowjwro.supabase.co`
+- ✅ `SUPABASE_URL` = `https://mpmqnmtlfocgxhyufgas.supabase.co`
 - ✅ `SUPABASE_ANON_KEY` = (tu anon key)
 - ✅ `SUPABASE_SERVICE_ROLE_KEY` = (tu service role key)
 
 #### Para Frontend (Cliente):
-- ✅ `VITE_SUPABASE_URL` = `https://hsidgfdcolglghowjwro.supabase.co`
+- ✅ `VITE_SUPABASE_URL` = `https://mpmqnmtlfocgxhyufgas.supabase.co`
 - ✅ `VITE_SUPABASE_ANON_KEY` = (tu anon key)
 
 ### Pasos para Configurar:
@@ -45,7 +45,7 @@ Debes configurar **AMBAS** versiones de las variables en Vercel:
 3. Ve a **Settings** → **Environment Variables**
 4. Agrega las siguientes variables **SIN el prefijo `VITE_`** para las funciones serverless:
    - **Name:** `SUPABASE_URL`
-   - **Value:** `https://hsidgfdcolglghowjwro.supabase.co`
+   - **Value:** `https://mpmqnmtlfocgxhyufgas.supabase.co`
    - **Environments:** Marca Production, Preview y Development
    
    - **Name:** `SUPABASE_ANON_KEY`
@@ -80,7 +80,7 @@ Debes configurar **AMBAS** versiones de las variables en Vercel:
 
 ## ✅ Cambios Realizados en el Código
 
-1. ✅ Actualizado `lib/supabase.ts` para detectar automáticamente si está en servidor o cliente
-2. ✅ Actualizado todas las APIs para usar `getSupabaseAdmin()` en lugar de importar directamente
-3. ✅ Las APIs ahora leen las variables correctas según el contexto (servidor/cliente)
+1. ✅ Se creó `lib/supabase.js` con `ensureSupabase()` para inicializar el cliente en serverless functions
+2. ✅ Todas las rutas en `/api/` usan la nueva plantilla (`allowCors`, `parseBody`, `ensureSupabase`)
+3. ✅ Las APIs y utilidades detectan variables con o sin prefijo (`SUPABASE_*`, `VITE_*`, `NEXT_PUBLIC_*`)
 

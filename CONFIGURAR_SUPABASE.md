@@ -59,25 +59,61 @@ npm install @supabase/supabase-js
 
 ## 🔧 Paso 5: Crear Cliente de Supabase
 
-Crea un archivo `lib/supabase.ts` (o similar):
+Crea un archivo `lib/supabase.js` con la configuración compatible con Vercel Functions:
 
-```typescript
+```javascript
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+function resolveEnv(names) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) return value;
+  }
+  return undefined;
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const SUPABASE_URL = resolveEnv([
+  'SUPABASE_URL',
+  'VITE_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_URL'
+]);
 
-// Cliente con service role (solo para uso en servidor)
-export const supabaseAdmin = createClient(
-  supabaseUrl,
-  import.meta.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey
-);
+const SUPABASE_ANON_KEY = resolveEnv([
+  'SUPABASE_ANON_KEY',
+  'VITE_SUPABASE_ANON_KEY',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY'
+]);
+
+const SUPABASE_SERVICE_ROLE_KEY = resolveEnv([
+  'SUPABASE_SERVICE_ROLE_KEY'
+]);
+
+let supabaseClient;
+
+if (SUPABASE_URL && (SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY)) {
+  supabaseClient = createClient(
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY,
+    {
+      auth: { persistSession: false, autoRefreshToken: false }
+    }
+  );
+} else {
+  console.warn('[supabase] Variables de entorno faltantes', {
+    SUPABASE_URL: !!SUPABASE_URL,
+    SUPABASE_ANON_KEY: !!SUPABASE_ANON_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: !!SUPABASE_SERVICE_ROLE_KEY
+  });
+}
+
+export const supabase = supabaseClient;
+
+export function ensureSupabase() {
+  if (!supabaseClient) {
+    throw new Error('Supabase credentials are not configured.');
+  }
+  return supabaseClient;
+}
 ```
 
 ## 🔐 Seguridad
@@ -114,8 +150,8 @@ Para verificar que todo funciona:
 
 ## 📚 Recursos
 
-- **Dashboard de Supabase**: https://hsidgfdcolglghowjwro.supabase.co
-- **SQL Editor**: https://hsidgfdcolglghowjwro.supabase.co/project/hsidgfdcolglghowjwro/sql
+- **Dashboard de Supabase**: https://mpmqnmtlfocgxhyufgas.supabase.co
+- **SQL Editor**: https://mpmqnmtlfocgxhyufgas.supabase.co/project/mpmqnmtlfocgxhyufgas/sql
 - [Documentación de Supabase](https://supabase.com/docs)
 
 ## 🆘 Troubleshooting
