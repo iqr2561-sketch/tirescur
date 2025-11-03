@@ -57,23 +57,7 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
     // Test 2: Conectar a Supabase
     try {
-      // Intentar obtener el cliente de Supabase
-      let supabase;
-      try {
-        supabase = getSupabaseAdmin();
-        results.tests.push({
-          test: 'Inicialización del cliente Supabase',
-          status: '✅ OK',
-          details: 'Cliente de Supabase inicializado correctamente'
-        });
-      } catch (initError: any) {
-        results.tests.push({
-          test: 'Inicialización del cliente Supabase',
-          status: '❌ ERROR',
-          details: initError.message || 'Error al inicializar cliente de Supabase'
-        });
-        throw initError;
-      }
+      const supabase = getSupabaseAdmin();
       
       // Test 3: Listar tablas (products como ejemplo)
       const { data: products, error: productsError } = await supabase
@@ -128,16 +112,10 @@ async function handler(req: CustomRequest, res: CustomResponse) {
       });
 
     } catch (error: any) {
-      console.error('[Test Connection] Error general:', error);
-      console.error('[Test Connection] Error stack:', error?.stack);
-      console.error('[Test Connection] Error name:', error?.name);
-      
       results.tests.push({
         test: 'Conexión a Supabase',
         status: '❌ ERROR',
-        details: error?.message || error?.toString() || 'Error desconocido al conectar',
-        errorType: error?.name || 'UnknownError',
-        errorDetails: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+        details: error.message || 'Error desconocido'
       });
     }
 
@@ -149,26 +127,12 @@ async function handler(req: CustomRequest, res: CustomResponse) {
     res.statusCode = 200;
     res.json(results);
   } catch (error: any) {
-    console.error('[Test Connection API] Error general:', error);
-    console.error('[Test Connection API] Error stack:', error?.stack);
-    console.error('[Test Connection API] Error name:', error?.name);
-    console.error('[Test Connection API] Variables disponibles:', {
-      SUPABASE_URL: !!process.env.SUPABASE_URL,
-      NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
-      SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
-      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    });
-    
+    console.error('Error in test-connection API:', error);
     res.statusCode = 500;
     res.json({
       error: 'Internal server error',
-      message: error?.message || error?.toString() || 'Error desconocido',
-      errorType: error?.name || 'UnknownError',
-      hint: 'Revisa los logs de Vercel para más detalles. Verifica que las variables SUPABASE_URL, SUPABASE_ANON_KEY y SUPABASE_SERVICE_ROLE_KEY estén configuradas.',
-      stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
