@@ -2,29 +2,49 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Función helper para obtener las variables de entorno
 // En Vercel serverless functions, las variables VITE_ no están disponibles
-// Necesitamos usar las variables sin prefijo VITE_ en el servidor
+// Necesitamos usar las variables sin prefijo VITE_ o NEXT_PUBLIC_ en el servidor
 function getEnvVars() {
   const isServer = typeof window === 'undefined';
   
-  // En el servidor (serverless functions), usar variables sin VITE_
-  // En el cliente (frontend), usar VITE_ variables
+  // En el servidor (serverless functions), usar variables sin prefijo o NEXT_PUBLIC_
+  // En el cliente (frontend), usar VITE_ o NEXT_PUBLIC_ variables
   const supabaseUrl = isServer
-    ? (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '')
-    : (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '');
+    ? (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '')
+    : (process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '');
     
   const supabaseAnonKey = isServer
-    ? (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '')
-    : (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '');
+    ? (process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '')
+    : (process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '');
     
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   if (!supabaseUrl || !supabaseAnonKey) {
     const missing = [];
-    if (!supabaseUrl) missing.push(isServer ? 'SUPABASE_URL' : 'VITE_SUPABASE_URL');
-    if (!supabaseAnonKey) missing.push(isServer ? 'SUPABASE_ANON_KEY' : 'VITE_SUPABASE_ANON_KEY');
+    if (!supabaseUrl) {
+      if (isServer) {
+        missing.push('SUPABASE_URL o NEXT_PUBLIC_SUPABASE_URL');
+      } else {
+        missing.push('VITE_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_URL');
+      }
+    }
+    if (!supabaseAnonKey) {
+      if (isServer) {
+        missing.push('SUPABASE_ANON_KEY o NEXT_PUBLIC_SUPABASE_ANON_KEY');
+      } else {
+        missing.push('VITE_SUPABASE_ANON_KEY o NEXT_PUBLIC_SUPABASE_ANON_KEY');
+      }
+    }
     
     console.error('❌ Variables de entorno de Supabase no configuradas');
     console.error(`Se requieren en ${isServer ? 'servidor' : 'cliente'}:`, missing.join(', '));
+    console.error('Variables disponibles:', {
+      SUPABASE_URL: !!process.env.SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+      SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
+    });
     
     // En el servidor, no lanzar error inmediatamente, sino retornar null para manejar después
     if (isServer) {
@@ -69,11 +89,13 @@ export function getSupabaseAdmin(): SupabaseClient {
       console.error('❌ No se pueden inicializar las credenciales de Supabase en el servidor');
       console.error('Variables disponibles:', {
         SUPABASE_URL: !!process.env.SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
         VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
         SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
       });
-      throw new Error('Supabase credentials are not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY (or VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY) in Vercel environment variables.');
+      throw new Error('Supabase credentials are not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY) in Vercel environment variables.');
     }
     
     supabaseAdminClient = createClient(
