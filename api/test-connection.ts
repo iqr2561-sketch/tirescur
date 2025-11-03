@@ -35,10 +35,23 @@ const allowCors = async (fn: (req: CustomRequest, res: CustomResponse) => Promis
 
 async function handler(req: CustomRequest, res: CustomResponse) {
   try {
+    // Logging para debug
+    console.log('[test-connection] Iniciando test de conexión');
+    console.log('[test-connection] Variables disponibles:', {
+      SUPABASE_URL: !!process.env.SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+      SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
+      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    });
+    
     const results: any = {
       timestamp: new Date().toISOString(),
       supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL ? '✅ Configurada' : '❌ NO configurada',
       supabaseKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY ? '✅ Configurada' : '❌ NO configurada',
+      supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Configurada' : '❌ NO configurada',
       tests: []
     };
 
@@ -57,7 +70,22 @@ async function handler(req: CustomRequest, res: CustomResponse) {
 
     // Test 2: Conectar a Supabase
     try {
-      const supabase = getSupabaseAdmin();
+      // Intentar inicializar Supabase con manejo de errores mejorado
+      let supabase;
+      try {
+        supabase = getSupabaseAdmin();
+      } catch (initError: any) {
+        results.tests.push({
+          test: 'Inicialización de Supabase',
+          status: '❌ ERROR',
+          details: initError.message || 'Error al inicializar cliente de Supabase. Verifica las variables de entorno.'
+        });
+        // Continuar con los otros tests aunque falle la inicialización
+        res.statusCode = 200;
+        results.summary = 'Algunos tests fallaron';
+        res.json(results);
+        return;
+      }
       
       // Test 3: Listar tablas (products como ejemplo)
       const { data: products, error: productsError } = await supabase
@@ -68,7 +96,9 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         results.tests.push({
           test: 'Conexión a Supabase',
           status: '❌ ERROR',
-          details: productsError.message || 'Error desconocido al conectar'
+          details: productsError.message || 'Error desconocido al conectar',
+          errorCode: productsError.code,
+          errorHint: productsError.hint
         });
       } else {
         results.tests.push({
@@ -78,44 +108,49 @@ async function handler(req: CustomRequest, res: CustomResponse) {
         });
       }
 
-      // Test 4: Contar productos
-      const { count: productCount } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true });
+      // Test 4: Contar productos (solo si la conexión fue exitosa)
+      if (!productsError) {
+        const { count: productCount } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true });
 
-      results.tests.push({
-        test: 'Productos en base de datos',
-        status: productCount && productCount > 0 ? '✅ OK' : '⚠️ VACÍA',
-        details: `${productCount || 0} productos encontrados`
-      });
+        results.tests.push({
+          test: 'Productos en base de datos',
+          status: productCount && productCount > 0 ? '✅ OK' : '⚠️ VACÍA',
+          details: `${productCount || 0} productos encontrados`
+        });
 
-      // Test 5: Contar marcas
-      const { count: brandCount } = await supabase
-        .from('brands')
-        .select('*', { count: 'exact', head: true });
+        // Test 5: Contar marcas
+        const { count: brandCount } = await supabase
+          .from('brands')
+          .select('*', { count: 'exact', head: true });
 
-      results.tests.push({
-        test: 'Marcas en base de datos',
-        status: brandCount && brandCount > 0 ? '✅ OK' : '⚠️ VACÍA',
-        details: `${brandCount || 0} marcas encontradas`
-      });
+        results.tests.push({
+          test: 'Marcas en base de datos',
+          status: brandCount && brandCount > 0 ? '✅ OK' : '⚠️ VACÍA',
+          details: `${brandCount || 0} marcas encontradas`
+        });
 
-      // Test 6: Contar categorías
-      const { count: categoryCount } = await supabase
-        .from('categories')
-        .select('*', { count: 'exact', head: true });
+        // Test 6: Contar categorías
+        const { count: categoryCount } = await supabase
+          .from('categories')
+          .select('*', { count: 'exact', head: true });
 
-      results.tests.push({
-        test: 'Categorías en base de datos',
-        status: categoryCount && categoryCount > 0 ? '✅ OK' : '⚠️ VACÍA',
-        details: `${categoryCount || 0} categorías encontradas`
-      });
+        results.tests.push({
+          test: 'Categorías en base de datos',
+          status: categoryCount && categoryCount > 0 ? '✅ OK' : '⚠️ VACÍA',
+          details: `${categoryCount || 0} categorías encontradas`
+        });
+      }
 
     } catch (error: any) {
+      console.error('[test-connection] Error:', error);
+      console.error('[test-connection] Error stack:', error.stack);
       results.tests.push({
         test: 'Conexión a Supabase',
         status: '❌ ERROR',
-        details: error.message || 'Error desconocido'
+        details: error.message || 'Error desconocido',
+        errorType: error.name || 'UnknownError'
       });
     }
 

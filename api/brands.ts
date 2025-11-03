@@ -1,317 +1,188 @@
-import { IncomingMessage, ServerResponse } from 'http';
-import { getSupabaseAdmin } from '../lib/supabase';
-import { Brand } from '../types';
+import { parse } from 'url';
+import allowCors from '../lib/cors.js';
+import { ensureSupabase } from '../lib/supabase.js';
 import { INITIAL_BRANDS_DATA } from '../constants';
+import { Brand } from '../types';
 
-interface CustomRequest extends IncomingMessage {
-  query: {
-    id?: string;
-  };
-  json: () => Promise<any>;
-  method?: string;
-  url?: string;
-}
-
-interface CustomResponse extends ServerResponse {
-  json: (data: any) => void;
-  setHeader(name: string, value: string | string[]): this;
-  statusCode: number;
-  end(cb?: () => void): this;
-}
-
-const toClientBrand = (row: any): Brand => {
-  return {
-    id: row.id,
-    name: row.name,
-    logoUrl: row.logo_url || '',
-  };
-};
-
-const allowCors = (fn: Function) => async (req: CustomRequest, res: CustomResponse) => {
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
-  }
-  return await fn(req, res);
-};
-
-async function handler(req: CustomRequest, res: CustomResponse) {
+export default allowCors(async function handler(req, res) {
   try {
-    console.log(`[Brands API] ${req.method} request recibida`);
-    
-    // Verificar configuración antes de usar Supabase
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    
-    console.log('[Brands API] Variables de entorno:', {
-      SUPABASE_URL: !!supabaseUrl,
-      SUPABASE_ANON_KEY: !!supabaseAnonKey,
-      SUPABASE_SERVICE_ROLE_KEY: !!supabaseServiceRoleKey,
-      usandoServiceRole: !!supabaseServiceRoleKey
-    });
-    
-    const supabase = getSupabaseAdmin();
+    const supabase = ensureSupabase();
+    await seedBrandsIfNeeded(supabase);
 
-    // Seeding logic
-    const { count: brandCount } = await supabase
-      .from('brands')
-      .select('*', { count: 'exact', head: true });
+    const { query } = parse(req.url ?? '', true);
 
-    console.log(`[Brands API] Marcas en base de datos: ${brandCount || 0}`);
-    if (brandCount === 0) {
-      console.log('[Brands API] Iniciando seeding de datos...');
-      const brandsToInsert = INITIAL_BRANDS_DATA.map(brand => ({
-        name: brand.name,
-        logo_url: brand.logoUrl,
-      }));
-
-      const { error } = await supabase
+    if (req.method === 'GET') {
+      const { data, error } = await supabase
         .from('brands')
-        .insert(brandsToInsert);
+        .select('*')
+        .order('name');
 
       if (error) {
-        console.error('[Brands API] Error en seeding:', error);
-      } else {
-        console.log(`[Brands API] ✅ ${brandsToInsert.length} marcas insertadas`);
-      }
-    }
-
-    switch (req.method) {
-      case 'GET': {
-        const { data: brands, error } = await supabase
-          .from('brands')
-          .select('*')
-          .order('name');
-
-        if (error) {
-          console.error('[Brands API] Error obteniendo marcas:', error);
-          res.statusCode = 500;
-          res.json({ message: 'Error obteniendo marcas', error: error.message });
-          return;
-        }
-
-        const clientBrands = (brands || []).map(toClientBrand);
-        res.statusCode = 200;
-        res.json(clientBrands);
-        break;
+        throw new Error(error.message);
       }
 
-      case 'POST': {
-        try {
-          console.log('[Brands API] POST request iniciada');
-          const newBrandData: Omit<Brand, 'id'> = await req.json();
-          console.log('[Brands API] Datos recibidos:', JSON.stringify(newBrandData));
-          
-          // Validar datos
-          if (!newBrandData.name || !newBrandData.name.trim()) {
-            res.statusCode = 400;
-            res.json({ message: 'El nombre de la marca es obligatorio.' });
-            return;
-          }
-
-          // Verificar conexión y configuración de Supabase
-          console.log('[Brands API] Verificando configuración de Supabase...');
-          const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-          const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-          console.log('[Brands API] Supabase URL configurada:', !!supabaseUrl);
-          console.log('[Brands API] Supabase Key configurada:', !!supabaseKey);
-
-          // Verificar si ya existe una marca con el mismo nombre
-          console.log('[Brands API] Verificando marca existente...');
-          const { data: existingBrand, error: checkError } = await supabase
-            .from('brands')
-            .select('*')
-            .eq('name', newBrandData.name.trim())
-            .maybeSingle();
-
-          if (checkError) {
-            console.error('[Brands API] Error verificando marca existente:', checkError);
-          }
-
-          if (existingBrand) {
-            res.statusCode = 409;
-            res.json({ 
-              message: 'Ya existe una marca con ese nombre.', 
-              brand: toClientBrand(existingBrand) 
-            });
-            return;
-          }
-
-          const brandToInsert = {
-            name: newBrandData.name.trim(),
-            logo_url: newBrandData.logoUrl || '',
-          };
-
-          console.log('[Brands API] Insertando marca:', JSON.stringify(brandToInsert));
-          const { data: insertedBrand, error } = await supabase
-            .from('brands')
-            .insert(brandToInsert)
-            .select()
-            .single();
-
-          if (error) {
-            console.error('[Brands API] Error creando marca:', error);
-            console.error('[Brands API] Error code:', error.code);
-            console.error('[Brands API] Error details:', error.details);
-            console.error('[Brands API] Error hint:', error.hint);
-            res.statusCode = 500;
-            res.json({ 
-              message: 'Error al crear la marca.', 
-              error: error.message,
-              errorCode: error.code,
-              errorDetails: error.details,
-              errorHint: error.hint,
-              hint: 'Verifica que la tabla brands exista y que tengas permisos de escritura. Revisa los logs del servidor para más detalles.'
-            });
-            return;
-          }
-
-          if (!insertedBrand) {
-            console.error('[Brands API] No se devolvió ningún dato después del insert');
-            res.statusCode = 500;
-            res.json({ 
-              message: 'Error al crear la marca.',
-              hint: 'La inserción no devolvió datos. Verifica que la tabla exista y tenga los permisos correctos.'
-            });
-            return;
-          }
-
-          console.log('[Brands API] Marca creada exitosamente:', insertedBrand.id);
-          const clientBrand = toClientBrand(insertedBrand);
-          res.statusCode = 201;
-          res.json(clientBrand);
-        } catch (error: any) {
-          console.error('[Brands API] Error en POST:', error);
-          console.error('[Brands API] Error stack:', error.stack);
-          console.error('[Brands API] Error name:', error.name);
-          res.statusCode = 500;
-          res.json({ 
-            message: 'Error al crear la marca.', 
-            error: error.message,
-            errorType: error.name,
-            hint: 'Verifica que todos los campos requeridos estén presentes y sean válidos. Revisa los logs del servidor para más detalles.'
-          });
-        }
-        break;
-      }
-
-      case 'PUT': {
-        const id = req.query.id;
-        if (!id) {
-          res.statusCode = 400;
-          res.json({ message: 'Brand ID is required for update' });
-          return;
-        }
-
-        const updatedBrandData: Brand = await req.json();
-        const { id: clientSideId, ...updateData } = updatedBrandData;
-
-        const dataToUpdate = {
-          name: updateData.name.trim(),
-          logo_url: updateData.logoUrl || '',
-        };
-
-        const { data: updatedBrand, error } = await supabase
-          .from('brands')
-          .update(dataToUpdate)
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (error) {
-          console.error('[Brands API] Error actualizando marca:', error);
-          res.statusCode = 500;
-          res.json({ message: 'Error actualizando marca', error: error.message });
-          return;
-        }
-
-        if (!updatedBrand) {
-          res.statusCode = 404;
-          res.json({ message: 'Brand not found' });
-          return;
-        }
-
-        const clientBrand = toClientBrand(updatedBrand);
-        res.statusCode = 200;
-        res.json(clientBrand);
-        break;
-      }
-
-      case 'DELETE': {
-        const idToDelete = req.query.id;
-        if (!idToDelete) {
-          res.statusCode = 400;
-          res.json({ message: 'Brand ID is required for delete' });
-          return;
-        }
-
-        const { error } = await supabase
-          .from('brands')
-          .delete()
-          .eq('id', idToDelete);
-
-        if (error) {
-          console.error('[Brands API] Error eliminando marca:', error);
-          res.statusCode = 500;
-          res.json({ message: 'Error eliminando marca', error: error.message });
-          return;
-        }
-
-        // Verificar si se eliminó
-        const { count } = await supabase
-          .from('brands')
-          .select('*', { count: 'exact', head: true })
-          .eq('id', idToDelete);
-
-        if (count === 0) {
-          res.statusCode = 204;
-          res.end();
-        } else {
-          res.statusCode = 404;
-          res.json({ message: 'Brand not found' });
-        }
-        break;
-      }
-
-      default: {
-        res.statusCode = 405;
-        res.json({ message: 'Method Not Allowed' });
-        break;
-      }
-    }
-  } catch (error: any) {
-    console.error('❌ Error in brands API:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Error name:', error.name);
-
-    // Verificar configuración de Supabase
-    if (!process.env.VITE_SUPABASE_URL && !process.env.SUPABASE_URL) {
-      res.statusCode = 503;
-      res.json({ 
-        message: 'Servicio no disponible: Supabase no configurado', 
-        error: 'VITE_SUPABASE_URL or SUPABASE_URL environment variable is not set',
-        hint: 'Por favor, configura la variable de entorno VITE_SUPABASE_URL en Vercel'
-      });
+      const formatted = (data || []).map(toClientBrand);
+      res.statusCode = 200;
+      res.json(formatted);
       return;
     }
 
+    if (req.method === 'POST') {
+      const body = (await parseBody(req)) as Omit<Brand, 'id'>;
+
+      if (!body?.name?.trim()) {
+        res.statusCode = 400;
+        res.json({ error: 'El nombre de la marca es obligatorio' });
+        return;
+      }
+
+      const existing = await supabase
+        .from('brands')
+        .select('*')
+        .eq('name', body.name.trim())
+        .maybeSingle();
+
+      if (existing.data) {
+        res.statusCode = 409;
+        res.json({
+          error: 'Ya existe una marca con ese nombre',
+          brand: toClientBrand(existing.data)
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('brands')
+        .insert({
+          name: body.name.trim(),
+          logo_url: body.logoUrl || ''
+        })
+        .select()
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message || 'Error al crear la marca');
+      }
+
+      res.statusCode = 201;
+      res.json(toClientBrand(data));
+      return;
+    }
+
+    if (req.method === 'PUT') {
+      const brandId = Array.isArray(query.id) ? query.id[0] : query.id;
+      if (!brandId) {
+        res.statusCode = 400;
+        res.json({ error: 'Brand ID is required for update' });
+        return;
+      }
+
+      const body = (await parseBody(req)) as Brand;
+      if (!body?.name?.trim()) {
+        res.statusCode = 400;
+        res.json({ error: 'El nombre de la marca es obligatorio' });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('brands')
+        .update({
+          name: body.name.trim(),
+          logo_url: body.logoUrl || ''
+        })
+        .eq('id', brandId)
+        .select()
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message || 'Error actualizando la marca');
+      }
+
+      res.statusCode = 200;
+      res.json(toClientBrand(data));
+      return;
+    }
+
+    if (req.method === 'DELETE') {
+      const brandId = Array.isArray(query.id) ? query.id[0] : query.id;
+      if (!brandId) {
+        res.statusCode = 400;
+        res.json({ error: 'Brand ID is required for delete' });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('brands')
+        .delete()
+        .eq('id', brandId);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+
+    res.statusCode = 405;
+    res.json({ error: 'Método no permitido' });
+  } catch (error: any) {
+    console.error('[Brands API] Error en endpoint:', error);
     res.statusCode = 500;
-    res.json({ 
-      message: 'Error interno del servidor',
-      error: error.message || 'Error desconocido',
-      type: error.name || 'UnknownError',
-      hint: 'Revisa los logs del servidor para más detalles'
-    });
+    res.json({ message: error?.message || 'Error interno del servidor' });
+  }
+});
+
+async function seedBrandsIfNeeded(supabase: any) {
+  const { count, error } = await supabase
+    .from('brands')
+    .select('*', { count: 'exact', head: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if ((count || 0) > 0) {
+    return;
+  }
+
+  const seedPayload = INITIAL_BRANDS_DATA.map((brand) => ({
+    name: brand.name,
+    logo_url: brand.logoUrl
+  }));
+
+  const { error: seedError } = await supabase.from('brands').insert(seedPayload);
+  if (seedError) {
+    throw new Error(seedError.message);
   }
 }
 
-export default allowCors(handler);
+function toClientBrand(row: any): Brand {
+  return {
+    id: row.id,
+    name: row.name,
+    logoUrl: row.logo_url || ''
+  };
+}
+
+async function parseBody<T>(req: any): Promise<T> {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk: string) => {
+      data += chunk;
+    });
+    req.on('end', () => {
+      if (!data) {
+        resolve({} as T);
+        return;
+      }
+      try {
+        resolve(JSON.parse(data));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on('error', (error: Error) => reject(error));
+  });
+}
