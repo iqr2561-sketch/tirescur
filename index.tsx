@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
+import './index.css'; // Importar estilos de Tailwind CSS
 import App from './App';
 import { ToastProvider } from './contexts/ToastContext';
 
