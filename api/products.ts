@@ -1,13 +1,11 @@
 import { parse } from 'url';
 import allowCors from '../lib/cors.js';
 import { ensureSupabase } from '../lib/supabase.js';
-import { INITIAL_BRANDS_DATA, PRODUCTS_DATA } from '../constants.server.js';
 import { Product } from '../types';
 
 export default allowCors(async function handler(req, res) {
   try {
     const supabase = ensureSupabase();
-    await seedProductsIfNeeded(supabase);
 
     const { query, pathname } = parse(req.url ?? '', true);
 
@@ -150,50 +148,6 @@ export default allowCors(async function handler(req, res) {
     res.json({ message: error?.message || 'Error interno del servidor' });
   }
 });
-
-async function seedProductsIfNeeded(supabase: any) {
-  const { count, error } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if ((count || 0) > 0) {
-    return;
-  }
-
-  const { count: brandCount, error: brandCountError } = await supabase
-    .from('brands')
-    .select('*', { count: 'exact', head: true });
-
-  if (brandCountError) {
-    throw new Error(brandCountError.message);
-  }
-
-  if ((brandCount || 0) === 0) {
-    const brandPayload = INITIAL_BRANDS_DATA.map((brand) => ({
-      name: brand.name,
-      logo_url: brand.logoUrl
-    }));
-    const { error: seedBrandsError } = await supabase.from('brands').insert(brandPayload);
-    if (seedBrandsError) {
-      throw new Error(seedBrandsError.message);
-    }
-  }
-
-  const { data: brands } = await supabase.from('brands').select('*');
-  const productPayload = PRODUCTS_DATA.map((product) => {
-    const brand = brands?.find((item: any) => item.name === product.brand);
-    return mapProductForInsert(product, brand);
-  });
-
-  const { error: seedProductsError } = await supabase.from('products').insert(productPayload);
-  if (seedProductsError) {
-    throw new Error(seedProductsError.message);
-  }
-}
 
 async function updateSingleProduct(supabase: any, productId: string, product: Product) {
   let brandId = product.brandId || null;

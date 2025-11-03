@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { DEFAULT_PRODUCT_IMAGE_URL } from '../constants';
 import { Product } from '../types';
 import Modal from './Modal';
+import { useToast } from '../contexts/ToastContext';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, products }) 
   const [suggestions, setSuggestions] = useState<Product[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const { showInfo } = useToast();
 
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
@@ -60,14 +62,14 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, products }) 
     setShowSuggestions(false);
     onClose();
     console.log('Selected product:', product.name);
-    alert(`Producto seleccionado: ${product.name}`);
+    showInfo(`Producto seleccionado: ${product.name}`);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
       console.log('Performing full search for:', searchTerm);
-      alert(`Buscando: ${searchTerm}`);
+      showInfo(`Buscando: ${searchTerm}`);
       setSuggestions([]);
       setShowSuggestions(false);
       onClose();

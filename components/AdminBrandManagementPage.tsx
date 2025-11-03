@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Brand } from '../types';
 import Modal from '../components/Modal';
 import { DEFAULT_BRAND_LOGO_URL } from '../constants';
+import { useToast } from '../contexts/ToastContext';
 
 interface AdminBrandManagementPageProps {
   brands: Brand[];
@@ -22,6 +23,8 @@ const AdminBrandManagementPage: React.FC<AdminBrandManagementPageProps> = ({
     name: '',
     logoUrl: '',
   });
+
+  const { showWarning } = useToast();
 
   const getInputFieldClasses = () => `
     mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-500 focus:border-red-500
@@ -55,7 +58,7 @@ const AdminBrandManagementPage: React.FC<AdminBrandManagementPageProps> = ({
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      alert('El nombre de la marca es obligatorio.');
+      showWarning('El nombre de la marca es obligatorio.');
       return;
     }
 
@@ -76,7 +79,7 @@ const AdminBrandManagementPage: React.FC<AdminBrandManagementPageProps> = ({
     }
 
     handleCloseModal();
-  }, [formData, editingBrand, onAddBrand, onUpdateBrand, handleCloseModal]);
+  }, [formData, editingBrand, onAddBrand, onUpdateBrand, handleCloseModal, showWarning]);
 
   const handleDeleteBrand = useCallback((id: string) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar esta marca?')) {

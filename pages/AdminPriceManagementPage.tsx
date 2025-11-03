@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Product, ExcelProductRow, Brand } from '../types';
 import * as XLSX from 'xlsx'; // Assuming xlsx is available, e.g., via importmap or bundling
 import { DEFAULT_PRODUCT_IMAGE_URL, DEFAULT_BRAND_LOGO_URL } from '../constants';
+import { useToast } from '../contexts/ToastContext';
 
 
 interface AdminPriceManagementPageProps {
@@ -32,6 +33,8 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
   const [excelStatus, setExcelStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [excelMessage, setExcelMessage] = useState('');
 
+  const { showWarning } = useToast();
+
   const getInputFieldClasses = () => `
     mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-500 focus:border-red-500
     bg-white text-gray-900 placeholder:text-gray-500
@@ -47,7 +50,7 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
     const percentValue = parseFloat(percentage);
 
     if (isNaN(percentValue) || percentValue === 0) {
-      alert('Por favor, introduce un porcentaje válido (ej. 10 para +10%, -5 para -5%).');
+      showWarning('Por favor, introduce un porcentaje válido (ej. 10 para +10%, -5 para -5%).');
       return;
     }
 
@@ -62,9 +65,9 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
     }));
 
     await onUpdateProductsBulk(updatedProducts);
-    // onUpdateProductsBulk already handles alerting
+    // onUpdateProductsBulk ya gestiona los mensajes
     setPercentage('');
-  }, [percentage, products, onUpdateProductsBulk]);
+  }, [percentage, products, onUpdateProductsBulk, showWarning]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -79,7 +82,7 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
   const handleUploadExcel = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
-      alert('Por favor, selecciona un archivo Excel/CSV para subir.');
+      showWarning('Por favor, selecciona un archivo Excel/CSV para subir.');
       return;
     }
 
@@ -203,7 +206,7 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
       }
     };
     reader.readAsArrayBuffer(file);
-  }, [file, products, brands, onUpdateProductsBulk, onAddProductsBulk]);
+  }, [file, products, brands, onUpdateProductsBulk, onAddProductsBulk, showWarning]);
 
   return (
     <div className="flex-1 p-8 bg-gray-100 overflow-auto dark:bg-gray-900">

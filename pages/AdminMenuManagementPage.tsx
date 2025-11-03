@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { MenuItem } from '../types';
 import Modal from '../components/Modal';
+import { useToast } from '../contexts/ToastContext';
 
 interface AdminMenuManagementPageProps {
   menus: MenuItem[];
@@ -85,15 +86,17 @@ const AdminMenuManagementPage: React.FC<AdminMenuManagementPageProps> = ({
     }));
   }, []);
 
+  const { showWarning } = useToast();
+
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.name.trim() || !formData.path.trim()) {
-      alert('Nombre y Ruta son obligatorios.');
+      showWarning('Nombre y ruta son obligatorios.');
       return;
     }
     if (isNaN(formData.order)) {
-      alert('El orden debe ser un número.');
+      showWarning('El orden debe ser un número.');
       return;
     }
 
@@ -114,7 +117,7 @@ const AdminMenuManagementPage: React.FC<AdminMenuManagementPageProps> = ({
     }
 
     handleCloseModal();
-  }, [formData, editingMenu, onAddMenu, onUpdateMenu, handleCloseModal]);
+  }, [formData, editingMenu, onAddMenu, onUpdateMenu, handleCloseModal, showWarning]);
 
   const handleDeleteMenu = useCallback((id: string) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este elemento de menú?')) {

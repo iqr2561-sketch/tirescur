@@ -3,7 +3,7 @@ import HeroSearch from '../components/HeroSearch';
 import ProductCard from '../components/ProductCard';
 import DealZoneTimer from '../components/DealZoneTimer';
 import CategoryCarousel from '../components/CategoryCarousel';
-import { Product, DealZoneConfig } from '../types';
+import { Product, DealZoneConfig, Category } from '../types';
 
 interface HomePageProps {
   onAddToCart: (product: Product) => void;
@@ -11,11 +11,12 @@ interface HomePageProps {
   whatsappPhoneNumber: string;
   dealZoneConfig: DealZoneConfig;
   products: Product[]; // New prop for all products
+  categories: Category[];
   onInitiateOrder: (products: { productId: string; name: string; quantity: number; price: number; }[], total: number) => void;
   onOpenProductSelectionModal: (product: Product) => void; // New prop
 }
 
-const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsappPhoneNumber, dealZoneConfig, products, onInitiateOrder, onOpenProductSelectionModal }) => {
+const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsappPhoneNumber, dealZoneConfig, products, categories, onInitiateOrder, onOpenProductSelectionModal }) => {
   // Use the products passed as props
   const featuredProducts = products.slice(0, 5); // Example: Take first 5 for featured
   const newArrivals = products.slice(5, 10); // Example: Take next 5 for new arrivals
@@ -95,7 +96,7 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
         onOpenProductSelectionModal={onOpenProductSelectionModal}
       />
 
-      <CategoryCarousel />
+      <CategoryCarousel categories={categories} />
 
       {/* More product showcase, similar to "Featured Products" but with different images */}
       <section className="py-12 bg-gray-50 dark:bg-gray-900">

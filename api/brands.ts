@@ -1,13 +1,11 @@
 import { parse } from 'url';
 import allowCors from '../lib/cors.js';
 import { ensureSupabase } from '../lib/supabase.js';
-import { INITIAL_BRANDS_DATA } from '../constants.server.js';
 import { Brand } from '../types';
 
 export default allowCors(async function handler(req, res) {
   try {
     const supabase = ensureSupabase();
-    await seedBrandsIfNeeded(supabase);
 
     const { query } = parse(req.url ?? '', true);
 
@@ -133,30 +131,6 @@ export default allowCors(async function handler(req, res) {
     res.json({ message: error?.message || 'Error interno del servidor' });
   }
 });
-
-async function seedBrandsIfNeeded(supabase: any) {
-  const { count, error } = await supabase
-    .from('brands')
-    .select('*', { count: 'exact', head: true });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if ((count || 0) > 0) {
-    return;
-  }
-
-  const seedPayload = INITIAL_BRANDS_DATA.map((brand) => ({
-    name: brand.name,
-    logo_url: brand.logoUrl
-  }));
-
-  const { error: seedError } = await supabase.from('brands').insert(seedPayload);
-  if (seedError) {
-    throw new Error(seedError.message);
-  }
-}
 
 function toClientBrand(row: any): Brand {
   return {

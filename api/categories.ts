@@ -1,7 +1,6 @@
 import { parse } from 'url';
 import allowCors from '../lib/cors.js';
 import { ensureSupabase } from '../lib/supabase.js';
-import { CATEGORIES_DATA } from '../constants.server.js';
 
 const ICON_MAP = {
   'Neumáticos de Verano': 'tire',
@@ -16,7 +15,6 @@ const ICON_MAP = {
 export default allowCors(async function handler(req, res) {
   try {
     const supabase = ensureSupabase();
-    await seedCategoriesIfNeeded(supabase);
 
     const { query } = parse(req.url ?? '', true);
 
@@ -130,26 +128,6 @@ export default allowCors(async function handler(req, res) {
     res.json({ message: error?.message || 'Error interno del servidor' });
   }
 });
-
-async function seedCategoriesIfNeeded(supabase: any) {
-  const { count, error } = await supabase
-    .from('categories')
-    .select('*', { count: 'exact', head: true });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if ((count || 0) > 0) {
-    return;
-  }
-
-  const payload = CATEGORIES_DATA.map((category) => mapCategoryForInsert(category));
-  const { error: seedError } = await supabase.from('categories').insert(payload);
-  if (seedError) {
-    throw new Error(seedError.message);
-  }
-}
 
 function mapCategoryForInsert(category: any, requireName = true) {
   if (requireName && !category?.name) {

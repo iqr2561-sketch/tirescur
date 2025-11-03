@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { HeroImageUpdateFunction, PhoneNumberUpdateFunction, FooterContent, FooterUpdateFunction, DealZoneConfig, DealZoneConfigUpdateFunction } from '../types';
 import { DEFAULT_FOOTER_CONTENT, DEFAULT_DEAL_ZONE_CONFIG } from '../constants';
+import { useToast } from '../contexts/ToastContext';
 
 interface AdminSettingsPageProps {
   heroImageUrl: string;
@@ -32,6 +33,8 @@ const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({
 
   const [editableDealZoneConfig, setEditableDealZoneConfig] = useState<DealZoneConfig>(dealZoneConfig);
 
+  const { showSuccess, showWarning } = useToast();
+
   useEffect(() => {
     setNewHeroImageUrl(heroImageUrl);
   }, [heroImageUrl]);
@@ -51,18 +54,18 @@ const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({
   const handleHeroImageUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateHeroImage(newHeroImageUrl);
-    alert('URL de imagen principal actualizada con éxito!');
+    showSuccess('URL de imagen principal actualizada con éxito!');
   };
 
   const handlePhoneNumberUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanedNumber = newWhatsappPhoneNumber.replace(/\D/g, '');
     if (cleanedNumber.length < 10) {
-      alert('Por favor, introduce un número de teléfono válido (al menos 10 dígitos).');
+      showWarning('Por favor, introduce un número de teléfono válido (al menos 10 dígitos).');
       return;
     }
     onUpdatePhoneNumber(cleanedNumber);
-    alert('Número de teléfono de WhatsApp actualizado con éxito!');
+    showSuccess('Número de teléfono de WhatsApp actualizado con éxito!');
   };
 
   const handleFooterContentChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -73,7 +76,7 @@ const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({
   const handleFooterContentUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateFooterContent(editableFooterContent);
-    alert('Contenido del pie de página actualizado con éxito!');
+    showSuccess('Contenido del pie de página actualizado con éxito!');
   };
 
   const handleDealZoneConfigChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,7 +87,7 @@ const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({
   const handleDealZoneConfigUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateDealZoneConfig(editableDealZoneConfig);
-    alert('Configuración de Zona de Ofertas actualizada con éxito!');
+    showSuccess('Configuración de Zona de Ofertas actualizada con éxito!');
   };
 
   const getTabClasses = (tabName: typeof activeTab) =>

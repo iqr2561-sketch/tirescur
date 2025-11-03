@@ -27,11 +27,6 @@ import {
   DEFAULT_WHATSAPP_PHONE_NUMBER,
   DEFAULT_FOOTER_CONTENT,
   DEFAULT_DEAL_ZONE_CONFIG,
-  PRODUCTS_DATA, // Used for initial seeding by API, but kept as a fallback if API fails
-  INITIAL_BRANDS_DATA, // Same
-  INITIAL_SALES_DATA, // Same
-  DEFAULT_MENU_ITEMS, // Same
-  CATEGORIES_DATA, // Categories for admin
   TireIcon,
   WheelIcon,
   AccessoryIcon,
@@ -64,7 +59,6 @@ const App: React.FC = () => {
   const [footerContent, setFooterContent] = useState<FooterContent | null>(null);
   const [dealZoneConfig, setDealZoneConfig] = useState<DealZoneConfig | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // State for the new ProductSelectionModal
   const [isProductSelectionModalOpen, setIsProductSelectionModalOpen] = useState(false);
@@ -72,7 +66,7 @@ const App: React.FC = () => {
 
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showWarning } = useToast();
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -97,7 +91,6 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      setError(null);
       try {
         // Add timeout to prevent hanging - reducido a 3 segundos
         const controller = new AbortController();
@@ -115,70 +108,103 @@ const App: React.FC = () => {
         ]);
 
         clearTimeout(timeoutId);
+        const failedResources: string[] = [];
 
-        // Si todas las peticiones fallan o timeout, usar datos predeterminados inmediatamente
-        if (!productsRes || !productsRes.ok || !brandsRes || !brandsRes.ok || !salesRes || !salesRes.ok || 
-            !settingsRes || !settingsRes.ok || !menusRes || !menusRes.ok) {
-          console.warn('⚠️ API no disponible o timeout. Usando datos predeterminados...');
-          throw new Error('API timeout o no disponible');
+        const fetchedProductsData = productsRes && productsRes.ok ? await productsRes.json() : [];
+        if (!productsRes || !productsRes.ok) {
+          failedResources.push('productos');
         }
 
-        const fetchedProductsData = await productsRes.json();
-        const fetchedBrandsData = await brandsRes.json();
-        const fetchedSalesData = await salesRes.json();
-        const fetchedSettings = await settingsRes.json();
-        const fetchedMenusData = await menusRes.json(); // Process fetched menus
-        const fetchedCategoriesData = categoriesRes && categoriesRes.ok ? await categoriesRes.json() : null; // Process fetched categories
+        const fetchedBrandsData = brandsRes && brandsRes.ok ? await brandsRes.json() : [];
+        if (!brandsRes || !brandsRes.ok) {
+          failedResources.push('marcas');
+        }
+
+        const fetchedSalesData = salesRes && salesRes.ok ? await salesRes.json() : [];
+        if (!salesRes || !salesRes.ok) {
+          failedResources.push('ventas');
+        }
+
+        const fetchedMenusData = menusRes && menusRes.ok ? await menusRes.json() : [];
+        if (!menusRes || !menusRes.ok) {
+          failedResources.push('menús');
+        }
+
+        const fetchedCategoriesData = categoriesRes && categoriesRes.ok ? await categoriesRes.json() : [];
+        if (!categoriesRes || !categoriesRes.ok) {
+          failedResources.push('categorías');
+        }
+
+        const fetchedSettings = settingsRes && settingsRes.ok ? await settingsRes.json() : null;
+        if (!settingsRes || !settingsRes.ok) {
+          failedResources.push('configuración');
+        }
 
         // Map Supabase product data to client-side Product interface
         const mappedProducts: Product[] = fetchedProductsData.map((p: any) => ({
           ...p,
-          brand: p.brand_name, // Map brand_name from DB to 'brand' for client
-          brandId: p.brand_id, // Keep brand_id for potential use
+          brand: p.brand_name,
+          brandId: p.brand_id,
           brandLogoUrl: p.brand_logo_url,
         }));
-        
+
+        const mappedSales: Sale[] = fetchedSalesData.map((row: any) => ({
+          ...row,
+          total: Number(row.total),
+        }));
+
+        const mappedMenus: MenuItem[] = fetchedMenusData.map((menu: any) => ({
+          ...menu,
+          order: menu.order ?? 0,
+        }));
+
         // Map Supabase settings data to client-side GlobalSettings interface
         const mappedSettings: GlobalSettings = {
-          heroImageUrl: fetchedSettings.heroImageUrl || DEFAULT_HERO_IMAGE_URL,
-          whatsappPhoneNumber: fetchedSettings.whatsappPhoneNumber || DEFAULT_WHATSAPP_PHONE_NUMBER,
-          footerContent: fetchedSettings.footerContent || DEFAULT_FOOTER_CONTENT,
-          dealZoneConfig: fetchedSettings.dealZoneConfig || DEFAULT_DEAL_ZONE_CONFIG,
+          heroImageUrl: fetchedSettings?.heroImageUrl || DEFAULT_HERO_IMAGE_URL,
+          whatsappPhoneNumber: fetchedSettings?.whatsappPhoneNumber || DEFAULT_WHATSAPP_PHONE_NUMBER,
+          footerContent: fetchedSettings?.footerContent || DEFAULT_FOOTER_CONTENT,
+          dealZoneConfig: fetchedSettings?.dealZoneConfig || DEFAULT_DEAL_ZONE_CONFIG,
         };
 
         // Map categories with icons based on iconType
         const iconMap: { [key: string]: React.ReactElement } = {
-          'tire': TireIcon,
-          'wheel': WheelIcon,
-          'accessory': AccessoryIcon,
-          'valve': ValveSensorIcon,
+          tire: TireIcon,
+          wheel: WheelIcon,
+          accessory: AccessoryIcon,
+          valve: ValveSensorIcon,
         };
-        
-        const mappedCategories: Category[] = fetchedCategoriesData
-          ? fetchedCategoriesData.map((cat: any) => ({
-              ...cat,
-              icon: iconMap[cat.iconType || 'tire'] || TireIcon,
-            }))
-          : CATEGORIES_DATA;
+
+        const mappedCategories: Category[] = fetchedCategoriesData.map((cat: any) => ({
+          ...cat,
+          icon: iconMap[cat.iconType || 'tire'] || TireIcon,
+        }));
 
         setProducts(mappedProducts);
         setBrands(fetchedBrandsData);
-        setSales(fetchedSalesData);
-        setMenus(fetchedMenusData); // Set menus state
-        setCategories(mappedCategories); // Set categories state
+        setSales(mappedSales);
+        setMenus(mappedMenus);
+        setCategories(mappedCategories);
         setHeroImageUrl(mappedSettings.heroImageUrl);
         setWhatsappPhoneNumber(mappedSettings.whatsappPhoneNumber);
         setFooterContent(mappedSettings.footerContent);
         setDealZoneConfig(mappedSettings.dealZoneConfig);
 
+        if (failedResources.length > 0) {
+          showWarning(`No se pudieron cargar completamente: ${failedResources.join(', ')}.`);
+        } else {
+          showSuccess('Datos cargados correctamente.');
+        }
       } catch (err: any) {
-        console.warn('Error fetching initial data, usando datos predeterminados:', err);
-        // Fallback to default constants if API fails - sin mostrar error al usuario
-        setProducts(PRODUCTS_DATA as Product[]);
-        setBrands(INITIAL_BRANDS_DATA as Brand[]);
-        setSales(INITIAL_SALES_DATA as Sale[]);
-        setMenus(DEFAULT_MENU_ITEMS as MenuItem[]);
-        setCategories(CATEGORIES_DATA);
+        console.warn('Error fetching initial data:', err);
+        const message = err?.name === 'AbortError'
+          ? 'Se superó el tiempo de espera al cargar los datos.'
+          : 'No se pudieron cargar los datos iniciales.';
+        showError(`${message} Por favor, intenta nuevamente.`);
+        setProducts([]);
+        setBrands([]);
+        setSales([]);
+        setMenus([]);
+        setCategories([]);
         setHeroImageUrl(DEFAULT_HERO_IMAGE_URL);
         setWhatsappPhoneNumber(DEFAULT_WHATSAPP_PHONE_NUMBER);
         setFooterContent(DEFAULT_FOOTER_CONTENT);
@@ -333,7 +359,7 @@ const App: React.FC = () => {
         brandLogoUrl: p.brand_logo_url,
       }));
       setProducts(mappedUpdatedProducts);
-      alert('Precios actualizados masivamente con éxito!');
+      showSuccess('Precios actualizados masivamente con éxito!');
     } catch (err: any) {
       console.warn('Error bulk updating products (usando datos locales):', err);
       // Fallback: update products locally
@@ -342,9 +368,9 @@ const App: React.FC = () => {
         const updatedMap = new Map(newProductsArray.map(p => [p.id, p]));
         return prevProducts.map(p => updatedMap.get(p.id) || p);
       });
-      alert('Precios actualizados localmente (desarrollo local - cambios no persistirán)');
+      showWarning('No se pudo actualizar en el servidor. Cambios aplicados localmente.');
     }
-  }, []);
+  }, [showSuccess, showWarning]);
 
   const addProductsBulk = useCallback(async (newProductsArray: Omit<Product, 'id'>[]) => {
     if (newProductsArray.length === 0) return [];
@@ -411,13 +437,13 @@ const App: React.FC = () => {
       
       const addedBrand = await res.json();
       setBrands(prevBrands => (prevBrands ? [...prevBrands, addedBrand] : [addedBrand]));
-      alert('Marca añadida con éxito!');
+      showSuccess('Marca añadida con éxito!');
     } catch (err: any) {
       console.error('Error adding brand:', err);
       const errorMessage = err?.message || 'Error desconocido';
-      alert(`Error al añadir la marca: ${errorMessage}`);
+      showError(`Error al añadir la marca: ${errorMessage}`);
     }
-  }, []);
+  }, [showSuccess, showError]);
 
   const updateBrand = useCallback(async (updatedBrand: Brand) => {
     try {
@@ -434,12 +460,12 @@ const App: React.FC = () => {
       setProducts(prevProducts => prevProducts ? prevProducts.map(p =>
         p.brand === updatedBrandResponse.name ? { ...p, brandLogoUrl: updatedBrandResponse.logoUrl } : p
       ) : []);
-      alert('Marca actualizada con éxito!');
+      showSuccess('Marca actualizada con éxito!');
     } catch (err) {
       console.error('Error updating brand:', err);
-      alert('Error al actualizar la marca.');
+      showError('Error al actualizar la marca.');
     }
-  }, []);
+  }, [showSuccess, showError]);
 
   const deleteBrand = useCallback(async (brandId: string) => {
     try {
@@ -452,15 +478,15 @@ const App: React.FC = () => {
       const deletedBrandName = brands?.find(b => b.id === brandId)?.name;
       setProducts(prevProducts => prevProducts ? prevProducts.map(p => {
         return (deletedBrandName && p.brand === deletedBrandName)
-          ? { ...p, brandId: undefined, brandLogoUrl: undefined } // Remove logo if brand is deleted
+          ? { ...p, brandId: undefined, brandLogoUrl: undefined }
           : p;
       }) : []);
-      alert('Marca eliminada con éxito!');
+      showSuccess('Marca eliminada con éxito!');
     } catch (err) {
       console.error('Error deleting brand:', err);
-      alert('Error al eliminar la marca.');
+      showError('Error al eliminar la marca.');
     }
-  }, [brands]);
+  }, [brands, showSuccess, showError]);
 
   // Menu item CRUD operations
   const addMenu = useCallback(async (newMenuItem: Omit<MenuItem, 'id'>) => {
@@ -473,12 +499,12 @@ const App: React.FC = () => {
       if (!res.ok) throw new Error('Failed to add menu item');
       const addedMenu = await res.json();
       setMenus(prevMenus => (prevMenus ? [...prevMenus, addedMenu].sort((a,b) => a.order - b.order) : [addedMenu]));
-      alert('Elemento de menú añadido con éxito!');
+      showSuccess('Elemento de menú añadido con éxito!');
     } catch (err) {
       console.error('Error adding menu item:', err);
-      alert('Error al añadir el elemento de menú.');
+      showError('Error al añadir el elemento de menú.');
     }
-  }, []);
+  }, [showSuccess, showError]);
 
   const updateMenu = useCallback(async (updatedMenuItem: MenuItem) => {
     try {
@@ -491,12 +517,12 @@ const App: React.FC = () => {
       if (!res.ok) throw new Error('Failed to update menu item');
       const updatedMenuResponse = await res.json();
       setMenus(prevMenus => prevMenus ? prevMenus.map(m => m.id === updatedMenuItem.id ? updatedMenuResponse : m).sort((a,b) => a.order - b.order) : []);
-      alert('Elemento de menú actualizado con éxito!');
+      showSuccess('Elemento de menú actualizado con éxito!');
     } catch (err) {
       console.error('Error updating menu item:', err);
-      alert('Error al actualizar el elemento de menú.');
+      showError('Error al actualizar el elemento de menú.');
     }
-  }, []);
+  }, [showSuccess, showError]);
 
   const deleteMenu = useCallback(async (menuId: string) => {
     try {
@@ -505,12 +531,12 @@ const App: React.FC = () => {
       });
       if (!res.ok) throw new Error('Failed to delete menu item');
       setMenus(prevMenus => prevMenus ? prevMenus.filter(m => m.id !== menuId) : []);
-      alert('Elemento de menú eliminado con éxito!');
+      showSuccess('Elemento de menú eliminado con éxito!');
     } catch (err) {
       console.error('Error deleting menu item:', err);
-      alert('Error al eliminar el elemento de menú.');
+      showError('Error al eliminar el elemento de menú.');
     }
-  }, []);
+  }, [showSuccess, showError]);
 
 
   const addToCart = useCallback((product: Product) => {
@@ -566,12 +592,12 @@ const App: React.FC = () => {
       setWhatsappPhoneNumber(responseData.whatsappPhoneNumber);
       setFooterContent(responseData.footerContent);
       setDealZoneConfig(responseData.dealZoneConfig);
-      alert('Configuración actualizada con éxito!');
+      showSuccess('Configuración actualizada con éxito!');
     } catch (err) {
       console.error(`Error updating ${String(key)} setting:`, err);
-      alert(`Error al actualizar la configuración de ${String(key)}.`);
+      showError(`Error al actualizar la configuración de ${String(key)}.`);
     }
-  }, [heroImageUrl, whatsappPhoneNumber, footerContent, dealZoneConfig]);
+  }, [heroImageUrl, whatsappPhoneNumber, footerContent, dealZoneConfig, showSuccess, showError]);
 
   const handleUpdateHeroImage: HeroImageUpdateFunction = useCallback((url: string) => {
     handleUpdateSettings('heroImageUrl', url);
@@ -599,12 +625,12 @@ const App: React.FC = () => {
       if (!res.ok) throw new Error('Failed to add sale');
       const addedSale = await res.json();
       setSales(prevSales => (prevSales ? [...prevSales, addedSale] : [addedSale]));
-      alert('Venta registrada con éxito!');
+      showSuccess('Venta registrada con éxito!');
     } catch (err) {
       console.error('Error adding sale:', err);
-      alert('Error al registrar la venta.');
+      showError('Error al registrar la venta.');
     }
-  }, []);
+  }, [showSuccess, showError]);
 
   const initiateOrder = useCallback((products: Sale['products'], total: number) => {
     setPendingOrder({ products, total });
@@ -652,11 +678,11 @@ const App: React.FC = () => {
   }
   
   // Usar valores predeterminados si los datos son null
-  const finalProducts = products || PRODUCTS_DATA as Product[];
-  const finalBrands = brands || INITIAL_BRANDS_DATA as Brand[];
-  const finalSales = sales || INITIAL_SALES_DATA as Sale[];
-  const finalMenus = menus || DEFAULT_MENU_ITEMS as MenuItem[];
-  const finalCategories = categories || CATEGORIES_DATA;
+  const finalProducts = products ?? [];
+  const finalBrands = brands ?? [];
+  const finalSales = sales ?? [];
+  const finalMenus = menus ?? [];
+  const finalCategories = categories ?? [];
   const finalHeroImageUrl = heroImageUrl || DEFAULT_HERO_IMAGE_URL;
   const finalWhatsappPhoneNumber = whatsappPhoneNumber || DEFAULT_WHATSAPP_PHONE_NUMBER;
   const finalFooterContent = footerContent || DEFAULT_FOOTER_CONTENT;
@@ -772,6 +798,7 @@ const App: React.FC = () => {
                   whatsappPhoneNumber={finalWhatsappPhoneNumber}
                   dealZoneConfig={finalDealZoneConfig}
                   products={finalProducts} // Pass all products for variations
+                  categories={finalCategories}
                   onInitiateOrder={initiateOrder}
                   onOpenProductSelectionModal={handleOpenProductSelectionModal} // Pass new prop
                 />

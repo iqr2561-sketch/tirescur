@@ -1,12 +1,10 @@
 import { parse } from 'url';
 import allowCors from '../lib/cors.js';
 import { ensureSupabase } from '../lib/supabase.js';
-import { DEFAULT_MENU_ITEMS } from '../constants.server.js';
 
 export default allowCors(async function handler(req, res) {
   try {
     const supabase = ensureSupabase();
-    await seedMenusIfNeeded(supabase);
 
     const { query, pathname } = parse(req.url ?? '', true);
 
@@ -101,26 +99,6 @@ export default allowCors(async function handler(req, res) {
     res.json({ message: error?.message || 'Error interno del servidor' });
   }
 });
-
-async function seedMenusIfNeeded(supabase: any) {
-  const { count, error } = await supabase
-    .from('menu_items')
-    .select('*', { count: 'exact', head: true });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if ((count || 0) > 0) {
-    return;
-  }
-
-  const payload = DEFAULT_MENU_ITEMS.map((item) => mapMenuForInsert(item));
-  const { error: seedError } = await supabase.from('menu_items').insert(payload);
-  if (seedError) {
-    throw new Error(seedError.message);
-  }
-}
 
 function mapMenuForInsert(menu: any, requireName = true) {
   if (requireName && !menu?.name) {

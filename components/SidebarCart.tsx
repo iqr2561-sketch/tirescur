@@ -1,6 +1,7 @@
 import React from 'react';
 import { CartItem } from '../types';
 import { DEFAULT_PRODUCT_IMAGE_URL } from '../constants';
+import { useToast } from '../contexts/ToastContext';
 
 interface SidebarCartProps {
   isOpen: boolean;
@@ -13,11 +14,12 @@ interface SidebarCartProps {
 }
 
 const SidebarCart: React.FC<SidebarCartProps> = ({ isOpen, toggleCart, cartItems, updateQuantity, removeFromCart, whatsappPhoneNumber, onInitiateOrder }) => {
+  const { showWarning } = useToast();
   const totalAmount = cartItems.reduce((sum, item: CartItem) => sum + item.price * item.quantity, 0);
 
   const handleProceedToWhatsApp = () => {
     if (cartItems.length === 0) {
-      alert('Tu carrito está vacío. Por favor, añade artículos antes de proceder.');
+      showWarning('Tu carrito está vacío. Por favor, añade artículos antes de proceder.');
       return;
     }
 

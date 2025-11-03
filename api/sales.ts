@@ -1,12 +1,10 @@
 import { parse } from 'url';
 import allowCors from '../lib/cors.js';
 import { ensureSupabase } from '../lib/supabase.js';
-import { INITIAL_SALES_DATA } from '../constants.server.js';
 
 export default allowCors(async function handler(req, res) {
   try {
     const supabase = ensureSupabase();
-    await seedSalesIfNeeded(supabase);
 
     const { query } = parse(req.url ?? '', true);
 
@@ -86,48 +84,6 @@ export default allowCors(async function handler(req, res) {
     res.json({ message: error?.message || 'Error interno del servidor' });
   }
 });
-
-async function seedSalesIfNeeded(supabase: any) {
-  const { count, error } = await supabase
-    .from('sales')
-    .select('*', { count: 'exact', head: true });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if ((count || 0) > 0 || INITIAL_SALES_DATA.length === 0) {
-    return;
-  }
-
-  for (const sale of INITIAL_SALES_DATA) {
-    const { data: saleRecord, error: saleError } = await supabase
-      .from('sales')
-      .insert({
-        customer_name: sale.customerName,
-        total: sale.total.toString(),
-        status: sale.status,
-        date: sale.date
-      })
-      .select()
-      .single();
-
-    if (saleError || !saleRecord) {
-      throw new Error(saleError?.message || 'Error insertando venta inicial');
-    }
-
-    if (sale.products?.length) {
-      const payload = sale.products.map((product) => mapSaleProductForInsert(product, saleRecord.id));
-      const { error: productsError } = await supabase
-        .from('sale_products')
-        .insert(payload);
-
-      if (productsError) {
-        throw new Error(productsError.message);
-      }
-    }
-  }
-}
 
 function mapSaleProductForInsert(product: any, saleId: string) {
   return {

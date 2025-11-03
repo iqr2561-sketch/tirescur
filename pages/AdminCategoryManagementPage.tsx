@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Category } from '../types';
-import { CATEGORIES_DATA } from '../constants';
+import { DEFAULT_PRODUCT_IMAGE_URL, TireIcon } from '../constants';
+import { useToast } from '../contexts/ToastContext';
 
 interface AdminCategoryManagementPageProps {
   categories: Category[];
@@ -31,8 +32,9 @@ const AdminCategoryManagementPage: React.FC<AdminCategoryManagementPageProps> = 
     isActive: true,
   });
 
-  // Use default categories if none provided
-  const displayCategories = categories.length > 0 ? categories : CATEGORIES_DATA;
+  const { showWarning } = useToast();
+
+  const displayCategories = categories;
 
   const getInputFieldClasses = () => `
     mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-500 focus:border-red-500
@@ -81,15 +83,15 @@ const AdminCategoryManagementPage: React.FC<AdminCategoryManagementPageProps> = 
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      alert('El nombre de la categoría es obligatorio.');
+      showWarning('El nombre de la categoría es obligatorio.');
       return;
     }
 
     const categoryData: Omit<Category, 'id'> = {
       name: formData.name.trim(),
       description: formData.description.trim(),
-      imageUrl: formData.imageUrl || CATEGORIES_DATA[0]?.imageUrl || '',
-      icon: CATEGORIES_DATA.find(c => c.name === formData.name)?.icon || React.createElement('div'),
+      imageUrl: formData.imageUrl || DEFAULT_PRODUCT_IMAGE_URL,
+      icon: editingCategory?.icon || TireIcon,
       order: parseInt(formData.order) || 0,
       isActive: formData.isActive,
     };
@@ -101,7 +103,7 @@ const AdminCategoryManagementPage: React.FC<AdminCategoryManagementPageProps> = 
     }
 
     handleCloseModal();
-  }, [formData, editingCategory, onAddCategory, onUpdateCategory, handleCloseModal]);
+  }, [formData, editingCategory, onAddCategory, onUpdateCategory, handleCloseModal, showWarning]);
 
   const handleDeleteCategory = useCallback((categoryId: string) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar esta categoría?')) {

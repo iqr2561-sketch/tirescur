@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { WIDTHS, PROFILES, DIAMETERS, DEFAULT_HERO_IMAGE_URL } from '../constants';
 import { TireFilter, Product } from '../types';
+import { useToast } from '../contexts/ToastContext';
 
 interface HeroSearchProps {
   heroImageUrl: string;
@@ -11,6 +12,7 @@ const HeroSearch: React.FC<HeroSearchProps> = ({ heroImageUrl, products }) => {
   const [width, setWidth] = useState(WIDTHS[0]);
   const [profile, setProfile] = useState(PROFILES[0]);
   const [diameter, setDiameter] = useState(DIAMETERS[0]);
+  const { showInfo, showWarning } = useToast();
 
   const handleSearch = () => {
     const filter: TireFilter = { width, profile, diameter };
@@ -24,9 +26,9 @@ const HeroSearch: React.FC<HeroSearchProps> = ({ heroImageUrl, products }) => {
     });
 
     if (filteredProducts.length > 0) {
-      alert(`Se encontraron ${filteredProducts.length} neumático(s) con los filtros:\nAncho: ${width}\nPerfil: ${profile}\nDiámetro: ${diameter}\n\nProductos: ${filteredProducts.map(p => p.name).join(', ')}`);
+      showInfo(`Se encontraron ${filteredProducts.length} neumático(s) que coinciden con los filtros seleccionados.`);
     } else {
-      alert(`No se encontraron neumáticos con los filtros:\nAncho: ${width}\nPerfil: ${profile}\nDiámetro: ${diameter}`);
+      showWarning('No se encontraron neumáticos con esos filtros.');
     }
   };
 
