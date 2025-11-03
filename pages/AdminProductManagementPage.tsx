@@ -22,6 +22,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [formData, setFormData] = useState<AdminProductFormData>({
     sku: '',
     name: '',
@@ -36,6 +37,11 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     width: WIDTHS[0], // Default to the first (placeholder) value
     profile: PROFILES[0], // Default to the first (placeholder) value
     diameter: DIAMETERS[0], // Default to the first (placeholder) value
+    // Deal/Offer fields
+    isOnSale: false,
+    salePrice: '',
+    discountPercentage: '',
+    categoryId: '',
   });
 
   // Initialize brand field to the first actual brand if available, or empty string
@@ -65,6 +71,11 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       width: WIDTHS[0],
       profile: PROFILES[0],
       diameter: DIAMETERS[0],
+      // Deal/Offer fields
+      isOnSale: false,
+      salePrice: '',
+      discountPercentage: '',
+      categoryId: '',
     });
     setIsModalOpen(true);
   };
@@ -86,6 +97,11 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       width: product.width,
       profile: product.profile,
       diameter: product.diameter,
+      // Deal/Offer fields
+      isOnSale: product.isOnSale || false,
+      salePrice: product.salePrice ? product.salePrice.toFixed(2) : '',
+      discountPercentage: product.discountPercentage ? product.discountPercentage.toString() : '',
+      categoryId: product.categoryId || '',
     });
     setIsModalOpen(true);
   }, []);
@@ -124,6 +140,20 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       alert('Por favor, selecciona un valor válido para ancho, perfil y diámetro.');
       return;
     }
+    
+    // Validate sale price if product is on sale
+    if (formData.isOnSale && formData.salePrice) {
+      const salePrice = parseFloat(formData.salePrice);
+      const regularPrice = parseFloat(formData.price);
+      if (isNaN(salePrice) || salePrice <= 0) {
+        alert('El precio de oferta debe ser un número positivo.');
+        return;
+      }
+      if (salePrice >= regularPrice) {
+        alert('El precio de oferta debe ser menor que el precio regular.');
+        return;
+      }
+    }
 
     const selectedBrand = brands.find(b => b.name === formData.brand);
 
@@ -142,6 +172,20 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       width: formData.width,
       profile: formData.profile,
       diameter: formData.diameter,
+      // Deal/Offer fields
+      isOnSale: formData.isOnSale || false,
+      salePrice: formData.isOnSale && formData.salePrice ? parseFloat(formData.salePrice) : undefined,
+      discountPercentage: (() => {
+        if (!formData.isOnSale) return undefined;
+        // Calculate discount if salePrice is provided and discountPercentage is not
+        if (formData.salePrice && !formData.discountPercentage) {
+          const regularPrice = parseFloat(formData.price);
+          const salePrice = parseFloat(formData.salePrice);
+          return Math.round(((regularPrice - salePrice) / regularPrice) * 100);
+        }
+        return formData.discountPercentage ? parseFloat(formData.discountPercentage) : undefined;
+      })(),
+      categoryId: formData.categoryId || undefined,
     };
 
     if (editingProduct) {
@@ -166,25 +210,168 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     <div className="flex-1 p-8 bg-gray-100 overflow-auto dark:bg-gray-900">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Gestión de Productos</h1>
-        <button
-          onClick={handleOpenAddModal}
-          className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors flex items-center space-x-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-          <span>Añadir Nuevo Producto</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-2 rounded-md transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
+              title="Vista de tarjetas"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 rounded-md transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
+              title="Vista de lista"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
+          <button
+            onClick={handleOpenAddModal}
+            className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors flex items-center space-x-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+            <span>Añadir Nuevo Producto</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {products.map((product) => (
-          <AdminProductCard
-            key={product.id}
-            product={product}
-            onEdit={handleOpenEditModal}
-            onDelete={handleDeleteProduct}
-          />
-        ))}
-      </div>
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {products.map((product) => (
+            <AdminProductCard
+              key={product.id}
+              product={product}
+              onEdit={handleOpenEditModal}
+              onDelete={handleDeleteProduct}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden dark:bg-gray-800">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Imagen</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">SKU</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Producto</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Marca</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Precio</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Oferta</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Stock</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Tamaño</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                {products.map((product) => (
+                  <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <img 
+                        src={product.imageUrl || DEFAULT_PRODUCT_IMAGE_URL} 
+                        alt={product.name} 
+                        className="h-16 w-16 object-cover rounded"
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      {product.sku}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{product.name}</div>
+                      {product.description && (
+                        <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1 max-w-xs" title={product.description}>
+                          {product.description}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      {product.brand}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {product.isOnSale ? (
+                        <div>
+                          <div className="text-sm font-medium text-red-600 dark:text-red-400">
+                            ${product.salePrice?.toFixed(2) || product.price.toFixed(2)}
+                          </div>
+                          <div className="text-xs text-gray-500 line-through dark:text-gray-400">
+                            ${product.price.toFixed(2)}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          ${product.price.toFixed(2)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {product.isOnSale ? (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100">
+                          {product.discountPercentage ? `${product.discountPercentage}% OFF` : 'En Oferta'}
+                        </span>
+                      ) : (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                          Normal
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {product.stock <= 0 ? (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100">
+                          Agotado
+                        </span>
+                      ) : product.stock < 5 ? (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100">
+                          Pocas ({product.stock})
+                        </span>
+                      ) : (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
+                          En Stock ({product.stock})
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      {product.width && product.profile && product.diameter ? (
+                        <span>{product.width}/{product.profile} {product.diameter}</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => handleOpenEditModal(product)}
+                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingProduct ? 'Editar Producto' : 'Añadir Nuevo Producto'}>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -384,6 +571,72 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
               placeholder="Ej: neumático, verano, deportivo"
             />
           </div>
+          
+          {/* Ofertas Section */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Configuración de Ofertas</h3>
+            
+            <div className="mb-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isOnSale"
+                  checked={formData.isOnSale || false}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, isOnSale: e.target.checked }))}
+                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                />
+                <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Producto en oferta
+                </span>
+              </label>
+            </div>
+            
+            {formData.isOnSale && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="salePrice" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Precio de Oferta ($)
+                  </label>
+                  <input
+                    type="number"
+                    name="salePrice"
+                    id="salePrice"
+                    value={formData.salePrice || ''}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0.01"
+                    max={formData.price || ''}
+                    className={getInputFieldClasses()}
+                    placeholder="Ej: 95.00"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Precio especial para oferta (debe ser menor que el precio regular)
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="discountPercentage" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Porcentaje de Descuento (%)
+                  </label>
+                  <input
+                    type="number"
+                    name="discountPercentage"
+                    id="discountPercentage"
+                    value={formData.discountPercentage || ''}
+                    onChange={handleChange}
+                    step="1"
+                    min="1"
+                    max="99"
+                    className={getInputFieldClasses()}
+                    placeholder="Ej: 20"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Porcentaje de descuento (opcional, se calcula automáticamente si hay precio de oferta)
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"

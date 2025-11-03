@@ -60,11 +60,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, allProducts, onOpenP
         {product.brandLogoUrl && (
           <img src={product.brandLogoUrl} alt={`${product.brand} Logo`} className="absolute top-2 left-2 h-8 object-contain" />
         )}
-        {(product.tags?.includes('new')) && (
+        {product.isOnSale && (
+          <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold">
+            {product.discountPercentage ? `-${product.discountPercentage}%` : 'OFERTA'}
+          </span>
+        )}
+        {(product.tags?.includes('new')) && !product.isOnSale && (
           <span className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">NUEVO</span>
         )}
-        {(product.tags?.includes('hot')) && !(product.tags?.includes('new')) && (
-          <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full">OFERTA</span>
+        {(product.tags?.includes('hot')) && !(product.tags?.includes('new')) && !product.isOnSale && (
+          <span className="absolute top-2 right-2 bg-orange-600 text-white text-xs px-2 py-1 rounded-full">DESTACADO</span>
         )}
         <span className={`absolute bottom-2 left-2 text-white text-xs px-2 py-1 rounded-full ${stockInfo.color}`}>
           {stockInfo.text}
@@ -97,7 +102,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, allProducts, onOpenP
           <p className="text-sm text-gray-600 mb-3 dark:text-gray-400">Sin opiniones aún</p>
         )}
         <div className="flex flex-col space-y-2 mt-2">
-          <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">${product.price.toFixed(2)}</span>
+          <div className="flex items-center gap-2">
+            {product.isOnSale && product.salePrice ? (
+              <>
+                <span className="text-2xl font-bold text-red-600 dark:text-red-400">${product.salePrice.toFixed(2)}</span>
+                <span className="text-lg text-gray-500 line-through dark:text-gray-400">${product.price.toFixed(2)}</span>
+              </>
+            ) : (
+              <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">${product.price.toFixed(2)}</span>
+            )}
+          </div>
           <div className="relative">
             <button
               onClick={() => onOpenProductSelectionModal(product)} // Open modal on "Comprar" click

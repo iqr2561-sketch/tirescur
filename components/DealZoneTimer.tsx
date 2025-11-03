@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { DealZoneConfig } from '../types';
+import { DealZoneConfig, Product } from '../types';
+import ProductCard from './ProductCard';
 
 interface TimeLeft {
   days: number;
@@ -35,7 +36,7 @@ const calculateTimeLeft = (targetDateString: string): TimeLeft => {
   return timeLeft;
 };
 
-const DealZoneTimer: React.FC<DealZoneTimerProps> = ({ config }) => {
+const DealZoneTimer: React.FC<DealZoneTimerProps> = ({ config, products = [], onOpenProductSelectionModal }) => {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(calculateTimeLeft(config.targetDate));
 
   useEffect(() => {
@@ -45,6 +46,9 @@ const DealZoneTimer: React.FC<DealZoneTimerProps> = ({ config }) => {
 
     return () => clearInterval(timer);
   }, [config.targetDate]);
+
+  // Filter products on sale
+  const productsOnSale = products.filter(p => p.isOnSale).slice(0, 5);
 
   const timerComponents: React.ReactElement[] = [];
 
@@ -71,9 +75,29 @@ const DealZoneTimer: React.FC<DealZoneTimerProps> = ({ config }) => {
         <div className="flex justify-center mb-8">
           {timerComponents.length ? timerComponents : <span className="text-xl">¡Oferta Terminada!</span>}
         </div>
-        <button className="bg-red-600 text-white font-semibold py-3 px-8 rounded-full hover:bg-red-700 transition-colors">
+        <a 
+          href="/shop"
+          className="inline-block bg-red-600 text-white font-semibold py-3 px-8 rounded-full hover:bg-red-700 transition-colors mb-8"
+        >
           {config.buttonText}
-        </button>
+        </a>
+        
+        {/* Products on Sale */}
+        {productsOnSale.length > 0 && (
+          <div className="mt-12">
+            <h3 className="text-2xl font-bold mb-6">Productos en Oferta</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+              {productsOnSale.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  allProducts={products}
+                  onOpenProductSelectionModal={onOpenProductSelectionModal || (() => {})}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

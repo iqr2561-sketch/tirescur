@@ -7,6 +7,7 @@ import MobileNavbar from './components/MobileNavbar';
 import SearchModal from './components/SearchModal';
 import AdminSidebar from './components/AdminSidebar';
 import HomePage from './pages/HomePage';
+import ShopPage from './pages/ShopPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminProductManagementPage from './pages/AdminProductManagementPage';
 import AdminBrandManagementPage from './pages/AdminBrandManagementPage';
@@ -14,11 +15,12 @@ import AdminPriceManagementPage from './pages/AdminPriceManagementPage';
 import AdminSalesPage from './pages/AdminSalesPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import AdminMenuManagementPage from './pages/AdminMenuManagementPage'; // New Admin page
+import AdminCategoryManagementPage from './pages/AdminCategoryManagementPage';
 import CustomerInfoModal from './components/CustomerInfoModal';
 import LoadingSpinner from './components/LoadingSpinner'; // Import new component
 import ProductSelectionModal from './components/ProductSelectionModal'; // Import new component
 
-import { Product, CartItem, HeroImageUpdateFunction, PhoneNumberUpdateFunction, FooterContent, FooterUpdateFunction, DealZoneConfig, DealZoneConfigUpdateFunction, Sale, Brand, GlobalSettings, MenuItem } from './types';
+import { Product, CartItem, HeroImageUpdateFunction, PhoneNumberUpdateFunction, FooterContent, FooterUpdateFunction, DealZoneConfig, DealZoneConfigUpdateFunction, Sale, Brand, GlobalSettings, MenuItem, Category } from './types';
 import {
   DEFAULT_HERO_IMAGE_URL,
   DEFAULT_WHATSAPP_PHONE_NUMBER,
@@ -27,7 +29,12 @@ import {
   PRODUCTS_DATA, // Used for initial seeding by API, but kept as a fallback if API fails
   INITIAL_BRANDS_DATA, // Same
   INITIAL_SALES_DATA, // Same
-  DEFAULT_MENU_ITEMS // Same
+  DEFAULT_MENU_ITEMS, // Same
+  CATEGORIES_DATA, // Categories for admin
+  TireIcon,
+  WheelIcon,
+  AccessoryIcon,
+  ValveSensorIcon
 } from './constants';
 
 // Detectar si estamos en desarrollo local (localhost)
@@ -50,6 +57,7 @@ const App: React.FC = () => {
   const [brands, setBrands] = useState<Brand[] | null>(null);
   const [sales, setSales] = useState<Sale[] | null>(null);
   const [menus, setMenus] = useState<MenuItem[] | null>(null); // New state for menus
+  const [categories, setCategories] = useState<Category[] | null>(null); // New state for categories
   const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
   const [whatsappPhoneNumber, setWhatsappPhoneNumber] = useState<string | null>(null);
   const [footerContent, setFooterContent] = useState<FooterContent | null>(null);
@@ -98,14 +106,16 @@ const App: React.FC = () => {
         const salesPromise = fetch(`${API_BASE_URL}/sales`, { signal: controller.signal }).catch(() => null);
         const settingsPromise = fetch(`${API_BASE_URL}/settings`, { signal: controller.signal }).catch(() => null);
         const menusPromise = fetch(`${API_BASE_URL}/menus`, { signal: controller.signal }).catch(() => null);
+        const categoriesPromise = fetch(`${API_BASE_URL}/categories`, { signal: controller.signal }).catch(() => null);
 
-        const [productsRes, brandsRes, salesRes, settingsRes, menusRes] = await Promise.all([
-          productsPromise, brandsPromise, salesPromise, settingsPromise, menusPromise
+        const [productsRes, brandsRes, salesRes, settingsRes, menusRes, categoriesRes] = await Promise.all([
+          productsPromise, brandsPromise, salesPromise, settingsPromise, menusPromise, categoriesPromise
         ]);
 
         clearTimeout(timeoutId);
 
         // If any request failed or returned null, use fallback data
+        // Note: categories is optional, so we don't require it to be ok
         if (!productsRes || !productsRes.ok || !brandsRes || !brandsRes.ok || !salesRes || !salesRes.ok || 
             !settingsRes || !settingsRes.ok || !menusRes || !menusRes.ok) {
           console.warn('⚠️ API no disponible. Verificando errores...');
@@ -141,6 +151,7 @@ const App: React.FC = () => {
         const fetchedSalesData = await salesRes.json();
         const fetchedSettings = await settingsRes.json();
         const fetchedMenusData = await menusRes.json(); // Process fetched menus
+        const fetchedCategoriesData = categoriesRes && categoriesRes.ok ? await categoriesRes.json() : null; // Process fetched categories
 
         // Map MongoDB product data to client-side Product interface
         const mappedProducts: Product[] = fetchedProductsData.map((p: any) => ({
@@ -158,10 +169,26 @@ const App: React.FC = () => {
           dealZoneConfig: fetchedSettings.dealZoneConfig || DEFAULT_DEAL_ZONE_CONFIG,
         };
 
+        // Map categories with icons based on iconType
+        const iconMap: { [key: string]: React.ReactElement } = {
+          'tire': TireIcon,
+          'wheel': WheelIcon,
+          'accessory': AccessoryIcon,
+          'valve': ValveSensorIcon,
+        };
+        
+        const mappedCategories: Category[] = fetchedCategoriesData
+          ? fetchedCategoriesData.map((cat: any) => ({
+              ...cat,
+              icon: iconMap[cat.iconType || 'tire'] || TireIcon,
+            }))
+          : CATEGORIES_DATA;
+
         setProducts(mappedProducts);
         setBrands(fetchedBrandsData);
         setSales(fetchedSalesData);
         setMenus(fetchedMenusData); // Set menus state
+        setCategories(mappedCategories); // Set categories state
         setHeroImageUrl(mappedSettings.heroImageUrl);
         setWhatsappPhoneNumber(mappedSettings.whatsappPhoneNumber);
         setFooterContent(mappedSettings.footerContent);
@@ -175,6 +202,7 @@ const App: React.FC = () => {
         setBrands(INITIAL_BRANDS_DATA as Brand[]); // Cast as Brand[]
         setSales(INITIAL_SALES_DATA as Sale[]); // Cast as Sale[]
         setMenus(DEFAULT_MENU_ITEMS as MenuItem[]); // Fallback for menus
+        setCategories(CATEGORIES_DATA); // Fallback for categories
         setHeroImageUrl(DEFAULT_HERO_IMAGE_URL);
         setWhatsappPhoneNumber(DEFAULT_WHATSAPP_PHONE_NUMBER);
         setFooterContent(DEFAULT_FOOTER_CONTENT);
@@ -735,6 +763,14 @@ const App: React.FC = () => {
                   />
                 }
               />
+              <Route
+                path="/admin/categories" // New route for category management
+                element={
+                  <AdminCategoryManagementPage
+                    categories={categories || CATEGORIES_DATA}
+                  />
+                }
+              />
             </Routes>
           </main>
         </div>
@@ -752,6 +788,17 @@ const App: React.FC = () => {
                   products={products} // Pass all products for variations
                   onInitiateOrder={initiateOrder}
                   onOpenProductSelectionModal={handleOpenProductSelectionModal} // Pass new prop
+                />
+              }
+            />
+            <Route
+              path="/shop"
+              element={
+                <ShopPage
+                  products={products}
+                  brands={brands}
+                  onAddToCart={addToCart}
+                  onOpenProductSelectionModal={handleOpenProductSelectionModal}
                 />
               }
             />

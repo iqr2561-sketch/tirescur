@@ -89,7 +89,11 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
         </div>
       </section>
 
-      <DealZoneTimer config={dealZoneConfig} />
+      <DealZoneTimer 
+        config={dealZoneConfig} 
+        products={products}
+        onOpenProductSelectionModal={onOpenProductSelectionModal}
+      />
 
       <CategoryCarousel />
 

@@ -23,6 +23,11 @@ export interface Product {
   width: string;
   profile: string;
   diameter: string;
+  // New fields for deals/offers
+  isOnSale?: boolean; // Mark product as on sale
+  salePrice?: number; // Special sale price
+  discountPercentage?: number; // Discount percentage
+  categoryId?: string; // Category ID for filtering
 }
 
 export interface CartItem extends Product {
@@ -34,6 +39,9 @@ export interface Category {
   name: string;
   icon: React.ReactElement; // SVG icon
   imageUrl: string;
+  description?: string; // Optional description
+  order?: number; // For sorting categories
+  isActive?: boolean; // To show/hide category
 }
 
 export interface TireFilter {
@@ -57,6 +65,11 @@ export interface AdminProductFormData {
   width: string;
   profile: string;
   diameter: string;
+  // New fields for deals/offers
+  isOnSale?: boolean;
+  salePrice?: string; // Keep as string for form input
+  discountPercentage?: string; // Keep as string for form input
+  categoryId?: string;
 }
 
 export interface AdminSettingsFormData {

@@ -2,20 +2,16 @@ import React from 'react';
 import { Product, Category, FooterContent, DealZoneConfig, Sale, Brand, MenuItem } from './types';
 
 // Icons for categories
-const EngineIcon: React.ReactElement = React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: "2" },
-  React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M14.752 11.168l-3.197-2.132A1 1 0 0010 9.172v3.656a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" }),
-  React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M21 12a9 9 0 11-18 0 9 9 0 0118 0z" })
-);
-const TireIcon: React.ReactElement = React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: "2" },
+export const TireIcon: React.ReactElement = React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: "2" },
   React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 14v-4m0 0V6a2 2 0 10-4 0v4m4 0h4m-4 0a2 2 0 100 4 2 2 0 000-4zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" })
 );
-const AccessoryIcon: React.ReactElement = React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: "2" },
+export const AccessoryIcon: React.ReactElement = React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: "2" },
   React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.001 12.001 0 002.924 12c0 3.078 1.137 5.968 3.076 8.125l.001.001C7.618 21.365 9.773 22 12 22c2.227 0 4.382-.635 6.099-1.875l.001-.001c1.939-2.157 3.076-5.047 3.076-8.125a12.001 12.001 0 00-2.382-7.06" })
 );
-const WheelIcon: React.ReactElement = React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: "2" },
+export const WheelIcon: React.ReactElement = React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: "2" },
   React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 14c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-3.313 0-6 2.687-6 6h12c0-3.313-2.687-6-6-6z" })
 );
-const ValveSensorIcon: React.ReactElement = React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: "2" },
+export const ValveSensorIcon: React.ReactElement = React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: "2" },
   React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M8 9H7a2 2 0 00-2 2v5a2 2 0 002 2h7a2 2 0 002-2V9a2 2 0 00-2-2h-1m-6 9l3-3m0 0l3 3m-3-3v8m-6-13h2m-6 4h4" })
 );
 
@@ -345,6 +341,7 @@ export const DEFAULT_MENU_ITEMS: Omit<MenuItem, 'id'>[] = [
   { name: 'Ventas', path: '/admin/sales', isExternal: false, order: 50, location: 'admin-sidebar' },
   { name: 'Ajustes', path: '/admin/settings', isExternal: false, order: 60, location: 'admin-sidebar' },
   { name: 'Gestión de Menús', path: '/admin/menus', isExternal: false, order: 70, location: 'admin-sidebar' }, // New menu item for AdminMenuManagementPage
+  { name: 'Categorías', path: '/admin/categories', isExternal: false, order: 75, location: 'admin-sidebar' }, // New menu item for AdminCategoryManagementPage
   { name: 'Volver a la Tienda', path: '/', isExternal: false, order: 80, location: 'admin-sidebar' },
 
   // Footer Info Menus
