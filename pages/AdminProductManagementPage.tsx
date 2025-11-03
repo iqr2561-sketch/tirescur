@@ -2,7 +2,9 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Product, AdminProductFormData, Brand } from '../types';
 import AdminProductCard from '../components/AdminProductCard';
 import Modal from '../components/Modal';
+import ConfirmModal from '../components/ConfirmModal';
 import StarRatingInput from '../components/StarRatingInput';
+import { useToast } from '../contexts/ToastContext';
 import { DEFAULT_PRODUCT_IMAGE_URL, WIDTHS, PROFILES, DIAMETERS, DEFAULT_BRAND_LOGO_URL } from '../constants';
 
 interface AdminProductManagementPageProps {
@@ -23,6 +25,8 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; productId: string | null }>({ isOpen: false, productId: null });
+  const { showSuccess, showError, showWarning } = useToast();
   const [formData, setFormData] = useState<AdminProductFormData>({
     sku: '',
     name: '',
@@ -125,19 +129,19 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
 
     // Basic validation
     if (!formData.name || !formData.brand || !formData.price || !formData.sku || !formData.stock) {
-      alert('Por favor, completa todos los campos obligatorios.');
+      showError('Por favor, completa todos los campos obligatorios.');
       return;
     }
     if (isNaN(parseFloat(formData.price)) || parseFloat(formData.price) <= 0) {
-      alert('El precio debe ser un número positivo.');
+      showError('El precio debe ser un número positivo.');
       return;
     }
     if (isNaN(parseInt(formData.stock)) || parseInt(formData.stock) < 0) {
-      alert('El stock debe ser un número entero no negativo.');
+      showError('El stock debe ser un número entero no negativo.');
       return;
     }
     if (formData.width === WIDTHS[0] || formData.profile === PROFILES[0] || formData.diameter === DIAMETERS[0]) {
-      alert('Por favor, selecciona un valor válido para ancho, perfil y diámetro.');
+      showError('Por favor, selecciona un valor válido para ancho, perfil y diámetro.');
       return;
     }
     
@@ -146,11 +150,11 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       const salePrice = parseFloat(formData.salePrice);
       const regularPrice = parseFloat(formData.price);
       if (isNaN(salePrice) || salePrice <= 0) {
-        alert('El precio de oferta debe ser un número positivo.');
+        showError('El precio de oferta debe ser un número positivo.');
         return;
       }
       if (salePrice >= regularPrice) {
-        alert('El precio de oferta debe ser menor que el precio regular.');
+        showError('El precio de oferta debe ser menor que el precio regular.');
         return;
       }
     }
@@ -192,19 +196,27 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       // For update, we need the existing ID
       const productToUpdate: Product = { ...baseProduct, id: editingProduct.id };
       onUpdateProduct(productToUpdate);
+      showSuccess('Producto actualizado exitosamente');
     } else {
       // For add, we pass the product without ID, MongoDB will generate it
       onAddProduct(baseProduct);
+      showSuccess('Producto agregado exitosamente');
     }
 
     handleCloseModal();
-  }, [formData, editingProduct, onAddProduct, onUpdateProduct, handleCloseModal, brands, WIDTHS, PROFILES, DIAMETERS]);
+  }, [formData, editingProduct, onAddProduct, onUpdateProduct, handleCloseModal, brands, WIDTHS, PROFILES, DIAMETERS, showSuccess, showError]);
 
   const handleDeleteProduct = useCallback((id: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-      onDeleteProduct(id);
+    setConfirmModal({ isOpen: true, productId: id });
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (confirmModal.productId) {
+      onDeleteProduct(confirmModal.productId);
+      showSuccess('Producto eliminado exitosamente');
+      setConfirmModal({ isOpen: false, productId: null });
     }
-  }, [onDeleteProduct]);
+  }, [confirmModal.productId, onDeleteProduct, showSuccess]);
 
   return (
     <div className="flex-1 p-8 bg-gray-100 overflow-auto dark:bg-gray-900">
@@ -267,42 +279,45 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Imagen</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">SKU</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Producto</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Marca</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Precio</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Oferta</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Stock</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Tamaño</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Acciones</th>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Imagen</th>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300 hidden sm:table-cell">SKU</th>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Producto</th>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300 hidden md:table-cell">Marca</th>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Precio</th>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300 hidden lg:table-cell">Oferta</th>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Stock</th>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300 hidden xl:table-cell">Tamaño</th>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Acciones</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
                 {products.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                       <img 
                         src={product.imageUrl || DEFAULT_PRODUCT_IMAGE_URL} 
                         alt={product.name} 
-                        className="h-16 w-16 object-cover rounded"
+                        className="h-12 w-12 md:h-16 md:w-16 object-cover rounded"
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 hidden sm:table-cell">
                       {product.sku}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 md:px-6 py-4">
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{product.name}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 sm:hidden mt-1">
+                        SKU: {product.sku}
+                      </div>
                       {product.description && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1 max-w-xs" title={product.description}>
+                        <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 max-w-xs mt-1" title={product.description}>
                           {product.description}
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 hidden md:table-cell">
                       {product.brand}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                       {product.isOnSale ? (
                         <div>
                           <div className="text-sm font-medium text-red-600 dark:text-red-400">
@@ -318,7 +333,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
                       {product.isOnSale ? (
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100">
                           {product.discountPercentage ? `${product.discountPercentage}% OFF` : 'En Oferta'}
@@ -329,7 +344,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                       {product.stock <= 0 ? (
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100">
                           Agotado
@@ -344,26 +359,28 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 hidden xl:table-cell">
                       {product.width && product.profile && product.diameter ? (
                         <span>{product.width}/{product.profile} {product.diameter}</span>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => handleOpenEditModal(product)}
-                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(product.id)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                      >
-                        Eliminar
-                      </button>
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                        <button
+                          onClick={() => handleOpenEditModal(product)}
+                          className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 text-xs sm:text-sm"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 text-xs sm:text-sm"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -656,6 +673,17 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, productId: null })}
+        onConfirm={handleConfirmDelete}
+        title="Confirmar Eliminación"
+        message="¿Estás seguro de que quieres eliminar este producto? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        type="danger"
+      />
     </div>
   );
 };

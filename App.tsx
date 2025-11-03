@@ -19,6 +19,7 @@ import AdminCategoryManagementPage from './pages/AdminCategoryManagementPage';
 import CustomerInfoModal from './components/CustomerInfoModal';
 import LoadingSpinner from './components/LoadingSpinner'; // Import new component
 import ProductSelectionModal from './components/ProductSelectionModal'; // Import new component
+import { useToast } from './contexts/ToastContext';
 
 import { Product, CartItem, HeroImageUpdateFunction, PhoneNumberUpdateFunction, FooterContent, FooterUpdateFunction, DealZoneConfig, DealZoneConfigUpdateFunction, Sale, Brand, GlobalSettings, MenuItem, Category } from './types';
 import {
@@ -71,6 +72,7 @@ const App: React.FC = () => {
 
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
+  const { showSuccess, showError } = useToast();
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -279,13 +281,13 @@ const App: React.FC = () => {
         brandId: addedProduct.brand_id,
         brandLogoUrl: addedProduct.brand_logo_url,
       }]));
-      alert('Producto añadido con éxito!');
+      showSuccess('Producto añadido con éxito!');
     } catch (err: any) {
       console.error('Error adding product:', err);
       const errorMessage = err?.message || 'Error desconocido';
-      alert(`Error al añadir el producto: ${errorMessage}`);
+      showError(`Error al añadir el producto: ${errorMessage}`);
     }
-  }, []);
+  }, [showSuccess, showError]);
 
   const updateProduct = useCallback(async (updatedProduct: Product) => {
     try {
@@ -305,12 +307,12 @@ const App: React.FC = () => {
         brandId: updatedProductResponse.brand_id,
         brandLogoUrl: updatedProductResponse.brand_logo_url,
       } : p) : []);
-      alert('Producto actualizado con éxito!');
+      showSuccess('Producto actualizado con éxito!');
     } catch (err) {
       console.error('Error updating product:', err);
-      alert('Error al actualizar el producto.');
+      showError('Error al actualizar el producto.');
     }
-  }, []);
+  }, [showSuccess, showError]);
 
   const deleteProduct = useCallback(async (productId: string) => {
     try {
@@ -319,12 +321,12 @@ const App: React.FC = () => {
       });
       if (!res.ok) throw new Error('Failed to delete product');
       setProducts(prevProducts => prevProducts ? prevProducts.filter(p => p.id !== productId) : []);
-      alert('Producto eliminado con éxito!');
+      showSuccess('Producto eliminado con éxito!');
     } catch (err) {
       console.error('Error deleting product:', err);
-      alert('Error al eliminar el producto.');
+      showError('Error al eliminar el producto.');
     }
-  }, []);
+  }, [showSuccess, showError]);
 
   const updateProductsBulk = useCallback(async (newProductsArray: Product[]) => {
     try {
