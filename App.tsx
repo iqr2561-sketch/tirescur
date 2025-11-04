@@ -375,7 +375,7 @@ const App: React.FC = () => {
       };
       
       setProducts(prevProducts => prevProducts ? [...prevProducts, mappedProduct] : [mappedProduct]);
-      showSuccess(`✅ Producto "${mappedProduct.name}" añadido correctamente`);
+      showSuccess(`✅ Producto "${mappedProduct.name}" añadido correctamente`, 6000);
     } catch (err: any) {
       console.error('Error adding product:', err);
       const errorMessage = err?.message || 'Error desconocido';
@@ -417,7 +417,7 @@ const App: React.FC = () => {
       };
       
       setProducts(prevProducts => prevProducts ? prevProducts.map(p => p.id === updatedProduct.id ? mappedProduct : p) : []);
-      showSuccess(`✅ Producto "${mappedProduct.name}" actualizado correctamente`);
+      showSuccess(`✅ Producto "${mappedProduct.name}" actualizado correctamente`, 6000);
     } catch (err: any) {
       console.error('Error updating product:', err);
       const errorMessage = err?.message || 'Error desconocido';
