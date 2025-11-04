@@ -1,155 +1,146 @@
-import React, { useState, useEffect } from 'react';
-
-export interface Popup {
-  id: string;
-  title: string;
-  message?: string;
-  image_url?: string;
-  button_text?: string;
-  button_link?: string;
-  auto_close_seconds?: number;
-  show_once_per_session?: boolean;
-}
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface PopupModalProps {
-  popup: Popup;
+  isOpen: boolean;
   onClose: () => void;
+  imageUrl?: string;
+  title: string;
+  content: string;
+  linkUrl?: string;
+  autoCloseDelay?: number; // in seconds, 0 for no auto-close
 }
 
-const PopupModal: React.FC<PopupModalProps> = ({ popup, onClose }) => {
+const PopupModal: React.FC<PopupModalProps> = ({
+  isOpen,
+  onClose,
+  imageUrl,
+  title,
+  content,
+  linkUrl,
+  autoCloseDelay = 0,
+}) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [progress, setProgress] = useState(100);
 
   useEffect(() => {
-    // Animación de entrada
-    const timer = setTimeout(() => setIsVisible(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    // Auto-cierre si está configurado
-    if (popup.auto_close_seconds && popup.auto_close_seconds > 0) {
-      const totalDuration = popup.auto_close_seconds * 1000;
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev <= 0) {
-            clearInterval(interval);
-            handleClose();
-            return 0;
+    if (isOpen) {
+      setIsVisible(true);
+      setProgress(100);
+      
+      if (autoCloseDelay > 0) {
+        const totalDuration = autoCloseDelay * 1000;
+        const interval = setInterval(() => {
+          if (!isHovered) {
+            setProgress((prev) => {
+              if (prev <= 0) {
+                clearInterval(interval);
+                setIsVisible(false);
+                setTimeout(onClose, 300);
+                return 0;
+              }
+              return prev - (100 / (totalDuration / 50));
+            });
           }
-          return prev - (100 / (totalDuration / 50));
-        });
-      }, 50);
+        }, 50);
 
-      const timer = setTimeout(() => {
-        handleClose();
-      }, totalDuration);
+        const timer = setTimeout(() => {
+          if (!isHovered) {
+            setIsVisible(false);
+            setTimeout(onClose, 300);
+          }
+        }, totalDuration);
 
-      return () => {
-        clearInterval(interval);
-        clearTimeout(timer);
-      };
+        return () => {
+          clearInterval(interval);
+          clearTimeout(timer);
+        };
+      }
+    } else {
+      setIsVisible(false);
     }
-  }, [popup.auto_close_seconds]);
+  }, [isOpen, autoCloseDelay, isHovered, onClose]);
 
-  const handleClose = () => {
-    setIsClosing(true);
-    setTimeout(() => {
-      onClose();
-    }, 300);
-  };
+  const handleClose = useCallback(() => {
+    setIsVisible(false);
+    setTimeout(onClose, 300);
+  }, [onClose]);
 
-  const handleButtonClick = () => {
-    if (popup.button_link) {
-      window.location.href = popup.button_link;
+  const handleButtonClick = useCallback(() => {
+    if (linkUrl) {
+      window.location.href = linkUrl;
     }
     handleClose();
-  };
+  }, [linkUrl, handleClose]);
 
-  if (!isVisible && isClosing) return null;
+  if (!isOpen && !isVisible) return null;
 
   return (
     <div
-      className={`fixed inset-0 z-[10000] flex items-center justify-center p-4 transition-all duration-300 ${
-        isVisible && !isClosing ? 'opacity-100' : 'opacity-0'
+      className={`fixed inset-0 z-[10000] flex items-center justify-center p-4 transition-opacity duration-300 ${
+        isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
-      onClick={handleClose}
+      aria-modal="true"
+      role="dialog"
     >
-      {/* Backdrop con blur */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
-
-      {/* Modal */}
+      {/* Backdrop */}
       <div
-        className={`relative z-10 w-full max-w-2xl bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-2xl transform transition-all duration-300 ${
-          isVisible && !isClosing ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
-        }`}
-        onClick={(e) => e.stopPropagation()}
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={handleClose}
+      ></div>
+
+      {/* Modal Content */}
+      <div
+        className={`relative bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-3xl border border-gray-700/50
+          w-full max-w-lg transform transition-all duration-500 ease-out
+          ${isVisible ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}
+          ${isHovered ? 'scale-[1.02] shadow-4xl' : ''}
+        `}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Botón cerrar */}
+        {/* Close Button */}
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 z-20 p-2 rounded-full bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg"
-          aria-label="Cerrar popup"
+          className="absolute top-3 right-3 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-red-600 rounded-full p-2 transition-all duration-200 z-10"
+          aria-label="Cerrar promoción"
         >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
 
-        {/* Imagen si existe */}
-        {popup.image_url && (
-          <div className="relative w-full h-64 overflow-hidden rounded-t-2xl">
+        {imageUrl && (
+          <div className="relative h-48 overflow-hidden rounded-t-2xl">
             <img
-              src={popup.image_url}
-              alt={popup.title}
-              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+              src={imageUrl}
+              alt={title}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
-            {/* Overlay sutil */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-gray-900/70 to-transparent"></div>
           </div>
         )}
 
-        {/* Contenido */}
-        <div className="p-8">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4 pr-8">
-            {popup.title}
-          </h2>
+        <div className="p-6 text-center">
+          <h3 className="text-3xl font-bold text-red-500 mb-3">{title}</h3>
+          <p className="text-gray-300 text-lg mb-6">{content}</p>
 
-          {popup.message && (
-            <p className="text-lg text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
-              {popup.message}
-            </p>
-          )}
-
-          {/* Botón de acción */}
-          {popup.button_text && (
+          {linkUrl && (
             <button
               onClick={handleButtonClick}
-              className="w-full bg-gradient-to-r from-red-600 to-red-500 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl hover:from-red-500 hover:to-red-600 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+              className="inline-block bg-red-600 text-white font-semibold py-3 px-8 rounded-full shadow-lg hover:bg-red-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
             >
-              {popup.button_text}
+              Ver Oferta
             </button>
           )}
 
-          {/* Barra de progreso si tiene auto-cierre */}
-          {popup.auto_close_seconds && popup.auto_close_seconds > 0 && (
-            <div className="mt-6 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          {/* Progress bar for auto-close */}
+          {autoCloseDelay > 0 && (
+            <div className="mt-4 h-1 bg-black/20 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-red-600 to-red-500 transition-all duration-50 ease-linear rounded-full"
+                className="h-full bg-red-500 transition-all duration-50 ease-linear rounded-full"
                 style={{ width: `${progress}%` }}
-              ></div>
+              />
             </div>
           )}
         </div>
@@ -159,4 +150,3 @@ const PopupModal: React.FC<PopupModalProps> = ({ popup, onClose }) => {
 };
 
 export default PopupModal;
-
