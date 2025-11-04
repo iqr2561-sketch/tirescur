@@ -511,10 +511,31 @@ const App: React.FC = () => {
   const addProductsBulk = useCallback(async (newProductsArray: Omit<Product, 'id'>[]) => {
     if (newProductsArray.length === 0) return [];
     try {
-      const res = await fetch(`${API_BASE_URL}/products/bulk-create`, {
+      const url = `${API_BASE_URL}/products/bulk-create`;
+      console.log('[App] Bulk create request:', {
+        url,
+        method: 'POST',
+        productCount: newProductsArray.length,
+        sampleProduct: newProductsArray[0] ? {
+          sku: newProductsArray[0].sku,
+          name: newProductsArray[0].name,
+          brand: newProductsArray[0].brand,
+          hasIsActive: 'isActive' in newProductsArray[0],
+          isActive: newProductsArray[0].isActive
+        } : null
+      });
+
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProductsArray),
+      });
+      
+      console.log('[App] Bulk create response:', {
+        status: res.status,
+        statusText: res.statusText,
+        contentType: res.headers.get('content-type'),
+        ok: res.ok
       });
       
       // Check if response is valid JSON

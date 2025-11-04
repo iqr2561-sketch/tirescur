@@ -5,35 +5,80 @@ import { Product } from '../../types.js';
 
 export default allowCors(async function handler(req, res) {
   try {
+    console.log('[Bulk-Create API] Request received:', {
+      method: req.method,
+      url: req.url,
+      headers: {
+        'content-type': req.headers['content-type'],
+        'content-length': req.headers['content-length']
+      }
+    });
+
     if (req.method !== 'POST') {
+      console.error('[Bulk-Create API] Method not allowed:', req.method);
       res.statusCode = 405;
-      res.json({ error: 'Método no permitido. Solo se acepta POST.' });
+      res.json({ error: 'Método no permitido. Solo se acepta POST.', receivedMethod: req.method });
       return;
     }
 
     const supabase = ensureSupabase();
     const body = await parseBody(req);
+    
+    console.log('[Bulk-Create API] Body parsed:', {
+      isArray: Array.isArray(body),
+      length: Array.isArray(body) ? body.length : 'N/A',
+      firstItem: Array.isArray(body) && body.length > 0 ? {
+        sku: body[0].sku,
+        name: body[0].name,
+        brand: body[0].brand,
+        hasIsActive: 'isActive' in (body[0] || {})
+      } : null
+    });
 
     if (!Array.isArray(body) || body.length === 0) {
+      console.error('[Bulk-Create API] Invalid body:', { isArray: Array.isArray(body), length: body?.length });
       res.statusCode = 400;
-      res.json({ error: 'Array de productos es requerido para creación masiva' });
+      res.json({ error: 'Array de productos es requerido para creación masiva', received: typeof body });
       return;
     }
 
+    console.log('[Bulk-Create API] Processing', body.length, 'products');
+
     const brandsResponse = await supabase.from('brands').select('*');
     if (brandsResponse.error) {
+      console.error('[Bulk-Create API] Error fetching brands:', brandsResponse.error);
       throw new Error(brandsResponse.error.message);
     }
 
+    console.log('[Bulk-Create API] Found', brandsResponse.data?.length || 0, 'brands');
+
     const payload = body.map((product: Product) => {
       const brand = brandsResponse.data?.find((item: any) => item.name === product.brand);
-      return mapProductForInsert(product, brand);
+      const mapped = mapProductForInsert(product, brand);
+      return mapped;
+    });
+
+    console.log('[Bulk-Create API] Mapped payload:', {
+      count: payload.length,
+      sample: payload[0] ? {
+        sku: payload[0].sku,
+        name: payload[0].name,
+        brand_name: payload[0].brand_name,
+        hasIsActive: 'is_active' in payload[0],
+        isActive: payload[0].is_active
+      } : null
     });
 
     const { data, error } = await supabase
       .from('products')
       .insert(payload)
       .select();
+    
+    console.log('[Bulk-Create API] Insert result:', {
+      hasError: !!error,
+      error: error?.message,
+      dataCount: data?.length || 0
+    });
 
     if (error) {
       console.error('[Products API] Error en bulk-create:', error);

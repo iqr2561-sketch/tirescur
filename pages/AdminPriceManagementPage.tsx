@@ -285,12 +285,35 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
         
         // Perform bulk updates
         if (productsToUpdate.length > 0) {
-            await onUpdateProductsBulk(productsToUpdate);
+            console.log('[Excel Import] Updating', productsToUpdate.length, 'products');
+            try {
+              await onUpdateProductsBulk(productsToUpdate);
+              console.log('[Excel Import] Bulk update completed successfully');
+            } catch (updateError: any) {
+              console.error('[Excel Import] Error in bulk update:', updateError);
+              errorCount += productsToUpdate.length;
+              errors.push(`Error al actualizar ${productsToUpdate.length} productos: ${updateError?.message || 'Error desconocido'}`);
+            }
         }
 
         // Perform bulk creations
         if (productsToCreate.length > 0) {
-            await onAddProductsBulk(productsToCreate);
+            console.log('[Excel Import] Creating', productsToCreate.length, 'products');
+            console.log('[Excel Import] Sample product to create:', productsToCreate[0] ? {
+              sku: productsToCreate[0].sku,
+              name: productsToCreate[0].name,
+              brand: productsToCreate[0].brand,
+              hasIsActive: 'isActive' in productsToCreate[0],
+              isActive: productsToCreate[0].isActive
+            } : null);
+            try {
+              await onAddProductsBulk(productsToCreate);
+              console.log('[Excel Import] Bulk create completed successfully');
+            } catch (createError: any) {
+              console.error('[Excel Import] Error in bulk create:', createError);
+              errorCount += productsToCreate.length;
+              errors.push(`Error al crear ${productsToCreate.length} productos: ${createError?.message || 'Error desconocido'}`);
+            }
         }
 
         setExcelStatus('success');
