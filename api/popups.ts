@@ -78,15 +78,45 @@ export default allowCors(async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = await parseBody(req);
+      
+      // Mapear campos del frontend a la base de datos
+      const popupData: any = {
+        title: body.title,
+        message: body.message || null,
+        image_url: body.image_url || body.imageUrl || null, // Aceptar ambos formatos
+        button_text: body.button_text || body.buttonText || null,
+        button_link: body.button_link || body.buttonLink || null,
+        is_active: body.is_active !== undefined ? body.is_active : (body.isActive !== undefined ? body.isActive : true),
+        auto_close_seconds: body.auto_close_seconds !== undefined ? body.auto_close_seconds : (body.autoCloseSeconds !== undefined ? body.autoCloseSeconds : null),
+        show_on_page_load: body.show_on_page_load !== undefined ? body.show_on_page_load : (body.showOnPageLoad !== undefined ? body.showOnPageLoad : true),
+        show_once_per_session: body.show_once_per_session !== undefined ? body.show_once_per_session : (body.showOncePerSession !== undefined ? body.showOncePerSession : true),
+        priority: body.priority !== undefined ? body.priority : 0,
+        start_date: body.start_date || body.startDate || null,
+        end_date: body.end_date || body.endDate || null,
+      };
+
+      console.log('[Popups API] Creating popup with data:', {
+        title: popupData.title,
+        hasImageUrl: !!popupData.image_url,
+        imageUrl: popupData.image_url?.substring(0, 50) || 'null',
+      });
+
       const { data: inserted, error } = await supabase
         .from('popups')
-        .insert(body)
+        .insert(popupData)
         .select()
         .single();
 
       if (error) {
+        console.error('[Popups API] Error creating popup:', error);
         throw new Error(error.message);
       }
+
+      console.log('[Popups API] Popup created successfully:', {
+        id: inserted.id,
+        title: inserted.title,
+        hasImageUrl: !!inserted.image_url,
+      });
 
       res.statusCode = 201;
       res.json(inserted);
@@ -101,16 +131,47 @@ export default allowCors(async function handler(req, res) {
       }
 
       const body = await parseBody(req);
+      
+      // Mapear campos del frontend a la base de datos
+      const popupData: any = {
+        title: body.title,
+        message: body.message !== undefined ? body.message : null,
+        image_url: body.image_url !== undefined ? body.image_url : (body.imageUrl !== undefined ? body.imageUrl : null),
+        button_text: body.button_text !== undefined ? body.button_text : (body.buttonText !== undefined ? body.buttonText : null),
+        button_link: body.button_link !== undefined ? body.button_link : (body.buttonLink !== undefined ? body.buttonLink : null),
+        is_active: body.is_active !== undefined ? body.is_active : (body.isActive !== undefined ? body.isActive : true),
+        auto_close_seconds: body.auto_close_seconds !== undefined ? body.auto_close_seconds : (body.autoCloseSeconds !== undefined ? body.autoCloseSeconds : null),
+        show_on_page_load: body.show_on_page_load !== undefined ? body.show_on_page_load : (body.showOnPageLoad !== undefined ? body.showOnPageLoad : true),
+        show_once_per_session: body.show_once_per_session !== undefined ? body.show_once_per_session : (body.showOncePerSession !== undefined ? body.showOncePerSession : true),
+        priority: body.priority !== undefined ? body.priority : 0,
+        start_date: body.start_date !== undefined ? body.start_date : (body.startDate !== undefined ? body.startDate : null),
+        end_date: body.end_date !== undefined ? body.end_date : (body.endDate !== undefined ? body.endDate : null),
+      };
+
+      console.log('[Popups API] Updating popup:', {
+        id: popupId,
+        title: popupData.title,
+        hasImageUrl: !!popupData.image_url,
+        imageUrl: popupData.image_url?.substring(0, 50) || 'null',
+      });
+
       const { data: updated, error } = await supabase
         .from('popups')
-        .update(body)
+        .update(popupData)
         .eq('id', popupId)
         .select()
         .single();
 
       if (error) {
+        console.error('[Popups API] Error updating popup:', error);
         throw new Error(error.message);
       }
+
+      console.log('[Popups API] Popup updated successfully:', {
+        id: updated.id,
+        title: updated.title,
+        hasImageUrl: !!updated.image_url,
+      });
 
       res.statusCode = 200;
       res.json(updated);
