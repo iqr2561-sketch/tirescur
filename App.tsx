@@ -377,11 +377,28 @@ const App: React.FC = () => {
         brandId: addedProduct.brand_id,
         brandLogoUrl: addedProduct.brand_logo_url,
       }]));
-      showSuccess(`Producto "${addedProduct.name}" añadido correctamente.`);
+      const mappedProduct: Product = {
+        ...addedProduct,
+        brand: addedProduct.brand_name || addedProduct.brand,
+        brandId: addedProduct.brand_id || addedProduct.brandId,
+        brandLogoUrl: addedProduct.brand_logo_url || addedProduct.brandLogoUrl,
+        isActive: addedProduct.is_active !== undefined ? addedProduct.is_active : addedProduct.isActive !== undefined ? addedProduct.isActive : true,
+      };
+      
+      setProducts(prevProducts => prevProducts ? [...prevProducts, mappedProduct] : [mappedProduct]);
+      showSuccess(`✅ Producto "${mappedProduct.name}" añadido correctamente`);
     } catch (err: any) {
       console.error('Error adding product:', err);
       const errorMessage = err?.message || 'Error desconocido';
-      showError(`Error al añadir el producto: ${errorMessage}`);
+      
+      // Mensajes más específicos según el tipo de error
+      if (errorMessage.includes('is_active') || errorMessage.includes('column')) {
+        showError(`❌ Error de configuración: La columna 'is_active' no existe. Ejecuta la migración en Supabase.`);
+      } else if (errorMessage.includes('duplicate') || errorMessage.includes('unique')) {
+        showWarning(`⚠️ El SKU ya existe. Por favor, usa un SKU diferente.`);
+      } else {
+        showError(`❌ Error al añadir el producto: ${errorMessage}`);
+      }
     }
   }, [showSuccess, showError]);
 
@@ -411,11 +428,21 @@ const App: React.FC = () => {
       };
       
       setProducts(prevProducts => prevProducts ? prevProducts.map(p => p.id === updatedProduct.id ? mappedProduct : p) : []);
-      showSuccess(`Producto "${mappedProduct.name}" actualizado correctamente.`);
+      showSuccess(`✅ Producto "${mappedProduct.name}" actualizado correctamente`);
     } catch (err: any) {
       console.error('Error updating product:', err);
       const errorMessage = err?.message || 'Error desconocido';
-      showError(`Error al actualizar el producto: ${errorMessage}`);
+      
+      // Mensajes más específicos según el tipo de error
+      if (errorMessage.includes('405') || errorMessage.includes('Method not allowed')) {
+        showError(`❌ Error de conexión: El servidor no acepta esta petición. Intenta nuevamente.`);
+      } else if (errorMessage.includes('is_active') || errorMessage.includes('column')) {
+        showError(`❌ Error de configuración: La columna 'is_active' no existe. Ejecuta la migración en Supabase.`);
+      } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+        showError(`❌ Producto no encontrado. Por favor, recarga la página.`);
+      } else {
+        showError(`❌ Error al actualizar el producto: ${errorMessage}`);
+      }
     }
   }, [showSuccess, showError]);
 
@@ -534,7 +561,14 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error('Error bulk creating products:', err);
       const errorMessage = err?.message || 'Error desconocido al crear productos';
-      showError(`No se pudieron crear los productos: ${errorMessage}`);
+      // Mensajes más específicos según el tipo de error
+      if (errorMessage.includes('405') || errorMessage.includes('Method not allowed')) {
+        showError(`❌ Error de conexión: El servidor rechazó la petición. Verifica que el endpoint esté disponible.`);
+      } else if (errorMessage.includes('is_active') || errorMessage.includes('column')) {
+        showError(`❌ Error de configuración: La columna 'is_active' no existe. Ejecuta la migración en Supabase.`);
+      } else {
+        showError(`❌ No se pudieron crear los productos: ${errorMessage}`);
+      }
       throw err;
     }
   }, [showError]);

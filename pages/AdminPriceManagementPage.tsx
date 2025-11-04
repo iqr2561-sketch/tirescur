@@ -308,17 +308,23 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
         let userMessage = `Error al procesar el archivo: ${errorMessage}`;
         
         // Mensajes más específicos según el tipo de error
-        if (errorMessage.includes('toLowerCase') || errorMessage.includes('toUpperCase')) {
-          userMessage = 'Error: El archivo contiene datos incompletos. Verifica que todas las columnas (Marca, Modelo, Size, RIM, Precio) tengan valores válidos.';
+        if (errorMessage.includes('405') || errorMessage.includes('Method not allowed')) {
+          userMessage = '❌ Error de conexión: El servidor rechazó la petición. Verifica que el endpoint esté disponible.';
+        } else if (errorMessage.includes('is_active') || errorMessage.includes('column') || errorMessage.includes('schema')) {
+          userMessage = '❌ Error de configuración: La columna \'is_active\' no existe en la base de datos. Ejecuta la migración: migrations/add_is_active_to_products.sql en Supabase.';
+        } else if (errorMessage.includes('toLowerCase') || errorMessage.includes('toUpperCase')) {
+          userMessage = '❌ Error: El archivo contiene datos incompletos. Verifica que todas las columnas (Marca, Modelo, Size, RIM, Precio) tengan valores válidos.';
         } else if (errorMessage.includes('no contiene datos')) {
-          userMessage = 'El archivo está vacío o no contiene datos válidos. Verifica que tenga al menos una fila con información.';
+          userMessage = '❌ El archivo está vacío o no contiene datos válidos. Verifica que tenga al menos una fila con información.';
         } else if (errorMessage.includes('no contiene hojas')) {
-          userMessage = 'El archivo Excel no contiene hojas de cálculo. Verifica que el archivo no esté corrupto.';
+          userMessage = '❌ El archivo Excel no contiene hojas de cálculo. Verifica que el archivo no esté corrupto.';
         } else if (errorMessage.includes('formato')) {
-          userMessage = 'Error de formato en el archivo. Asegúrate de que sea un archivo .xlsx o .csv válido.';
+          userMessage = '❌ Error de formato en el archivo. Asegúrate de que sea un archivo .xlsx o .csv válido.';
+        } else {
+          userMessage = `❌ ${errorMessage}`;
         }
         
-        setExcelMessage(`${userMessage}\n\nFormato esperado:\n- Marca: Nombre de la marca\n- Modelo: Nombre del producto\n- Size: Formato "155/70R12"\n- RIM: Diámetro (ej: "12" o "R12")\n- Precio: Número válido\n- Imagen: URL (opcional)`);
+        setExcelMessage(`${userMessage}\n\n📋 Formato esperado:\n• Marca: Nombre de la marca\n• Modelo: Nombre del producto\n• Size: Formato "155/70R12"\n• RIM: Diámetro (ej: "12" o "R12")\n• Precio: Número válido\n• Imagen: URL (opcional)`);
       } finally {
         setFile(null); // Clear selected file after processing
       }

@@ -51,13 +51,19 @@ export default allowCors(async function handler(req, res) {
           .select();
 
         if (error) {
-          throw new Error(error.message);
+          console.error('[Products API] Error en bulk-create:', error);
+          const errorMessage = error.message || 'Error desconocido al crear productos';
+          // Si el error es sobre una columna que no existe, dar mensaje más claro
+          if (errorMessage.includes('column') || errorMessage.includes('schema') || errorMessage.includes('is_active')) {
+            throw new Error(`Error de configuración: La columna 'is_active' no existe en la tabla 'products'. Ejecuta la migración: migrations/add_is_active_to_products.sql`);
+          }
+          throw new Error(errorMessage);
         }
 
-      const formatted = (data || []).map(toClientProduct);
-      res.statusCode = 201;
-      res.json(formatted);
-      return;
+        const formatted = (data || []).map(toClientProduct);
+        res.statusCode = 201;
+        res.json(formatted);
+        return;
       }
 
       const productPayload = body as Omit<Product, 'id'>;
@@ -78,7 +84,13 @@ export default allowCors(async function handler(req, res) {
         .single();
 
       if (error || !data) {
-        throw new Error(error?.message || 'Error creando producto');
+        console.error('[Products API] Error creando producto:', error);
+        const errorMessage = error?.message || 'Error desconocido al crear producto';
+        // Si el error es sobre una columna que no existe, dar mensaje más claro
+        if (errorMessage.includes('column') || errorMessage.includes('schema')) {
+          throw new Error(`Error de configuración: ${errorMessage}. Verifica que la base de datos tenga todas las columnas necesarias.`);
+        }
+        throw new Error(errorMessage);
       }
 
       res.statusCode = 201;
@@ -200,7 +212,13 @@ async function updateSingleProduct(supabase: any, productId: string, product: Pr
     .single();
 
   if (error || !data) {
-    throw new Error(error?.message || 'Error actualizando el producto');
+    console.error('[Products API] Error actualizando producto:', error);
+    const errorMessage = error?.message || 'Error desconocido al actualizar producto';
+    // Si el error es sobre una columna que no existe, dar mensaje más claro
+    if (errorMessage.includes('column') || errorMessage.includes('schema') || errorMessage.includes('is_active')) {
+      throw new Error(`Error de configuración: La columna 'is_active' no existe en la tabla 'products'. Ejecuta la migración: migrations/add_is_active_to_products.sql`);
+    }
+    throw new Error(errorMessage);
   }
 
   return data;

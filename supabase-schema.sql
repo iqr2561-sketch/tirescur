@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS products (
     sale_price DECIMAL(10, 2) CHECK (sale_price >= 0),
     discount_percentage INTEGER CHECK (discount_percentage >= 0 AND discount_percentage <= 100),
     category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+    is_active BOOLEAN DEFAULT true, -- Producto activo y visible para clientes
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     -- Constraint para validar sale_price
@@ -81,6 +82,7 @@ CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products(brand_id);
 CREATE INDEX IF NOT EXISTS idx_products_brand_name ON products(brand_name);
 CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_is_on_sale ON products(is_on_sale);
+CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active);
 CREATE INDEX IF NOT EXISTS idx_products_price ON products(price);
 CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock);
 CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at);
