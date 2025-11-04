@@ -161,6 +161,14 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
           </div>
         </div>
       </section>
+
+      {/* Modal de Cotización de Grúa */}
+      <CraneQuoteModal
+        isOpen={isCraneQuoteModalOpen}
+        onClose={() => setIsCraneQuoteModalOpen(false)}
+        config={craneQuoteConfig}
+        whatsappNumber={whatsappPhoneNumber}
+      />
     </div>
   );
 };
