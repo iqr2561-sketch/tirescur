@@ -54,10 +54,10 @@ export default allowCors(async function handler(req, res) {
           throw new Error(error.message);
         }
 
-        const formatted = (data || []).map(toClientProduct);
-        res.statusCode = 201;
-        res.json(formatted);
-        return;
+      const formatted = (data || []).map(toClientProduct);
+      res.statusCode = 201;
+      res.json(formatted);
+      return;
       }
 
       const productPayload = body as Omit<Product, 'id'>;
@@ -110,16 +110,26 @@ export default allowCors(async function handler(req, res) {
       
       // Si no está en query, intentar extraerlo del pathname
       if (!productId && pathname) {
-        const pathParts = pathname.split('/');
+        const pathParts = pathname.split('/').filter(p => p); // Filtrar partes vacías
         const productsIndex = pathParts.indexOf('products');
         if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
           productId = pathParts[productsIndex + 1];
+        } else {
+          // Si 'products' no está, buscar cualquier parte que parezca un UUID
+          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          for (const part of pathParts) {
+            if (uuidPattern.test(part)) {
+              productId = part;
+              break;
+            }
+          }
         }
       }
       
       if (!productId) {
+        console.error('[Products API] No product ID found. Pathname:', pathname, 'Query:', query);
         res.statusCode = 400;
-        res.json({ error: 'Product ID is required for update' });
+        res.json({ error: 'Product ID is required for update', debug: { pathname, query } });
         return;
       }
 
