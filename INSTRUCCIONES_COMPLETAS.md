@@ -18,16 +18,31 @@
 
 El bucket `product-images` debe crearse manualmente porque Supabase Storage no se puede crear solo con SQL.
 
+#### ⚠️ IMPORTANTE: Crear en Supabase, NO en Vercel
+
+Ve a **Supabase Dashboard** (https://app.supabase.com), NO al Dashboard de Vercel.
+
 #### Opción A: Desde el Dashboard (Recomendado)
 
-1. Ve a **Supabase Dashboard** → **Storage**
-2. Haz clic en **"New bucket"** o **"Crear bucket"**
+1. Ve a **Supabase Dashboard** → Selecciona tu proyecto → **Storage** (menú lateral izquierdo)
+2. Haz clic en **"New bucket"** o **"Crear bucket"** (botón en la parte superior derecha o centro)
 3. Configuración:
-   - **Nombre**: `product-images`
-   - **Public bucket**: **NO** (o SÍ si quieres acceso público)
-   - **File size limit**: `5242880` (5MB) o el que prefieras
-   - **Allowed MIME types**: `image/jpeg, image/png, image/gif, image/webp`
-4. Haz clic en **"Create bucket"**
+   - **Nombre**: `product-images` (exactamente así, en minúsculas, con guión)
+   - **Public bucket**: 
+     - **NO** = Más seguro, requiere autenticación para ver imágenes
+     - **SÍ** = Acceso público, cualquiera puede ver las imágenes
+     - **Recomendación**: SÍ si las imágenes de productos deben ser públicas
+   - **File size limit**: `5242880` (5MB) o `10485760` (10MB)
+   - **Allowed MIME types**: 
+     - `image/jpeg`
+     - `image/png`
+     - `image/gif`
+     - `image/webp`
+     - O simplemente: `image/*` (permite todos los tipos)
+4. Haz clic en **"Create bucket"** o **"Crear bucket"**
+5. Verifica que el bucket `product-images` aparezca en la lista
+
+**Ver guía completa en**: `GUIA_CREAR_BUCKET.md`
 
 #### Opción B: Usar la API REST
 
