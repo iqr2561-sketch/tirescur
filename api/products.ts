@@ -105,7 +105,18 @@ export default allowCors(async function handler(req, res) {
         return;
       }
 
-      const productId = Array.isArray(query.id) ? query.id[0] : query.id;
+      // Extraer el ID del query o del pathname
+      let productId = Array.isArray(query.id) ? query.id[0] : query.id;
+      
+      // Si no está en query, intentar extraerlo del pathname
+      if (!productId && pathname) {
+        const pathParts = pathname.split('/');
+        const productsIndex = pathParts.indexOf('products');
+        if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
+          productId = pathParts[productsIndex + 1];
+        }
+      }
+      
       if (!productId) {
         res.statusCode = 400;
         res.json({ error: 'Product ID is required for update' });
@@ -119,7 +130,18 @@ export default allowCors(async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      const productId = Array.isArray(query.id) ? query.id[0] : query.id;
+      // Extraer el ID del query o del pathname
+      let productId = Array.isArray(query.id) ? query.id[0] : query.id;
+      
+      // Si no está en query, intentar extraerlo del pathname
+      if (!productId && pathname) {
+        const pathParts = pathname.split('/');
+        const productsIndex = pathParts.indexOf('products');
+        if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
+          productId = pathParts[productsIndex + 1];
+        }
+      }
+      
       if (!productId) {
         res.statusCode = 400;
         res.json({ error: 'Product ID is required for delete' });

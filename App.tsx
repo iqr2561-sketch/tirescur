@@ -557,6 +557,13 @@ const App: React.FC = () => {
           // Si no se puede parsear el error, usar el status text
           errorMessage = `${res.status} ${res.statusText}`;
         }
+        
+        // Mostrar notificación específica si la marca ya existe
+        if (res.status === 409 || errorMessage.includes('Ya existe')) {
+          showWarning(`La marca "${newBrand.name}" ya existe. Por favor, usa un nombre diferente.`);
+          throw new Error(errorMessage);
+        }
+        
         throw new Error(errorMessage);
       }
       
@@ -565,10 +572,13 @@ const App: React.FC = () => {
       showSuccess(`Marca "${addedBrand.name}" añadida correctamente.`);
     } catch (err: any) {
       console.error('Error adding brand:', err);
-      const errorMessage = err?.message || 'Error desconocido';
-      showError(`Error al añadir la marca: ${errorMessage}`);
+      // Solo mostrar error si no se mostró antes (para evitar duplicados)
+      if (!err?.message?.includes('Ya existe') && res?.status !== 409) {
+        const errorMessage = err?.message || 'Error desconocido';
+        showError(`Error al añadir la marca: ${errorMessage}`);
+      }
     }
-  }, [showSuccess, showError]);
+  }, [showSuccess, showError, showWarning]);
 
   const updateBrand = useCallback(async (updatedBrand: Brand) => {
     try {
