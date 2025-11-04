@@ -64,10 +64,18 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   return (
     <ToastContext.Provider value={{ showToast, showSuccess, showError, showWarning, showInfo }}>
       {children}
-      <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
-        <div className="pointer-events-auto">
-          {toasts.map((toast) => (
-            <ToastComponent key={toast.id} toast={toast} onRemove={removeToast} />
+      <div className="fixed top-4 right-4 z-[9999] space-y-3 pointer-events-none max-w-md">
+        <div className="pointer-events-auto space-y-3">
+          {toasts.map((toast, index) => (
+            <div
+              key={toast.id}
+              className="transform transition-all duration-300 ease-out"
+              style={{
+                animationDelay: `${index * 50}ms`,
+              }}
+            >
+              <ToastComponent toast={toast} onRemove={removeToast} />
+            </div>
           ))}
         </div>
       </div>
