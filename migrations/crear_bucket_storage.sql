@@ -13,6 +13,7 @@
 -- 1. Política para permitir lectura pública (opcional)
 -- Si quieres que las imágenes sean públicas, descomenta esto:
 /*
+DROP POLICY IF EXISTS "Public Access for product-images" ON storage.objects;
 CREATE POLICY "Public Access for product-images"
 ON storage.objects
 FOR SELECT
@@ -21,7 +22,8 @@ USING (bucket_id = 'product-images');
 
 -- 2. Política para permitir inserción (upload) con autenticación
 -- Asegúrate de que solo usuarios autenticados puedan subir
-CREATE POLICY IF NOT EXISTS "Authenticated users can upload product-images"
+DROP POLICY IF EXISTS "Authenticated users can upload product-images" ON storage.objects;
+CREATE POLICY "Authenticated users can upload product-images"
 ON storage.objects
 FOR INSERT
 WITH CHECK (
@@ -30,7 +32,8 @@ WITH CHECK (
 );
 
 -- 3. Política para permitir actualización
-CREATE POLICY IF NOT EXISTS "Authenticated users can update product-images"
+DROP POLICY IF EXISTS "Authenticated users can update product-images" ON storage.objects;
+CREATE POLICY "Authenticated users can update product-images"
 ON storage.objects
 FOR UPDATE
 USING (
@@ -39,7 +42,8 @@ USING (
 );
 
 -- 4. Política para permitir eliminación
-CREATE POLICY IF NOT EXISTS "Authenticated users can delete product-images"
+DROP POLICY IF EXISTS "Authenticated users can delete product-images" ON storage.objects;
+CREATE POLICY "Authenticated users can delete product-images"
 ON storage.objects
 FOR DELETE
 USING (

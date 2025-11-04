@@ -81,6 +81,19 @@ BEGIN
         WHERE table_name = 'products' AND column_name = 'is_active'
     ) THEN
         ALTER TABLE products ADD COLUMN is_active BOOLEAN DEFAULT true;
+        COMMENT ON COLUMN products.is_active IS 'Producto activo y visible para clientes';
+    END IF;
+END $$;
+
+-- Agregar columna is_active a categories si no existe
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'categories' AND column_name = 'is_active'
+    ) THEN
+        ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT true;
+        COMMENT ON COLUMN categories.is_active IS 'Categoría activa y visible';
     END IF;
 END $$;
 
