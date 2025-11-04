@@ -395,18 +395,27 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productDataToSend),
       });
-      if (!res.ok) throw new Error('Failed to update product');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
+        throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
+      }
+      
       const updatedProductResponse = await res.json();
-      setProducts(prevProducts => prevProducts ? prevProducts.map(p => p.id === updatedProduct.id ? {
+      const mappedProduct: Product = {
         ...updatedProductResponse,
-        brand: updatedProductResponse.brand_name,
-        brandId: updatedProductResponse.brand_id,
-        brandLogoUrl: updatedProductResponse.brand_logo_url,
-      } : p) : []);
-      showSuccess(`Producto "${updatedProductResponse.name}" actualizado correctamente.`);
-    } catch (err) {
+        brand: updatedProductResponse.brand_name || updatedProductResponse.brand,
+        brandId: updatedProductResponse.brand_id || updatedProductResponse.brandId,
+        brandLogoUrl: updatedProductResponse.brand_logo_url || updatedProductResponse.brandLogoUrl,
+        isActive: updatedProductResponse.is_active !== undefined ? updatedProductResponse.is_active : updatedProductResponse.isActive !== undefined ? updatedProductResponse.isActive : true,
+      };
+      
+      setProducts(prevProducts => prevProducts ? prevProducts.map(p => p.id === updatedProduct.id ? mappedProduct : p) : []);
+      showSuccess(`Producto "${mappedProduct.name}" actualizado correctamente.`);
+    } catch (err: any) {
       console.error('Error updating product:', err);
-      showError('Error al actualizar el producto.');
+      const errorMessage = err?.message || 'Error desconocido';
+      showError(`Error al actualizar el producto: ${errorMessage}`);
     }
   }, [showSuccess, showError]);
 

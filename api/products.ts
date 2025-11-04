@@ -204,7 +204,8 @@ function mapProductForInsert(product: any, brand: any) {
     is_on_sale: product.isOnSale || false,
     sale_price: product.salePrice ? Number(product.salePrice).toString() : null,
     discount_percentage: product.discountPercentage || null,
-    category_id: product.categoryId || null
+    category_id: product.categoryId || null,
+    is_active: product.isActive !== undefined ? product.isActive : true
   };
 }
 
@@ -229,7 +230,8 @@ function toClientProduct(row: any): Product {
     isOnSale: row.is_on_sale || false,
     salePrice: row.sale_price ? Number(row.sale_price) : undefined,
     discountPercentage: row.discount_percentage || undefined,
-    categoryId: row.category_id
+    categoryId: row.category_id,
+    isActive: row.is_active !== undefined ? row.is_active : true
   };
 }
 
