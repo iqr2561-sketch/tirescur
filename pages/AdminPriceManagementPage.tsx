@@ -345,7 +345,7 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
       setExcelMessage(`Error al leer el archivo: ${error?.message || 'Error desconocido'}`);
       setFile(null);
     }
-  }, [file, products, brands, onUpdateProductsBulk, onAddProductsBulk, showWarning]);
+  }, [file, products, brands, onUpdateProductsBulk, onAddProductsBulk, showSuccess, showError, showWarning]);
 
   return (
     <div className="flex-1 p-8 bg-gray-100 overflow-auto dark:bg-gray-900">
