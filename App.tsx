@@ -250,7 +250,14 @@ const App: React.FC = () => {
           // Popups no son críticos, no agregar a failedResources
         }
 
-        const fetchedCraneQuoteConfig = craneQuoteRes && craneQuoteRes.ok ? await craneQuoteRes.json() : null;
+        let fetchedCraneQuoteConfig = null;
+        if (craneQuoteRes && craneQuoteRes.ok) {
+          try {
+            fetchedCraneQuoteConfig = await craneQuoteRes.json();
+          } catch (e) {
+            console.error('Error parsing crane quote config:', e);
+          }
+        }
         if (!craneQuoteRes || !craneQuoteRes.ok) {
           // Crane quote no es crítico
         }
