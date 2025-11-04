@@ -267,16 +267,16 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       let comparison = 0;
       switch (sortBy) {
         case 'name':
-          comparison = a.name.localeCompare(b.name);
+          comparison = (a.name || '').localeCompare(b.name || '');
           break;
         case 'price':
-          comparison = (a.salePrice || a.price) - (b.salePrice || b.price);
+          comparison = (a.salePrice || a.price || 0) - (b.salePrice || b.price || 0);
           break;
         case 'stock':
-          comparison = a.stock - b.stock;
+          comparison = (a.stock || 0) - (b.stock || 0);
           break;
         case 'created':
-          comparison = new Date(a.id).getTime() - new Date(b.id).getTime();
+          comparison = (new Date(a.id || 0).getTime()) - (new Date(b.id || 0).getTime());
           break;
       }
       return sortOrder === 'asc' ? comparison : -comparison;
@@ -287,12 +287,12 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
 
   // Obtener marcas únicas para el filtro
   const uniqueBrands = useMemo(() => {
-    const brandsSet = new Set(safeProducts.map(p => p.brand).filter(Boolean));
+    const brandsSet = new Set(safeProducts.map(p => (p.brand || '')).filter(Boolean));
     return Array.from(brandsSet).sort();
   }, [safeProducts]);
 
   // Si no hay productos, mostrar mensaje
-  if (safeProducts.length === 0 && products !== null) {
+  if (!products || products.length === 0) {
     return (
       <div className="flex-1 p-8 bg-gray-100 overflow-auto dark:bg-gray-900">
         <div className="flex justify-between items-center mb-6">

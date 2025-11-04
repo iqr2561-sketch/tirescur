@@ -9,11 +9,12 @@ interface AdminSalesPageProps {
 const AdminSalesPage: React.FC<AdminSalesPageProps> = ({ salesData }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   
   // Ordenar ventas por fecha más reciente
   const sortedSales = useMemo(() => {
-    return [...salesData].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const safeSalesData = salesData || [];
+    return [...safeSalesData].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [salesData]);
 
   const getStatusClasses = (status: Sale['status']) => {
@@ -93,7 +94,7 @@ const AdminSalesPage: React.FC<AdminSalesPageProps> = ({ salesData }) => {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{sale.customerName}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">ID: {sale.id.slice(0, 8)}...</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">ID: {(sale.id || '').slice(0, 8)}...</p>
                 </div>
                 <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusClasses(sale.status)}`}>
                   {sale.status}

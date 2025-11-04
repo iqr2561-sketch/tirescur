@@ -37,7 +37,7 @@ const AdminProductCard: React.FC<AdminProductCardProps> = ({ product, onEdit, on
             src={product.brandLogoUrl}
             alt={`${product.brand} Logo`}
             className="h-8 w-8 object-contain"
-            fallbackText={product.brand.slice(0, 2).toUpperCase()}
+            fallbackText={(product.brand || '').slice(0, 2).toUpperCase()}
           />
         </div>
         <span className={`absolute bottom-2 left-2 text-white text-xs px-2 py-1 rounded-full ${stockInfo.color}`}>
