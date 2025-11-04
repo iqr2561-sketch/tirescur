@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Sale } from '../types';
 
 interface AdminDashboardPageProps {
@@ -192,8 +192,8 @@ const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   <p className="text-sm text-gray-500 dark:text-gray-400">Ver todas las ventas con detalles completos</p>
                 </div>
               </div>
-              <a
-                href="/admin/sales"
+              <Link
+                to="/admin/sales"
                 className="flex items-center space-x-2 text-sm font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-all duration-200 hover:scale-105"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -201,7 +201,7 @@ const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
-              </a>
+              </Link>
             </div>
         {safeSales.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-4">No hay ventas registradas aún</p>
