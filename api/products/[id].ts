@@ -6,16 +6,38 @@ import { Product } from '../../types.js';
 export default allowCors(async function handler(req, res) {
   try {
     const supabase = ensureSupabase();
-    const { query } = parse(req.url ?? '', true);
+    const { query, pathname } = parse(req.url ?? '', true);
     
     // El ID viene en query.id cuando se usa [id].ts en Vercel
-    const productId = Array.isArray(query.id) ? query.id[0] : query.id;
+    // También puede venir del pathname como fallback
+    let productId = Array.isArray(query.id) ? query.id[0] : query.id;
+    
+    // Si no está en query, intentar extraerlo del pathname
+    if (!productId && pathname) {
+      const pathParts = pathname.split('/').filter(p => p);
+      const productsIndex = pathParts.indexOf('products');
+      if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
+        productId = pathParts[productsIndex + 1];
+      } else {
+        // Si no está 'products', buscar UUID
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        for (const part of pathParts) {
+          if (uuidPattern.test(part)) {
+            productId = part;
+            break;
+          }
+        }
+      }
+    }
 
     if (!productId) {
+      console.error('[Products API [id]] No product ID found. Pathname:', pathname, 'Query:', query);
       res.statusCode = 400;
-      res.json({ error: 'Product ID is required' });
+      res.json({ error: 'Product ID is required', debug: { pathname, query } });
       return;
     }
+    
+    console.log('[Products API [id]] Processing request:', { method: req.method, productId, pathname });
 
     if (req.method === 'PUT') {
       const body = await parseBody(req);

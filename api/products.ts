@@ -105,31 +105,22 @@ export default allowCors(async function handler(req, res) {
         return;
       }
 
-      // Extraer el ID del query o del pathname
+      // Para productos individuales, usar el endpoint [id].ts
+      // Si llegamos aquí, es porque Vercel no está usando [id].ts
+      // Intentar extraer el ID del pathname como fallback
       let productId = Array.isArray(query.id) ? query.id[0] : query.id;
       
-      // Si no está en query, intentar extraerlo del pathname
       if (!productId && pathname) {
-        const pathParts = pathname.split('/').filter(p => p); // Filtrar partes vacías
+        const pathParts = pathname.split('/').filter(p => p);
         const productsIndex = pathParts.indexOf('products');
         if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
           productId = pathParts[productsIndex + 1];
-        } else {
-          // Si 'products' no está, buscar cualquier parte que parezca un UUID
-          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-          for (const part of pathParts) {
-            if (uuidPattern.test(part)) {
-              productId = part;
-              break;
-            }
-          }
         }
       }
       
       if (!productId) {
-        console.error('[Products API] No product ID found. Pathname:', pathname, 'Query:', query);
         res.statusCode = 400;
-        res.json({ error: 'Product ID is required for update', debug: { pathname, query } });
+        res.json({ error: 'Product ID is required for update. Use /api/products/[id] endpoint.' });
         return;
       }
 
@@ -139,13 +130,12 @@ export default allowCors(async function handler(req, res) {
       return;
     }
 
+    // DELETE también debería usar [id].ts, pero mantenemos como fallback
     if (req.method === 'DELETE') {
-      // Extraer el ID del query o del pathname
       let productId = Array.isArray(query.id) ? query.id[0] : query.id;
       
-      // Si no está en query, intentar extraerlo del pathname
       if (!productId && pathname) {
-        const pathParts = pathname.split('/');
+        const pathParts = pathname.split('/').filter(p => p);
         const productsIndex = pathParts.indexOf('products');
         if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
           productId = pathParts[productsIndex + 1];
@@ -154,7 +144,7 @@ export default allowCors(async function handler(req, res) {
       
       if (!productId) {
         res.statusCode = 400;
-        res.json({ error: 'Product ID is required for delete' });
+        res.json({ error: 'Product ID is required for delete. Use /api/products/[id] endpoint.' });
         return;
       }
 
