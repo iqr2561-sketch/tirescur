@@ -434,37 +434,54 @@ const App: React.FC = () => {
         body: JSON.stringify(newProductsArray),
       });
       
-      // Check if response is valid JSON (not TypeScript code)
+      // Check if response is valid JSON
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('API no disponible en desarrollo local, usando datos en memoria');
+        let errorMessage = 'Error al conectar con la API';
+        try {
+          const text = await res.text();
+          if (text.includes('error') || text.includes('Error')) {
+            errorMessage = `Error del servidor: ${res.status} ${res.statusText}`;
+          }
+        } catch (e) {
+          // Ignore text parsing errors
+        }
+        throw new Error(errorMessage);
       }
       
-      if (!res.ok) throw new Error('Failed to bulk update products');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
+        throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
+      }
       
       // Re-fetch products to ensure state is fully consistent after bulk operation
       const productsRes = await fetch(`${API_BASE_URL}/products`);
       const productsContentType = productsRes.headers.get('content-type');
       
       if (!productsContentType || !productsContentType.includes('application/json')) {
-        throw new Error('API no disponible en desarrollo local');
+        throw new Error('Error al obtener productos actualizados');
+      }
+      
+      if (!productsRes.ok) {
+        throw new Error(`Error ${productsRes.status}: ${productsRes.statusText}`);
       }
       
       const updatedFetchedProductsData = await productsRes.json();
       const mappedUpdatedProducts: Product[] = updatedFetchedProductsData.map((p: any) => ({
         ...p,
-        brand: p.brand_name,
-        brandId: p.brand_id,
-        brandLogoUrl: p.brand_logo_url,
+        brand: p.brand_name || p.brand,
+        brandId: p.brand_id || p.brandId,
+        brandLogoUrl: p.brand_logo_url || p.brandLogoUrl,
       }));
       setProducts(mappedUpdatedProducts);
       showSuccess('Precios actualizados masivamente con éxito!');
     } catch (err: any) {
       console.error('Error bulk updating products:', err);
-      showError('No se pudieron actualizar los precios. Por favor, intenta nuevamente.');
+      const errorMessage = err?.message || 'Error desconocido al actualizar productos';
+      showError(`No se pudieron actualizar los precios: ${errorMessage}`);
       throw err;
     }
-  }, [showSuccess, showWarning]);
+  }, [showSuccess, showError]);
 
   const addProductsBulk = useCallback(async (newProductsArray: Omit<Product, 'id'>[]) => {
     if (newProductsArray.length === 0) return [];
@@ -475,26 +492,40 @@ const App: React.FC = () => {
         body: JSON.stringify(newProductsArray),
       });
       
-      // Check if response is valid JSON (not TypeScript code)
+      // Check if response is valid JSON
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('API no disponible en desarrollo local, usando datos en memoria');
+        // Try to get error message from response
+        let errorMessage = 'Error al conectar con la API';
+        try {
+          const text = await res.text();
+          if (text.includes('error') || text.includes('Error')) {
+            errorMessage = `Error del servidor: ${res.status} ${res.statusText}`;
+          }
+        } catch (e) {
+          // Ignore text parsing errors
+        }
+        throw new Error(errorMessage);
       }
       
-      if (!res.ok) throw new Error('Failed to bulk create products');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
+        throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
+      }
       
       const addedProducts = await res.json();
       const mappedAddedProducts: Product[] = addedProducts.map((p: any) => ({
         ...p,
-        brand: p.brand_name,
-        brandId: p.brand_id,
-        brandLogoUrl: p.brand_logo_url,
+        brand: p.brand_name || p.brand,
+        brandId: p.brand_id || p.brandId,
+        brandLogoUrl: p.brand_logo_url || p.brandLogoUrl,
       }));
       setProducts(prevProducts => prevProducts ? [...prevProducts, ...mappedAddedProducts] : [...mappedAddedProducts]);
       return mappedAddedProducts;
     } catch (err: any) {
       console.error('Error bulk creating products:', err);
-      showError('No se pudieron crear los productos. Por favor, intenta nuevamente.');
+      const errorMessage = err?.message || 'Error desconocido al crear productos';
+      showError(`No se pudieron crear los productos: ${errorMessage}`);
       throw err;
     }
   }, [showError]);
