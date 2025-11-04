@@ -41,7 +41,9 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'categories' AND column_name = 'is_active'
+        WHERE table_schema = 'public'
+        AND table_name = 'categories' 
+        AND column_name = 'is_active'
     ) THEN
         ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT true;
         COMMENT ON COLUMN categories.is_active IS 'Categoría activa y visible';
@@ -50,7 +52,19 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_categories_name ON categories(name);
 CREATE INDEX IF NOT EXISTS idx_categories_order ON categories("order");
-CREATE INDEX IF NOT EXISTS idx_categories_is_active ON categories(is_active);
+
+-- Crear índice de is_active solo si la columna existe
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public'
+        AND table_name = 'categories' 
+        AND column_name = 'is_active'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_categories_is_active ON categories(is_active);
+    END IF;
+END $$;
 
 -- =====================================================
 -- 4. TABLA: products (Productos) - VERIFICAR Y AGREGAR COLUMNAS FALTANTES
@@ -90,7 +104,9 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'products' AND column_name = 'is_active'
+        WHERE table_schema = 'public'
+        AND table_name = 'products' 
+        AND column_name = 'is_active'
     ) THEN
         ALTER TABLE products ADD COLUMN is_active BOOLEAN DEFAULT true;
         COMMENT ON COLUMN products.is_active IS 'Producto activo y visible para clientes';
@@ -104,10 +120,22 @@ CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products(brand_id);
 CREATE INDEX IF NOT EXISTS idx_products_brand_name ON products(brand_name);
 CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_is_on_sale ON products(is_on_sale);
-CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active);
 CREATE INDEX IF NOT EXISTS idx_products_price ON products(price);
 CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock);
 CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at);
+
+-- Crear índice de is_active solo si la columna existe
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public'
+        AND table_name = 'products' 
+        AND column_name = 'is_active'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active);
+    END IF;
+END $$;
 
 -- =====================================================
 -- 5. TABLA: sales (Ventas)
