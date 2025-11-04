@@ -181,7 +181,8 @@ const AdminSalesPage: React.FC<AdminSalesPageProps> = ({ salesData }) => {
             ))}
           </tbody>
         </table>
-      </div>
+        </div>
+      )}
 
       <Modal isOpen={isDetailsModalOpen} onClose={closeDetailsModal} title={`Detalles del Pedido: ${selectedSale?.id || ''}`}>
         {selectedSale ? (
