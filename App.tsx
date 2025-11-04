@@ -905,10 +905,19 @@ const App: React.FC = () => {
       } else if (key === 'whatsappPhoneNumber') {
         const phoneNumber = typeof settingValue === 'string' ? settingValue : (settingValue || whatsappPhoneNumber);
         setWhatsappPhoneNumber(phoneNumber);
-      } else if (key === 'footer') {
+      } else       if (key === 'footer') {
         setFooterContent(settingValue);
       } else if (key === 'offer_zone') {
         setDealZoneConfig(settingValue);
+      } else if (key === 'siteName') {
+        const siteNameValue = typeof settingValue === 'string' ? settingValue : (settingValue || DEFAULT_SITE_NAME);
+        setSiteName(siteNameValue);
+        document.title = siteNameValue;
+        updateManifest(siteNameValue, siteLogo);
+      } else if (key === 'siteLogo') {
+        const siteLogoValue = typeof settingValue === 'string' ? settingValue : (settingValue || DEFAULT_SITE_LOGO);
+        setSiteLogo(siteLogoValue);
+        updateManifest(siteName, siteLogoValue);
       }
       
       showSuccess('Configuración actualizada con éxito!');
@@ -920,22 +929,39 @@ const App: React.FC = () => {
   
   // Función para actualizar el manifest dinámicamente
   const updateManifest = useCallback((name: string, logoUrl?: string) => {
-    const manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
-    if (manifestLink) {
-      fetch('/manifest.json')
-        .then(res => res.json())
-        .then(manifest => {
-          manifest.name = name;
-          manifest.short_name = name.length > 12 ? name.substring(0, 12) : name;
-          if (logoUrl) {
-            // Actualizar iconos si hay logo
-            manifest.icons = manifest.icons || [];
-          }
-          const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          manifestLink.href = url;
-        })
-        .catch(err => console.error('Error updating manifest:', err));
+    try {
+      const manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+      if (manifestLink) {
+        fetch('/manifest.json')
+          .then(res => res.json())
+          .then(manifest => {
+            manifest.name = name;
+            manifest.short_name = name.length > 12 ? name.substring(0, 12) : name;
+            if (logoUrl && logoUrl.trim() !== '') {
+              // Si hay logo, actualizar iconos
+              manifest.icons = [
+                {
+                  src: logoUrl,
+                  sizes: "192x192",
+                  type: "image/png",
+                  purpose: "any maskable"
+                },
+                {
+                  src: logoUrl,
+                  sizes: "512x512",
+                  type: "image/png",
+                  purpose: "any maskable"
+                }
+              ];
+            }
+            const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            manifestLink.href = url;
+          })
+          .catch(err => console.error('Error updating manifest:', err));
+      }
+    } catch (error) {
+      console.error('Error en updateManifest:', error);
     }
   }, []);
 
