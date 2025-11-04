@@ -187,79 +187,99 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
 
         // Create a map for efficient lookup of existing products by SKU or combination
         const existingProductsMap = new Map<string, Product>();
-        products.forEach(p => {
-            if (p.sku) existingProductsMap.set(p.sku.toLowerCase(), p);
+        const safeProducts = products || [];
+        safeProducts.forEach(p => {
+            if (p.sku) existingProductsMap.set((p.sku || '').toLowerCase(), p);
             // Also store by a combined key for dimensional match if SKU fails
-            const dimensionalKey = `${p.brand.toLowerCase()}-${p.name.toLowerCase()}-${p.width}-${p.profile}-${p.diameter}`;
+            const brand = (p.brand || '').toLowerCase();
+            const name = (p.name || '').toLowerCase();
+            const dimensionalKey = `${brand}-${name}-${p.width || ''}-${p.profile || ''}-${p.diameter || ''}`;
             existingProductsMap.set(dimensionalKey, p);
         });
 
         // Create a map for brands to get logo URLs for new products
         const brandsMap = new Map<string, Brand>();
-        brands.forEach(b => brandsMap.set(b.name.toLowerCase(), b));
+        const safeBrands = brands || [];
+        safeBrands.forEach(b => {
+          if (b.name) {
+            brandsMap.set(b.name.toLowerCase(), b);
+          }
+        });
 
 
         for (const row of json) {
-          const parsedSize = parseExcelSize(row.Size || '');
-          const diameter = `R${(row.RIM || '').toString().replace('R', '')}`; // Ensure 'R' prefix for consistency
+          try {
+            const parsedSize = parseExcelSize(row.Size || '');
+            const rimValue = (row.RIM || '').toString().replace(/^R?/i, ''); // Remove 'R' prefix if present
+            const diameter = rimValue ? `R${rimValue}` : ''; // Ensure 'R' prefix for consistency
 
-          const brandName = (row.Marca || '').trim();
-          const productName = (row.Modelo || '').trim();
-          const newPrice = parseFloat(row.Precio?.toString());
-          const imageUrl = (row.Imagen || '').trim();
+            const brandName = (row.Marca || '').toString().trim();
+            const productName = (row.Modelo || '').toString().trim();
+            const priceValue = row.Precio ? (typeof row.Precio === 'string' ? row.Precio : row.Precio.toString()) : '';
+            const newPrice = parseFloat(priceValue);
+            const imageUrl = ((row.Imagen || '').toString()).trim();
 
-          // Skip row if essential data is missing
-          if (!brandName || !productName || isNaN(newPrice) || newPrice <= 0 || !parsedSize.width || !parsedSize.profile || !diameter) {
-              errorCount++;
-              errors.push(`Fila (Marca: ${row.Marca}, Modelo: ${row.Modelo}, Size: ${row.Size}, RIM: ${row.RIM}): Datos insuficientes o precio inválido.`);
-              continue;
-          }
+            // Skip row if essential data is missing
+            if (!brandName || !productName || isNaN(newPrice) || newPrice <= 0 || !parsedSize.width || !parsedSize.profile || !diameter) {
+                errorCount++;
+                errors.push(`Fila ${json.indexOf(row) + 1} (Marca: ${row.Marca || 'N/A'}, Modelo: ${row.Modelo || 'N/A'}, Size: ${row.Size || 'N/A'}, RIM: ${row.RIM || 'N/A'}, Precio: ${row.Precio || 'N/A'}): Datos insuficientes o precio inválido.`);
+                continue;
+            }
 
-          let foundProduct: Product | undefined = undefined;
+            let foundProduct: Product | undefined = undefined;
 
-          // Try to match by SKU first
-          if (productName.startsWith('SKU: ')) {
-            const skuToMatch = productName.substring(5).toLowerCase();
-            foundProduct = existingProductsMap.get(skuToMatch);
-          }
-          
-          // If not found by SKU, try by full dimensions, brand and name
-          if (!foundProduct) {
-            const dimensionalKey = `${brandName.toLowerCase()}-${productName.toLowerCase()}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
-            foundProduct = existingProductsMap.get(dimensionalKey);
-          }
+            // Try to match by SKU first
+            if (productName && productName.startsWith('SKU: ')) {
+              const skuToMatch = productName.substring(5).toLowerCase();
+              foundProduct = existingProductsMap.get(skuToMatch);
+            }
+            
+            // If not found by SKU, try by full dimensions, brand and name
+            if (!foundProduct && brandName && productName) {
+              const dimensionalKey = `${brandName.toLowerCase()}-${productName.toLowerCase()}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
+              foundProduct = existingProductsMap.get(dimensionalKey);
+            }
 
-          if (foundProduct) {
-            // Product found, update it
-            const updatedProduct = {
-              ...foundProduct,
-              price: newPrice,
-              imageUrl: imageUrl || foundProduct.imageUrl, // Update image if provided
-            };
-            productsToUpdate.push(updatedProduct);
-            updatedCount++;
-          } else {
-            // Product not found, create a new one
-            const brandInfo = brandsMap.get(brandName.toLowerCase());
-            const newSku = `SKU: ${brandName.substring(0,3).toUpperCase()}-${productName.substring(0,3).toUpperCase()}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
+            if (foundProduct) {
+              // Product found, update it
+              const updatedProduct = {
+                ...foundProduct,
+                price: newPrice,
+                imageUrl: imageUrl || foundProduct.imageUrl, // Update image if provided
+              };
+              productsToUpdate.push(updatedProduct);
+              updatedCount++;
+            } else {
+              // Product not found, create a new one
+              const brandInfo = brandsMap.get(brandName.toLowerCase());
+              const brandPrefix = brandName.length >= 3 ? brandName.substring(0, 3).toUpperCase() : brandName.toUpperCase();
+              const productPrefix = productName.length >= 3 ? productName.substring(0, 3).toUpperCase() : productName.toUpperCase();
+              const newSku = `SKU: ${brandPrefix}-${productPrefix}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
 
-            productsToCreate.push({
-              sku: newSku,
-              name: productName,
-              brand: brandName,
-              brandLogoUrl: brandInfo?.logoUrl,
-              price: newPrice,
-              rating: 0,
-              reviews: 0,
-              imageUrl: imageUrl?.trim() || '',
-              description: `Neumático ${productName} de la marca ${brandName} con dimensiones ${parsedSize.width}/${parsedSize.profile}${diameter}.`,
-              tags: [],
-              stock: 10, // Default stock for new products
-              width: parsedSize.width,
-              profile: parsedSize.profile,
-              diameter: diameter,
-            });
-            createdCount++;
+              productsToCreate.push({
+                sku: newSku,
+                name: productName,
+                brand: brandName,
+                brandLogoUrl: brandInfo?.logoUrl,
+                price: newPrice,
+                rating: 0,
+                reviews: 0,
+                imageUrl: imageUrl || '',
+                description: `Neumático ${productName} de la marca ${brandName} con dimensiones ${parsedSize.width}/${parsedSize.profile}${diameter}.`,
+                tags: [],
+                stock: 10, // Default stock for new products
+                width: parsedSize.width,
+                profile: parsedSize.profile,
+                diameter: diameter,
+                isActive: true, // Default to active
+              });
+              createdCount++;
+            }
+          } catch (rowError: any) {
+            errorCount++;
+            const rowIndex = json.indexOf(row) + 1;
+            errors.push(`Fila ${rowIndex}: Error al procesar - ${rowError?.message || 'Error desconocido'}`);
+            console.error(`Error procesando fila ${rowIndex}:`, rowError, row);
           }
         }
         
@@ -274,13 +294,31 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
         }
 
         setExcelStatus('success');
-        setExcelMessage(`Actualización por Excel completada: ${updatedCount} productos actualizados, ${createdCount} productos creados, ${errorCount} errores. Consulta la consola para detalles.`);
-        console.log('Errores de Excel:', errors);
+        const successMessage = errorCount > 0 
+          ? `Actualización completada: ${updatedCount} productos actualizados, ${createdCount} productos creados, ${errorCount} ${errorCount === 1 ? 'error' : 'errores'}. Consulta la consola para detalles.`
+          : `¡Actualización exitosa! ${updatedCount} productos actualizados, ${createdCount} productos creados.`;
+        setExcelMessage(successMessage);
+        if (errors.length > 0) {
+          console.error('Errores de Excel:', errors);
+        }
       } catch (error: any) {
         console.error('Error al leer el archivo Excel:', error);
         setExcelStatus('error');
         const errorMessage = error?.message || 'Error desconocido al leer el archivo';
-        setExcelMessage(`Error: ${errorMessage}. Asegúrate de que el archivo es un Excel (.xlsx) o CSV válido con las columnas correctas.`);
+        let userMessage = `Error al procesar el archivo: ${errorMessage}`;
+        
+        // Mensajes más específicos según el tipo de error
+        if (errorMessage.includes('toLowerCase') || errorMessage.includes('toUpperCase')) {
+          userMessage = 'Error: El archivo contiene datos incompletos. Verifica que todas las columnas (Marca, Modelo, Size, RIM, Precio) tengan valores válidos.';
+        } else if (errorMessage.includes('no contiene datos')) {
+          userMessage = 'El archivo está vacío o no contiene datos válidos. Verifica que tenga al menos una fila con información.';
+        } else if (errorMessage.includes('no contiene hojas')) {
+          userMessage = 'El archivo Excel no contiene hojas de cálculo. Verifica que el archivo no esté corrupto.';
+        } else if (errorMessage.includes('formato')) {
+          userMessage = 'Error de formato en el archivo. Asegúrate de que sea un archivo .xlsx o .csv válido.';
+        }
+        
+        setExcelMessage(`${userMessage}\n\nFormato esperado:\n- Marca: Nombre de la marca\n- Modelo: Nombre del producto\n- Size: Formato "155/70R12"\n- RIM: Diámetro (ej: "12" o "R12")\n- Precio: Número válido\n- Imagen: URL (opcional)`);
       } finally {
         setFile(null); // Clear selected file after processing
       }
