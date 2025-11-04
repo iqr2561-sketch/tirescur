@@ -1,12 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import { Brand } from '../types';
 import Modal from '../components/Modal';
-import { DEFAULT_BRAND_LOGO_URL } from '../constants';
 import { useToast } from '../contexts/ToastContext';
+import SafeImage from '../components/SafeImage';
 
 interface AdminBrandManagementPageProps {
   brands: Brand[];
-  onAddBrand: (brand: Brand) => void;
+  onAddBrand: (brand: Omit<Brand, 'id'>) => void;
   onUpdateBrand: (brand: Brand) => void;
   onDeleteBrand: (brandId: string) => void;
 }
@@ -62,16 +62,20 @@ const AdminBrandManagementPage: React.FC<AdminBrandManagementPageProps> = ({
       return;
     }
 
-    const brandToSave: Brand = {
-      id: editingBrand?.id || `brand${Date.now()}`,
-      name: formData.name.trim(),
-      logoUrl: formData.logoUrl.trim() || DEFAULT_BRAND_LOGO_URL,
-    };
+    const trimmedName = formData.name.trim();
+    const trimmedLogo = formData.logoUrl.trim();
 
     if (editingBrand) {
-      onUpdateBrand(brandToSave);
+      onUpdateBrand({
+        ...editingBrand,
+        name: trimmedName,
+        logoUrl: trimmedLogo || undefined,
+      });
     } else {
-      onAddBrand(brandToSave);
+      onAddBrand({
+        name: trimmedName,
+        logoUrl: trimmedLogo || undefined,
+      });
     }
 
     handleCloseModal();
@@ -110,7 +114,14 @@ const AdminBrandManagementPage: React.FC<AdminBrandManagementPageProps> = ({
             {brands.map((brand) => (
               <tr key={brand.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <img src={brand.logoUrl || DEFAULT_BRAND_LOGO_URL} alt={brand.name} className="h-10 w-auto object-contain" />
+                  <div className="h-10 w-10">
+                    <SafeImage
+                      src={brand.logoUrl}
+                      alt={brand.name}
+                      className="h-10 w-10 object-contain"
+                      fallbackText={brand.name.slice(0, 2).toUpperCase()}
+                    />
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{brand.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 line-clamp-1 max-w-xs" title={brand.logoUrl}>{brand.logoUrl}</td>

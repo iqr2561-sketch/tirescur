@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { WIDTHS, PROFILES, DIAMETERS, DEFAULT_HERO_IMAGE_URL } from '../constants';
+import React, { useMemo, useState } from 'react';
+import { WIDTHS, PROFILES, DIAMETERS } from '../constants';
 import { TireFilter, Product } from '../types';
 import { useToast } from '../contexts/ToastContext';
 
@@ -32,10 +32,19 @@ const HeroSearch: React.FC<HeroSearchProps> = ({ heroImageUrl, products }) => {
     }
   };
 
+  const backgroundStyle = useMemo(() => {
+    if (heroImageUrl && heroImageUrl.trim()) {
+      return { backgroundImage: `url(${heroImageUrl})` };
+    }
+    return {
+      backgroundImage: 'linear-gradient(135deg, rgba(17,24,39,0.95), rgba(220,38,38,0.85))',
+    };
+  }, [heroImageUrl]);
+
   return (
     <div
       className="relative bg-gray-800 bg-cover bg-center py-16 sm:py-20 md:py-24"
-      style={{ backgroundImage: `url(${heroImageUrl || DEFAULT_HERO_IMAGE_URL})` }}
+      style={backgroundStyle}
     >
       <div className="absolute inset-0 bg-black opacity-60"></div>
       <div className="relative container mx-auto px-4 text-center text-white">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { CartItem } from '../types';
-import { DEFAULT_PRODUCT_IMAGE_URL } from '../constants';
+import SafeImage from './SafeImage';
 import { useToast } from '../contexts/ToastContext';
 
 interface SidebarCartProps {
@@ -68,7 +68,7 @@ const SidebarCart: React.FC<SidebarCartProps> = ({ isOpen, toggleCart, cartItems
             cartItems.map((item: CartItem) => {
               return (
                 <div key={item.id} className="flex items-center space-x-4 mb-4 pb-4 border-b border-gray-100 last:border-b-0 dark:border-gray-700">
-                  <img src={item.imageUrl || DEFAULT_PRODUCT_IMAGE_URL} alt={item.name} className="w-16 h-16 object-cover rounded" />
+                <SafeImage src={item.imageUrl} alt={item.name} className="w-16 h-16 object-cover rounded" />
                   <div className="flex-1">
                     <h3 className="text-gray-800 text-sm font-medium line-clamp-2 dark:text-gray-100">{item.name}</h3>
                     <p className="text-red-600 font-bold mt-1">${item.price.toFixed(2)}</p>

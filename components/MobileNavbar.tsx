@@ -7,9 +7,10 @@ interface MobileNavbarProps {
   totalItemsInCart: number;
   toggleSearchModal: () => void;
   mobileMenus: MenuItem[]; // New prop for dynamic menu items
+  onAccountClick: () => void;
 }
 
-const MobileNavbar: React.FC<MobileNavbarProps> = ({ toggleCart, totalItemsInCart, toggleSearchModal, mobileMenus }) => {
+const MobileNavbar: React.FC<MobileNavbarProps> = ({ toggleCart, totalItemsInCart, toggleSearchModal, mobileMenus, onAccountClick }) => {
   const location = useLocation();
 
   const getIcon = (menuItem: MenuItem, isActive: boolean) => {
@@ -85,6 +86,18 @@ const MobileNavbar: React.FC<MobileNavbarProps> = ({ toggleCart, totalItemsInCar
                 {getIcon(item, isActive)}
                 <span className={`mt-1 ${isActive ? 'text-red-600' : ''}`}>{item.name}</span>
               </a>
+            );
+          } else if (item.path === '/account') {
+            return (
+              <button
+                key={item.id}
+                onClick={() => onAccountClick()}
+                className="group flex flex-col items-center justify-center text-xs font-medium w-full h-full text-gray-400 hover:text-red-600 transition-colors focus:outline-none"
+                aria-label={item.name}
+              >
+                {getIcon(item, isActive)}
+                <span className={`mt-1 ${isActive ? 'text-red-600' : ''}`}>{item.name}</span>
+              </button>
             );
           } else {
             return (

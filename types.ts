@@ -16,7 +16,7 @@ export interface Product {
   price: number;
   rating: number;
   reviews: number;
-  imageUrl: string;
+  imageUrl?: string;
   description: string;
   tags?: string[];
   stock: number;
@@ -38,7 +38,7 @@ export interface Category {
   id: string;
   name: string;
   icon: React.ReactElement; // SVG icon
-  imageUrl: string;
+  imageUrl?: string;
   description?: string; // Optional description
   order?: number; // For sorting categories
   isActive?: boolean; // To show/hide category

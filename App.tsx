@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import SidebarCart from './components/SidebarCart';
@@ -20,6 +20,9 @@ import CustomerInfoModal from './components/CustomerInfoModal';
 import LoadingSpinner from './components/LoadingSpinner'; // Import new component
 import ProductSelectionModal from './components/ProductSelectionModal'; // Import new component
 import { useToast } from './contexts/ToastContext';
+import AdminLoginModal from './components/AdminLoginModal';
+import AccountPage from './pages/AccountPage';
+import { ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_DISPLAY_NAME } from './config/auth';
 
 import { Product, CartItem, HeroImageUpdateFunction, PhoneNumberUpdateFunction, FooterContent, FooterUpdateFunction, DealZoneConfig, DealZoneConfigUpdateFunction, Sale, Brand, GlobalSettings, MenuItem, Category } from './types';
 import {
@@ -65,12 +68,62 @@ const App: React.FC = () => {
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
 
   const location = useLocation();
+  const navigate = useNavigate();
   const isAdminRoute = location.pathname.startsWith('/admin');
-  const { showSuccess, showError, showWarning } = useToast();
+  const { showSuccess, showError, showWarning, showInfo } = useToast();
+
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return sessionStorage.getItem('admin-authenticated') === 'true';
+  });
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+
+  const openAdminLogin = useCallback(() => {
+    setIsAdminLoginOpen(true);
+  }, []);
+
+  const closeAdminLogin = useCallback(() => {
+    setIsAdminLoginOpen(false);
+  }, []);
+
+  const handleAdminAuthenticate = useCallback(async ({ username, password }: { username: string; password: string }) => {
+    const sanitizedUsername = username.trim();
+    const sanitizedPassword = password.trim();
+
+    const isValid = sanitizedUsername === ADMIN_USERNAME && sanitizedPassword === ADMIN_PASSWORD;
+
+    if (isValid) {
+      setIsAdminAuthenticated(true);
+      showSuccess(`Bienvenido ${ADMIN_DISPLAY_NAME}.`);
+      closeAdminLogin();
+      navigate('/admin');
+      return true;
+    }
+
+    showError('Usuario o contraseña incorrectos.');
+    throw new Error('Usuario o contraseña incorrectos.');
+  }, [closeAdminLogin, navigate, showError, showSuccess]);
+
+  const handleAdminLogout = useCallback(() => {
+    setIsAdminAuthenticated(false);
+    showInfo('Sesión administrativa cerrada.');
+    navigate('/');
+  }, [navigate, showInfo]);
+
+  const handleAccountAccess = useCallback(() => {
+    if (isAdminAuthenticated) {
+      navigate('/admin');
+      return;
+    }
+    navigate('/account');
+    openAdminLogin();
+  }, [isAdminAuthenticated, navigate, openAdminLogin]);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -86,6 +139,26 @@ const App: React.FC = () => {
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [isDarkMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (isAdminAuthenticated) {
+      sessionStorage.setItem('admin-authenticated', 'true');
+    } else {
+      sessionStorage.removeItem('admin-authenticated');
+    }
+  }, [isAdminAuthenticated]);
+
+  useEffect(() => {
+    if (isAdminRoute && !isAdminAuthenticated) {
+      setIsAdminLoginOpen(true);
+      showWarning('Ingresa tus credenciales de administrador para acceder al panel.');
+    }
+  }, [isAdminRoute, isAdminAuthenticated, showWarning]);
+
+  // Removed auto-open login modal - users can access /account directly and click button to login
 
   // Initial data fetching
   useEffect(() => {
@@ -279,7 +352,7 @@ const App: React.FC = () => {
         brandId: addedProduct.brand_id,
         brandLogoUrl: addedProduct.brand_logo_url,
       }]));
-      showSuccess('Producto añadido con éxito!');
+      showSuccess(`Producto "${addedProduct.name}" añadido correctamente.`);
     } catch (err: any) {
       console.error('Error adding product:', err);
       const errorMessage = err?.message || 'Error desconocido';
@@ -305,7 +378,7 @@ const App: React.FC = () => {
         brandId: updatedProductResponse.brand_id,
         brandLogoUrl: updatedProductResponse.brand_logo_url,
       } : p) : []);
-      showSuccess('Producto actualizado con éxito!');
+      showSuccess(`Producto "${updatedProductResponse.name}" actualizado correctamente.`);
     } catch (err) {
       console.error('Error updating product:', err);
       showError('Error al actualizar el producto.');
@@ -314,17 +387,18 @@ const App: React.FC = () => {
 
   const deleteProduct = useCallback(async (productId: string) => {
     try {
+      const productToDelete = products?.find(p => p.id === productId);
       const res = await fetch(`${API_BASE_URL}/products/${productId}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to delete product');
       setProducts(prevProducts => prevProducts ? prevProducts.filter(p => p.id !== productId) : []);
-      showSuccess('Producto eliminado con éxito!');
+      showSuccess(productToDelete ? `Producto "${productToDelete.name}" eliminado.` : 'Producto eliminado correctamente.');
     } catch (err) {
       console.error('Error deleting product:', err);
       showError('Error al eliminar el producto.');
     }
-  }, [showSuccess, showError]);
+  }, [products, showSuccess, showError]);
 
   const updateProductsBulk = useCallback(async (newProductsArray: Product[]) => {
     try {
@@ -361,14 +435,9 @@ const App: React.FC = () => {
       setProducts(mappedUpdatedProducts);
       showSuccess('Precios actualizados masivamente con éxito!');
     } catch (err: any) {
-      console.warn('Error bulk updating products (usando datos locales):', err);
-      // Fallback: update products locally
-      setProducts(prevProducts => {
-        if (!prevProducts) return [];
-        const updatedMap = new Map(newProductsArray.map(p => [p.id, p]));
-        return prevProducts.map(p => updatedMap.get(p.id) || p);
-      });
-      showWarning('No se pudo actualizar en el servidor. Cambios aplicados localmente.');
+      console.error('Error bulk updating products:', err);
+      showError('No se pudieron actualizar los precios. Por favor, intenta nuevamente.');
+      throw err;
     }
   }, [showSuccess, showWarning]);
 
@@ -399,20 +468,11 @@ const App: React.FC = () => {
       setProducts(prevProducts => prevProducts ? [...prevProducts, ...mappedAddedProducts] : [...mappedAddedProducts]);
       return mappedAddedProducts;
     } catch (err: any) {
-      console.warn('Error bulk creating products (usando datos locales):', err);
-      // Fallback: add products locally with generated IDs
-      const localProducts: Product[] = newProductsArray.map((p, index) => ({
-        ...p,
-        id: `local-${Date.now()}-${index}`,
-        brand: p.brand || '',
-        brandId: undefined,
-        brandLogoUrl: p.brandLogoUrl,
-      }));
-      setProducts(prevProducts => prevProducts ? [...prevProducts, ...localProducts] : [...localProducts]);
-      console.log(`Se agregaron ${localProducts.length} productos localmente (desarrollo)`);
-      return localProducts;
+      console.error('Error bulk creating products:', err);
+      showError('No se pudieron crear los productos. Por favor, intenta nuevamente.');
+      throw err;
     }
-  }, []);
+  }, [showError]);
 
   const addBrand = useCallback(async (newBrand: Omit<Brand, 'id'>) => {
     try {
@@ -437,7 +497,7 @@ const App: React.FC = () => {
       
       const addedBrand = await res.json();
       setBrands(prevBrands => (prevBrands ? [...prevBrands, addedBrand] : [addedBrand]));
-      showSuccess('Marca añadida con éxito!');
+      showSuccess(`Marca "${addedBrand.name}" añadida correctamente.`);
     } catch (err: any) {
       console.error('Error adding brand:', err);
       const errorMessage = err?.message || 'Error desconocido';
@@ -460,7 +520,7 @@ const App: React.FC = () => {
       setProducts(prevProducts => prevProducts ? prevProducts.map(p =>
         p.brand === updatedBrandResponse.name ? { ...p, brandLogoUrl: updatedBrandResponse.logoUrl } : p
       ) : []);
-      showSuccess('Marca actualizada con éxito!');
+      showSuccess(`Marca "${updatedBrandResponse.name}" actualizada.`);
     } catch (err) {
       console.error('Error updating brand:', err);
       showError('Error al actualizar la marca.');
@@ -469,19 +529,19 @@ const App: React.FC = () => {
 
   const deleteBrand = useCallback(async (brandId: string) => {
     try {
+      const deletedBrandName = brands?.find(b => b.id === brandId)?.name;
       const res = await fetch(`${API_BASE_URL}/brands/${brandId}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to delete brand');
       setBrands(prevBrands => prevBrands ? prevBrands.filter(b => b.id !== brandId) : []);
       // Find the name of the deleted brand to update products
-      const deletedBrandName = brands?.find(b => b.id === brandId)?.name;
       setProducts(prevProducts => prevProducts ? prevProducts.map(p => {
         return (deletedBrandName && p.brand === deletedBrandName)
           ? { ...p, brandId: undefined, brandLogoUrl: undefined }
           : p;
       }) : []);
-      showSuccess('Marca eliminada con éxito!');
+      showSuccess(deletedBrandName ? `Marca "${deletedBrandName}" eliminada.` : 'Marca eliminada correctamente.');
     } catch (err) {
       console.error('Error deleting brand:', err);
       showError('Error al eliminar la marca.');
@@ -705,6 +765,7 @@ const App: React.FC = () => {
           whatsappPhoneNumber={finalWhatsappPhoneNumber} 
           toggleSearchModal={toggleSearchModal} 
           headerMenus={headerMenus} // Pass header menus
+          onAccountClick={handleAccountAccess}
         />
       }
 
@@ -713,74 +774,116 @@ const App: React.FC = () => {
           <AdminSidebar adminMenus={adminMenus} /> {/* Pass admin menus */}
           <main className="flex-1 flex flex-col overflow-hidden">
             <Routes>
-              <Route path="/admin" element={<AdminDashboardPage totalProducts={finalProducts.length} />} />
+              <Route
+                path="/admin"
+                element={
+                  isAdminAuthenticated ? (
+                    <AdminDashboardPage totalProducts={finalProducts.length} />
+                  ) : (
+                    <Navigate to="/account" replace />
+                  )
+                }
+              />
               <Route
                 path="/admin/products"
                 element={
-                  <AdminProductManagementPage
-                    products={finalProducts}
-                    brands={finalBrands}
-                    onAddProduct={addProduct}
-                    onUpdateProduct={updateProduct}
-                    onDeleteProduct={deleteProduct}
-                  />
+                  isAdminAuthenticated ? (
+                    <AdminProductManagementPage
+                      products={finalProducts}
+                      brands={finalBrands}
+                      onAddProduct={addProduct}
+                      onUpdateProduct={updateProduct}
+                      onDeleteProduct={deleteProduct}
+                    />
+                  ) : (
+                    <Navigate to="/account" replace />
+                  )
                 }
               />
               <Route
                 path="/admin/brands"
                 element={
-                  <AdminBrandManagementPage
-                    brands={finalBrands}
-                    onAddBrand={addBrand}
-                    onUpdateBrand={updateBrand}
-                    onDeleteBrand={deleteBrand}
-                  />
+                  isAdminAuthenticated ? (
+                    <AdminBrandManagementPage
+                      brands={finalBrands}
+                      onAddBrand={addBrand}
+                      onUpdateBrand={updateBrand}
+                      onDeleteBrand={deleteBrand}
+                    />
+                  ) : (
+                    <Navigate to="/account" replace />
+                  )
                 }
               />
               <Route
                 path="/admin/prices"
                 element={
-                  <AdminPriceManagementPage
-                    products={finalProducts}
-                    brands={finalBrands} // Pass brands for new product creation lookup
-                    onUpdateProductsBulk={updateProductsBulk}
-                    onAddProductsBulk={addProductsBulk} // New prop
-                  />
+                  isAdminAuthenticated ? (
+                    <AdminPriceManagementPage
+                      products={finalProducts}
+                      brands={finalBrands} // Pass brands for new product creation lookup
+                      onUpdateProductsBulk={updateProductsBulk}
+                      onAddProductsBulk={addProductsBulk} // New prop
+                    />
+                  ) : (
+                    <Navigate to="/account" replace />
+                  )
                 }
               />
-              <Route path="/admin/sales" element={<AdminSalesPage salesData={finalSales} />} />
+              <Route
+                path="/admin/sales"
+                element={
+                  isAdminAuthenticated ? (
+                    <AdminSalesPage salesData={finalSales} />
+                  ) : (
+                    <Navigate to="/account" replace />
+                  )
+                }
+              />
               <Route
                 path="/admin/settings"
                 element={
-                  <AdminSettingsPage
-                    heroImageUrl={finalHeroImageUrl}
-                    onUpdateHeroImage={handleUpdateHeroImage}
-                    whatsappPhoneNumber={finalWhatsappPhoneNumber}
-                    onUpdatePhoneNumber={handleUpdatePhoneNumber}
-                    footerContent={finalFooterContent}
-                    onUpdateFooterContent={handleUpdateFooterContent}
-                    dealZoneConfig={finalDealZoneConfig}
-                    onUpdateDealZoneConfig={handleUpdateDealZoneConfig}
-                  />
+                  isAdminAuthenticated ? (
+                    <AdminSettingsPage
+                      heroImageUrl={finalHeroImageUrl}
+                      onUpdateHeroImage={handleUpdateHeroImage}
+                      whatsappPhoneNumber={finalWhatsappPhoneNumber}
+                      onUpdatePhoneNumber={handleUpdatePhoneNumber}
+                      footerContent={finalFooterContent}
+                      onUpdateFooterContent={handleUpdateFooterContent}
+                      dealZoneConfig={finalDealZoneConfig}
+                      onUpdateDealZoneConfig={handleUpdateDealZoneConfig}
+                    />
+                  ) : (
+                    <Navigate to="/account" replace />
+                  )
                 }
               />
               <Route
                 path="/admin/menus" // New route for menu management
                 element={
-                  <AdminMenuManagementPage
-                    menus={finalMenus}
-                    onAddMenu={addMenu}
-                    onUpdateMenu={updateMenu}
-                    onDeleteMenu={deleteMenu}
-                  />
+                  isAdminAuthenticated ? (
+                    <AdminMenuManagementPage
+                      menus={finalMenus}
+                      onAddMenu={addMenu}
+                      onUpdateMenu={updateMenu}
+                      onDeleteMenu={deleteMenu}
+                    />
+                  ) : (
+                    <Navigate to="/account" replace />
+                  )
                 }
               />
               <Route
                 path="/admin/categories" // New route for category management
                 element={
-                  <AdminCategoryManagementPage
-                    categories={finalCategories}
-                  />
+                  isAdminAuthenticated ? (
+                    <AdminCategoryManagementPage
+                      categories={finalCategories}
+                    />
+                  ) : (
+                    <Navigate to="/account" replace />
+                  )
                 }
               />
             </Routes>
@@ -815,6 +918,16 @@ const App: React.FC = () => {
                 />
               }
             />
+            <Route
+              path="/account"
+              element={
+                <AccountPage
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onOpenAdminLogin={openAdminLogin}
+                  onLogout={handleAdminLogout}
+                />
+              }
+            />
           </Routes>
         </main>
       )}
@@ -831,7 +944,15 @@ const App: React.FC = () => {
         onInitiateOrder={initiateOrder}
       />
 
-      {!isAdminRoute && <MobileNavbar toggleCart={toggleCart} totalItemsInCart={totalItemsInCart} toggleSearchModal={toggleSearchModal} mobileMenus={mobileMenus} />} {/* Pass mobile menus */}
+      {!isAdminRoute && (
+        <MobileNavbar
+          toggleCart={toggleCart}
+          totalItemsInCart={totalItemsInCart}
+          toggleSearchModal={toggleSearchModal}
+          mobileMenus={mobileMenus}
+          onAccountClick={handleAccountAccess}
+        />
+      )} {/* Pass mobile menus */}
 
       <SearchModal isOpen={isSearchModalOpen} onClose={toggleSearchModal} products={finalProducts} />
 
@@ -850,6 +971,12 @@ const App: React.FC = () => {
         onAddToCart={addToCart}
         whatsappPhoneNumber={finalWhatsappPhoneNumber}
         onInitiateOrder={initiateOrder}
+      />
+
+      <AdminLoginModal
+        isOpen={isAdminLoginOpen}
+        onClose={closeAdminLogin}
+        onAuthenticate={handleAdminAuthenticate}
       />
     </div>
   );

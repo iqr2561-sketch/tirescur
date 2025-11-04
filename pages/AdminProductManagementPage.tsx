@@ -5,7 +5,8 @@ import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
 import StarRatingInput from '../components/StarRatingInput';
 import { useToast } from '../contexts/ToastContext';
-import { DEFAULT_PRODUCT_IMAGE_URL, WIDTHS, PROFILES, DIAMETERS, DEFAULT_BRAND_LOGO_URL } from '../constants';
+import { WIDTHS, PROFILES, DIAMETERS } from '../constants';
+import SafeImage from '../components/SafeImage';
 
 interface AdminProductManagementPageProps {
   products: Product[];
@@ -165,11 +166,11 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       sku: formData.sku,
       name: formData.name,
       brand: formData.brand,
-      brandLogoUrl: selectedBrand?.logoUrl || DEFAULT_BRAND_LOGO_URL, // Assign brand logo
+      brandLogoUrl: selectedBrand?.logoUrl,
       price: parseFloat(formData.price),
       rating: parseFloat(formData.rating),
       reviews: parseInt(formData.reviews),
-      imageUrl: formData.imageUrl || DEFAULT_PRODUCT_IMAGE_URL,
+      imageUrl: formData.imageUrl.trim(),
       description: formData.description,
       tags: formData.tags ? formData.tags.split(',').map((tag) => tag.trim()) : [],
       stock: parseInt(formData.stock),
@@ -294,9 +295,9 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                 {products.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <img 
-                        src={product.imageUrl || DEFAULT_PRODUCT_IMAGE_URL} 
-                        alt={product.name} 
+                      <SafeImage
+                        src={product.imageUrl}
+                        alt={product.name}
                         className="h-12 w-12 md:h-16 md:w-16 object-cover rounded"
                       />
                     </td>

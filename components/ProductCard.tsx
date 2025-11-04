@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React from 'react';
 import { Product } from '../types';
-import { DEFAULT_PRODUCT_IMAGE_URL, WIDTHS, PROFILES, DIAMETERS } from '../constants';
+import SafeImage from './SafeImage';
 
 interface ProductCardProps {
   product: Product; // The initial product (one variation)
@@ -56,10 +56,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, allProducts, onOpenP
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 dark:bg-gray-800">
       <div className="relative h-48 flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-700">
-        <img src={product.imageUrl || DEFAULT_PRODUCT_IMAGE_URL} alt={product.name} className="max-h-full max-w-full object-contain" />
-        {product.brandLogoUrl && (
-          <img src={product.brandLogoUrl} alt={`${product.brand} Logo`} className="absolute top-2 left-2 h-8 object-contain" />
-        )}
+        <SafeImage
+          src={product.imageUrl}
+          alt={product.name}
+          className="max-h-full max-w-full object-contain"
+          fallbackText="Sin imagen"
+        />
+        <div className="absolute top-2 left-2 h-8 w-8">
+          <SafeImage
+            src={product.brandLogoUrl}
+            alt={`${product.brand} Logo`}
+            className="h-8 w-8 object-contain rounded"
+            fallbackText={(product.brand?.slice(0, 2) || 'NA').toUpperCase()}
+          />
+        </div>
         {product.isOnSale && (
           <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold">
             {product.discountPercentage ? `-${product.discountPercentage}%` : 'OFERTA'}

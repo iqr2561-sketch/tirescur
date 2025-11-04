@@ -32,8 +32,17 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
 
   const showToast = useCallback((message: string, type: ToastType = 'info', duration?: number) => {
     const id = `toast-${Date.now()}-${Math.random()}`;
-    const newToast: Toast = { id, message, type, duration };
-    setToasts((prev) => [...prev, newToast]);
+    const resolvedDuration = duration ?? (type === 'error' ? 8000 : type === 'warning' ? 7000 : type === 'success' ? 5000 : 6000);
+    const newToast: Toast = { id, message, type, duration: resolvedDuration };
+    setToasts((prev) => {
+      const filtered = prev.filter((toast) => toast.message !== message || toast.type !== type);
+      const next = [...filtered, newToast];
+      // Mantener un máximo de 5 notificaciones simultáneas
+      if (next.length > 5) {
+        next.shift();
+      }
+      return next;
+    });
   }, []);
 
   const showSuccess = useCallback((message: string, duration?: number) => {

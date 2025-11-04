@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Modal from './Modal';
 import { Product } from '../types';
-import { DEFAULT_PRODUCT_IMAGE_URL } from '../constants'; // Re-use constants
+import SafeImage from './SafeImage';
 
 interface ProductSelectionModalProps {
   isOpen: boolean;
@@ -120,8 +120,8 @@ const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({
       <div className="flex flex-col space-y-4">
         {/* Product Info Card */}
         <div className="flex items-center space-x-4 p-3 bg-gray-100 rounded-lg dark:bg-gray-700">
-          <img
-            src={currentSelectedProduct?.imageUrl || product.imageUrl || DEFAULT_PRODUCT_IMAGE_URL}
+          <SafeImage
+            src={currentSelectedProduct?.imageUrl || product.imageUrl}
             alt={product.name}
             className="w-16 h-16 object-cover rounded"
           />

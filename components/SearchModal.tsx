@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { DEFAULT_PRODUCT_IMAGE_URL } from '../constants';
 import { Product } from '../types';
 import Modal from './Modal';
 import { useToast } from '../contexts/ToastContext';
+import SafeImage from './SafeImage';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -110,7 +110,7 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, products }) 
                 role="option"
                 aria-selected={false}
               >
-                <img src={product.imageUrl || DEFAULT_PRODUCT_IMAGE_URL} alt={product.name} className="w-10 h-10 object-cover rounded mr-3" />
+                <SafeImage src={product.imageUrl} alt={product.name} className="w-10 h-10 object-cover rounded mr-3" />
                 <div>
                   <p className="font-semibold">{product.name}</p>
                   <p className="text-gray-600 text-xs dark:text-gray-400">{product.brand} - {product.sku}</p>

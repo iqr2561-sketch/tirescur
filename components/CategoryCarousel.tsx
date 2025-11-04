@@ -1,6 +1,6 @@
 import React from 'react';
 import { Category } from '../types';
-import { DEFAULT_PRODUCT_IMAGE_URL } from '../constants';
+import SafeImage from './SafeImage';
 
 interface CategoryCarouselProps {
   categories: Category[];
@@ -19,7 +19,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({ categories }) => {
           {categories.map((category) => (
             <div key={category.id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden text-center cursor-pointer dark:bg-gray-800">
               <div className="h-32 flex items-center justify-center bg-gray-50 dark:bg-gray-700">
-                <img src={category.imageUrl || DEFAULT_PRODUCT_IMAGE_URL} alt={category.name} className="max-h-full max-w-full object-contain p-2" />
+                <SafeImage src={category.imageUrl} alt={category.name} className="max-h-full max-w-full object-contain p-2" />
               </div>
               <div className="p-4 flex flex-col items-center">
                 <div className="text-red-600 mb-2">{category.icon}</div>

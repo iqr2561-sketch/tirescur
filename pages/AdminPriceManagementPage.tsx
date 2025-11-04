@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Product, ExcelProductRow, Brand } from '../types';
 import * as XLSX from 'xlsx'; // Assuming xlsx is available, e.g., via importmap or bundling
-import { DEFAULT_PRODUCT_IMAGE_URL, DEFAULT_BRAND_LOGO_URL } from '../constants';
 import { useToast } from '../contexts/ToastContext';
 
 
@@ -168,11 +167,11 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
               sku: newSku,
               name: productName,
               brand: brandName,
-              brandLogoUrl: brandInfo?.logoUrl || DEFAULT_BRAND_LOGO_URL,
+              brandLogoUrl: brandInfo?.logoUrl,
               price: newPrice,
               rating: 0,
               reviews: 0,
-              imageUrl: imageUrl || DEFAULT_PRODUCT_IMAGE_URL,
+              imageUrl: imageUrl?.trim() || '',
               description: `Neumático ${productName} de la marca ${brandName} con dimensiones ${parsedSize.width}/${parsedSize.profile}${diameter}.`,
               tags: [],
               stock: 10, // Default stock for new products

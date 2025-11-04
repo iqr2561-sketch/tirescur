@@ -1,6 +1,6 @@
 import React from 'react';
 import { Product } from '../types';
-import { DEFAULT_PRODUCT_IMAGE_URL, DEFAULT_BRAND_LOGO_URL } from '../constants';
+import SafeImage from './SafeImage';
 
 interface AdminProductCardProps {
   product: Product;
@@ -24,10 +24,15 @@ const AdminProductCard: React.FC<AdminProductCardProps> = ({ product, onEdit, on
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col dark:bg-gray-800">
       <div className="relative h-48 flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-700">
-        <img src={product.imageUrl || DEFAULT_PRODUCT_IMAGE_URL} alt={product.name} className="max-h-full max-w-full object-contain" />
-        {product.brandLogoUrl && (
-          <img src={product.brandLogoUrl} alt={`${product.brand} Logo`} className="absolute top-2 left-2 h-8 object-contain" />
-        )}
+        <SafeImage src={product.imageUrl} alt={product.name} className="max-h-full max-w-full object-contain" />
+        <div className="absolute top-2 left-2 h-8 w-8">
+          <SafeImage
+            src={product.brandLogoUrl}
+            alt={`${product.brand} Logo`}
+            className="h-8 w-8 object-contain"
+            fallbackText={product.brand.slice(0, 2).toUpperCase()}
+          />
+        </div>
         <span className={`absolute bottom-2 left-2 text-white text-xs px-2 py-1 rounded-full ${stockInfo.color}`}>
           {stockInfo.text}
         </span>

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Category } from '../types';
-import { DEFAULT_PRODUCT_IMAGE_URL, TireIcon } from '../constants';
+import { TireIcon } from '../constants';
 import { useToast } from '../contexts/ToastContext';
 
 interface AdminCategoryManagementPageProps {
@@ -90,7 +90,7 @@ const AdminCategoryManagementPage: React.FC<AdminCategoryManagementPageProps> = 
     const categoryData: Omit<Category, 'id'> = {
       name: formData.name.trim(),
       description: formData.description.trim(),
-      imageUrl: formData.imageUrl || DEFAULT_PRODUCT_IMAGE_URL,
+      imageUrl: formData.imageUrl.trim(),
       icon: editingCategory?.icon || TireIcon,
       order: parseInt(formData.order) || 0,
       isActive: formData.isActive,

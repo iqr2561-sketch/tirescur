@@ -72,25 +72,29 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onRemove }) => {
     <div
       className={`
         ${getStyles()}
-        border-l-4 p-4 rounded-lg shadow-lg mb-3
+        border-l-4 p-4 rounded-lg shadow-xl mb-3
         animate-slide-in-right
         flex items-start gap-3
-        min-w-[300px] max-w-md
+        min-w-[320px] max-w-md
+        backdrop-blur-sm
+        transition-all duration-300 hover:shadow-2xl
       `}
       role="alert"
     >
       <div className="flex-shrink-0 mt-0.5">
-        {getIcon()}
+        <div className="p-1.5 rounded-full bg-white/50 dark:bg-gray-800/50">
+          {getIcon()}
+        </div>
       </div>
-      <div className="flex-1">
-        <p className="text-sm font-medium">{toast.message}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold leading-relaxed break-words">{toast.message}</p>
       </div>
       <button
         onClick={() => onRemove(toast.id)}
-        className="flex-shrink-0 text-current opacity-50 hover:opacity-100 transition-opacity"
+        className="flex-shrink-0 text-current opacity-60 hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/5 dark:hover:bg-white/5"
         aria-label="Cerrar notificación"
       >
-        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
         </svg>
       </button>

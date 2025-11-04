@@ -37,15 +37,20 @@ const calculateTimeLeft = (targetDateString: string): TimeLeft => {
 };
 
 const DealZoneTimer: React.FC<DealZoneTimerProps> = ({ config, products = [], onOpenProductSelectionModal }) => {
-  const [timeLeft, setTimeLeft] = useState<TimeLeft>(calculateTimeLeft(config.targetDate));
+  const hasTargetDate = Boolean(config.targetDate && config.targetDate.trim());
+  const [timeLeft, setTimeLeft] = useState<TimeLeft>(hasTargetDate ? calculateTimeLeft(config.targetDate) : { days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
+    if (!hasTargetDate) {
+      return;
+    }
+
     const timer = setInterval(() => {
       setTimeLeft(calculateTimeLeft(config.targetDate));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [config.targetDate]);
+  }, [config.targetDate, hasTargetDate]);
 
   // Filter products on sale
   const productsOnSale = products.filter(p => p.isOnSale).slice(0, 5);
@@ -70,16 +75,22 @@ const DealZoneTimer: React.FC<DealZoneTimerProps> = ({ config, products = [], on
   return (
     <div className="bg-gray-800 text-white py-12">
       <div className="container mx-auto px-4 text-center">
-        <h2 className="text-3xl font-bold mb-2">¡Atención! Zona de Ofertas</h2>
-        <p className="text-lg mb-6">¡Date prisa! Descuentos {config.discountText}</p>
-        <div className="flex justify-center mb-8">
-          {timerComponents.length ? timerComponents : <span className="text-xl">¡Oferta Terminada!</span>}
-        </div>
+        <h2 className="text-3xl font-bold mb-2">{config.discountText?.trim() ? '¡Atención! Zona de Ofertas' : 'Configura tus promociones'}</h2>
+        <p className="text-lg mb-6">
+          {config.discountText?.trim()
+            ? `¡Date prisa! Descuentos ${config.discountText}`
+            : 'Actualmente no hay promociones activas. Ajusta la información desde el panel de administración.'}
+        </p>
+        {hasTargetDate && (
+          <div className="flex justify-center mb-8">
+            {timerComponents.length ? timerComponents : <span className="text-xl">¡Oferta Terminada!</span>}
+          </div>
+        )}
         <a 
           href="/shop"
           className="inline-block bg-red-600 text-white font-semibold py-3 px-8 rounded-full hover:bg-red-700 transition-colors mb-8"
         >
-          {config.buttonText}
+          {config.buttonText?.trim() || 'Ver productos'}
         </a>
         
         {/* Products on Sale */}

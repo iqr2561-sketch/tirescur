@@ -31,10 +31,10 @@ export const DollarSignIcon: React.ReactElement = React.createElement("svg", { x
 );
 
 // Default product image URL
-export const DEFAULT_PRODUCT_IMAGE_URL = 'https://via.placeholder.com/400x300.png?text=Neumático+RedParts';
-export const DEFAULT_BRAND_LOGO_URL = 'https://via.placeholder.com/100x50.png?text=Marca';
-export const DEFAULT_HERO_IMAGE_URL = 'https://images.unsplash.com/photo-1542282088-fe8426682b8f?ixlib=rb-4.0.3&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1920&h=600&fit=crop&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format';
-export const DEFAULT_WHATSAPP_PHONE_NUMBER = '+5491112345678'; // Example number
+export const DEFAULT_PRODUCT_IMAGE_URL = '';
+export const DEFAULT_BRAND_LOGO_URL = '';
+export const DEFAULT_HERO_IMAGE_URL = '';
+export const DEFAULT_WHATSAPP_PHONE_NUMBER = '';
 
 export const WIDTHS = ['Ancho', '175', '185', '195', '205', '215', '225', '235', '245', '265'];
 export const PROFILES = ['Perfil', '40', '45', '50', '55', '60', '65', '70'];
@@ -42,17 +42,17 @@ export const DIAMETERS = ['Diámetro', 'R13', 'R14', 'R15', 'R16', 'R17', 'R18']
 
 // Default footer content
 export const DEFAULT_FOOTER_CONTENT: FooterContent = {
-  aboutUsText: `RedParts es tu destino de confianza para neumáticos de alta calidad. Ofrecemos una amplia selección de marcas líderes para todo tipo de vehículos y necesidades. Nuestro compromiso es brindarte seguridad, rendimiento y el mejor servicio al cliente.`,
-  contactAddress: `123 Avenida Principal\nCiudad Capital, CP 12345\nPaís`,
-  contactPhone: '(+54) 11 1234-5678',
-  contactEmail: 'info@redparts.com',
-  contactHours: 'Lun-Vie: 9am-6pm',
-  copyrightText: 'RedParts. Todos los derechos reservados.',
+  aboutUsText: '',
+  contactAddress: '',
+  contactPhone: '',
+  contactEmail: '',
+  contactHours: '',
+  copyrightText: '',
 };
 
 // Default deal zone configuration
 export const DEFAULT_DEAL_ZONE_CONFIG: DealZoneConfig = {
-  targetDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), // 7 days from now, format YYYY-MM-DDTHH:MM
-  discountText: 'hasta el 50%',
-  buttonText: 'Ver Todas las Ofertas Ahora',
+  targetDate: '',
+  discountText: '',
+  buttonText: '',
 };
