@@ -4,6 +4,7 @@ import AdminProductCard from '../components/AdminProductCard';
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
 import StarRatingInput from '../components/StarRatingInput';
+import ImageUploader from '../components/ImageUploader';
 import { useToast } from '../contexts/ToastContext';
 import { WIDTHS, PROFILES, DIAMETERS } from '../constants';
 import SafeImage from '../components/SafeImage';
@@ -27,6 +28,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; productId: string | null }>({ isOpen: false, productId: null });
+  const [isUploading, setIsUploading] = useState(false);
   const { showSuccess, showError, showWarning } = useToast();
   
   // Estados para búsqueda y filtros
@@ -138,6 +140,63 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
 
   const handleRatingChange = useCallback((newRating: number) => {
     setFormData((prev) => ({ ...prev, rating: newRating.toString() }));
+  }, []);
+
+  const handleImageFileSelected = useCallback(async (file: File) => {
+    setIsUploading(true);
+    try {
+      // Convertir archivo a base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64String = reader.result as string;
+          
+          // Subir imagen al servidor
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              file: base64String,
+              fileName: file.name,
+              fileType: file.type,
+              entityType: 'product',
+              entityId: editingProduct?.id || null,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al subir la imagen');
+          }
+
+          const data = await response.json();
+          
+          // Actualizar el formData con la URL de la imagen subida
+          setFormData((prev) => ({ ...prev, imageUrl: data.url }));
+          showSuccess('Imagen subida correctamente');
+        } catch (error: any) {
+          console.error('Error uploading image:', error);
+          showError(`Error al subir la imagen: ${error.message}`);
+        } finally {
+          setIsUploading(false);
+        }
+      };
+      reader.onerror = () => {
+        showError('Error al leer el archivo');
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      console.error('Error processing image:', error);
+      showError(`Error al procesar la imagen: ${error.message}`);
+      setIsUploading(false);
+    }
+  }, [editingProduct, showSuccess, showError]);
+
+  const handleImageUrlChange = useCallback((url: string) => {
+    setFormData((prev) => ({ ...prev, imageUrl: url }));
   }, []);
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -758,18 +817,21 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
             </div>
           </div>
           <div>
-            <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-200">URL de Imagen</label>
-            <input
-              type="url"
-              name="imageUrl"
-              id="imageUrl"
-              value={formData.imageUrl}
-              onChange={handleChange}
-              className={getInputFieldClasses()}
-              placeholder="https://example.com/image.jpg"
+            <ImageUploader
+              currentImageUrl={formData.imageUrl}
+              onImageSelected={handleImageFileSelected}
+              onImageUrlChange={handleImageUrlChange}
+              label="Imagen del Producto"
+              maxSizeMB={5}
             />
-            {formData.imageUrl && (
-              <img src={formData.imageUrl} alt="Vista previa" className="mt-2 h-20 w-20 object-cover rounded-md" />
+            {isUploading && (
+              <div className="mt-2 flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Subiendo imagen...</span>
+              </div>
             )}
           </div>
           <div>
