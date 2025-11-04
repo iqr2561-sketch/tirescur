@@ -16,6 +16,10 @@ interface AdminSettingsPageProps {
   onUpdateFooterContent: FooterUpdateFunction;
   dealZoneConfig: DealZoneConfig;
   onUpdateDealZoneConfig: DealZoneConfigUpdateFunction;
+  siteName: string;
+  onUpdateSiteName: (name: string) => void;
+  siteLogo: string;
+  onUpdateSiteLogo: (logoUrl: string) => void;
 }
 
 const AdminSettingsPageComplete: React.FC<AdminSettingsPageProps> = ({
@@ -27,10 +31,16 @@ const AdminSettingsPageComplete: React.FC<AdminSettingsPageProps> = ({
   onUpdateFooterContent,
   dealZoneConfig,
   onUpdateDealZoneConfig,
+  siteName,
+  onUpdateSiteName,
+  siteLogo,
+  onUpdateSiteLogo,
 }) => {
   const [activeTab, setActiveTab] = useState<'sitio' | 'contacto' | 'footer' | 'ofertas' | 'popups'>('sitio');
   const [newHeroImageUrl, setNewHeroImageUrl] = useState(heroImageUrl);
   const [newWhatsappPhoneNumber, setNewWhatsappPhoneNumber] = useState(whatsappPhoneNumber);
+  const [newSiteName, setNewSiteName] = useState(siteName);
+  const [newSiteLogo, setNewSiteLogo] = useState(siteLogo);
   const [editableFooterContent, setEditableFooterContent] = useState<FooterContent>(footerContent);
   const [editableDealZoneConfig, setEditableDealZoneConfig] = useState<DealZoneConfig>(dealZoneConfig);
   const [contactConfig, setContactConfig] = useState<ContactConfig>({

@@ -151,6 +151,8 @@ export interface GlobalSettings {
   whatsappPhoneNumber: string;
   footerContent: FooterContent;
   dealZoneConfig: DealZoneConfig;
+  siteName?: string;
+  siteLogo?: string;
 }
 
 export type HeroImageUpdateFunction = (url: string) => void;

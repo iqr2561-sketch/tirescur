@@ -8,6 +8,7 @@ import SearchModal from './components/SearchModal';
 import AdminSidebar from './components/AdminSidebar';
 import FloatingCartButton from './components/FloatingCartButton';
 import ProductAddedToast from './components/ProductAddedToast';
+import InstallPrompt from './components/InstallPrompt';
 import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
@@ -34,6 +35,8 @@ import {
   DEFAULT_WHATSAPP_PHONE_NUMBER,
   DEFAULT_FOOTER_CONTENT,
   DEFAULT_DEAL_ZONE_CONFIG,
+  DEFAULT_SITE_NAME,
+  DEFAULT_SITE_LOGO,
   TireIcon,
   WheelIcon,
   AccessoryIcon,
@@ -65,6 +68,8 @@ const App: React.FC = () => {
   const [whatsappPhoneNumber, setWhatsappPhoneNumber] = useState<string | null>(null);
   const [footerContent, setFooterContent] = useState<FooterContent | null>(null);
   const [dealZoneConfig, setDealZoneConfig] = useState<DealZoneConfig | null>(null);
+  const [siteName, setSiteName] = useState<string>(DEFAULT_SITE_NAME);
+  const [siteLogo, setSiteLogo] = useState<string>(DEFAULT_SITE_LOGO);
   const [loading, setLoading] = useState(true);
   const [popups, setPopups] = useState<Popup[]>([]);
   const [activePopup, setActivePopup] = useState<Popup | null>(null);
@@ -247,17 +252,23 @@ const App: React.FC = () => {
         const whatsappRes = await fetch(`${API_BASE_URL}/settings?key=whatsappPhoneNumber`).catch(() => null);
         const footerRes = await fetch(`${API_BASE_URL}/settings?key=footer`).catch(() => null);
         const offerZoneRes = await fetch(`${API_BASE_URL}/settings?key=offer_zone`).catch(() => null);
+        const siteNameRes = await fetch(`${API_BASE_URL}/settings?key=siteName`).catch(() => null);
+        const siteLogoRes = await fetch(`${API_BASE_URL}/settings?key=siteLogo`).catch(() => null);
 
         const heroImageData = heroImageRes && heroImageRes.ok ? await heroImageRes.json() : null;
         const whatsappData = whatsappRes && whatsappRes.ok ? await whatsappRes.json() : null;
         const footerData = footerRes && footerRes.ok ? await footerRes.json() : null;
         const offerZoneData = offerZoneRes && offerZoneRes.ok ? await offerZoneRes.json() : null;
+        const siteNameData = siteNameRes && siteNameRes.ok ? await siteNameRes.json() : null;
+        const siteLogoData = siteLogoRes && siteLogoRes.ok ? await siteLogoRes.json() : null;
 
         const fetchedSettings = {
           heroImageUrl: heroImageData?.value || DEFAULT_HERO_IMAGE_URL,
           whatsappPhoneNumber: whatsappData?.value || DEFAULT_WHATSAPP_PHONE_NUMBER,
           footerContent: footerData?.value || DEFAULT_FOOTER_CONTENT,
           dealZoneConfig: offerZoneData?.value || DEFAULT_DEAL_ZONE_CONFIG,
+          siteName: siteNameData?.value || DEFAULT_SITE_NAME,
+          siteLogo: siteLogoData?.value || DEFAULT_SITE_LOGO,
         };
 
         // Map Supabase product data to client-side Product interface
@@ -308,7 +319,16 @@ const App: React.FC = () => {
         setWhatsappPhoneNumber(fetchedSettings.whatsappPhoneNumber);
         setFooterContent(fetchedSettings.footerContent);
         setDealZoneConfig(fetchedSettings.dealZoneConfig);
+        setSiteName(fetchedSettings.siteName);
+        setSiteLogo(fetchedSettings.siteLogo);
         setPopups(fetchedPopups || []);
+        
+        // Actualizar título de la página y manifest dinámicamente
+        if (fetchedSettings.siteName) {
+          document.title = fetchedSettings.siteName;
+          // Actualizar manifest.json dinámicamente
+          updateManifest(fetchedSettings.siteName, fetchedSettings.siteLogo);
+        }
 
         // Determinar popup activo a mostrar
         if (fetchedPopups && fetchedPopups.length > 0) {
@@ -896,7 +916,28 @@ const App: React.FC = () => {
       console.error(`Error updating ${key} setting:`, err);
       showError(`Error al actualizar la configuración: ${err?.message || 'Error desconocido'}`);
     }
-  }, [showSuccess, showError, heroImageUrl, whatsappPhoneNumber]);
+  }, [showSuccess, showError, heroImageUrl, whatsappPhoneNumber, siteName, siteLogo]);
+  
+  // Función para actualizar el manifest dinámicamente
+  const updateManifest = useCallback((name: string, logoUrl?: string) => {
+    const manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+    if (manifestLink) {
+      fetch('/manifest.json')
+        .then(res => res.json())
+        .then(manifest => {
+          manifest.name = name;
+          manifest.short_name = name.length > 12 ? name.substring(0, 12) : name;
+          if (logoUrl) {
+            // Actualizar iconos si hay logo
+            manifest.icons = manifest.icons || [];
+          }
+          const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          manifestLink.href = url;
+        })
+        .catch(err => console.error('Error updating manifest:', err));
+    }
+  }, []);
 
   const handleUpdateHeroImage: HeroImageUpdateFunction = useCallback((url: string) => {
     handleUpdateSettings('heroImageUrl', url);
@@ -1120,6 +1161,10 @@ const App: React.FC = () => {
                       onUpdateFooterContent={handleUpdateFooterContent}
                       dealZoneConfig={finalDealZoneConfig}
                       onUpdateDealZoneConfig={handleUpdateDealZoneConfig}
+                      siteName={siteName}
+                      onUpdateSiteName={(name: string) => handleUpdateSettings('siteName', name)}
+                      siteLogo={siteLogo}
+                      onUpdateSiteLogo={(logoUrl: string) => handleUpdateSettings('siteLogo', logoUrl)}
                     />
                   ) : (
                     <Navigate to="/account" replace />

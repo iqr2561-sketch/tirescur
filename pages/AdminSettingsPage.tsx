@@ -11,6 +11,10 @@ interface AdminSettingsPageProps {
   onUpdateFooterContent: FooterUpdateFunction;
   dealZoneConfig: DealZoneConfig;
   onUpdateDealZoneConfig: DealZoneConfigUpdateFunction;
+  siteName: string;
+  onUpdateSiteName: (name: string) => void;
+  siteLogo: string;
+  onUpdateSiteLogo: (logoUrl: string) => void;
 }
 
 const AdminSettingsPage: React.FC<AdminSettingsPageProps> = (props) => {

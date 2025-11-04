@@ -56,3 +56,7 @@ export const DEFAULT_DEAL_ZONE_CONFIG: DealZoneConfig = {
   discountText: '',
   buttonText: '',
 };
+
+// Default site configuration
+export const DEFAULT_SITE_NAME = 'Tienda RedParts';
+export const DEFAULT_SITE_LOGO = '';
