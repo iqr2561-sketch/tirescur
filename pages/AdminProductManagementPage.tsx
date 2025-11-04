@@ -29,6 +29,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; productId: string | null }>({ isOpen: false, productId: null });
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { showSuccess, showError, showWarning } = useToast();
   
   // Estados para búsqueda y filtros
@@ -199,8 +200,13 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     setFormData((prev) => ({ ...prev, imageUrl: url }));
   }, []);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevenir múltiples envíos
+    if (isSaving) {
+      return;
+    }
 
     // Validación mejorada - solo validar campos críticos
     const errors: string[] = [];
@@ -230,6 +236,8 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       showError(`Por favor, corrige los siguientes errores:\n${errors.join('\n')}`);
       return;
     }
+
+    setIsSaving(true);
     
     // Validate sale price if product is on sale
     if (formData.isOnSale && formData.salePrice) {
@@ -279,19 +287,29 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       isActive: formData.isActive !== undefined ? formData.isActive : true,
     };
 
-    if (editingProduct) {
-      // For update, we need the existing ID
-      const productToUpdate: Product = { ...baseProduct, id: editingProduct.id };
-      onUpdateProduct(productToUpdate);
-      // La notificación se muestra en App.tsx después de que onUpdateProduct complete
-    } else {
-      // For add, we pass the product without ID
-      onAddProduct(baseProduct);
-      // La notificación se muestra en App.tsx después de que onAddProduct complete
-    }
+    try {
+      if (editingProduct) {
+        // For update, we need the existing ID
+        const productToUpdate: Product = { ...baseProduct, id: editingProduct.id };
+        await onUpdateProduct(productToUpdate);
+        // La notificación se muestra en App.tsx después de que onUpdateProduct complete
+      } else {
+        // For add, we pass the product without ID
+        await onAddProduct(baseProduct);
+        // La notificación se muestra en App.tsx después de que onAddProduct complete
+      }
 
-    handleCloseModal();
-  }, [formData, editingProduct, onAddProduct, onUpdateProduct, handleCloseModal, brands, WIDTHS, PROFILES, DIAMETERS, showSuccess, showError]);
+      // Solo cerrar el modal si la operación fue exitosa
+      handleCloseModal();
+    } catch (error: any) {
+      // Los errores ya se manejan en App.tsx, pero por si acaso
+      console.error('Error al guardar producto:', error);
+      // No cerramos el modal si hay error para que el usuario pueda corregir
+      showError(`Error al guardar el producto: ${error?.message || 'Error desconocido'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [formData, editingProduct, onAddProduct, onUpdateProduct, handleCloseModal, brands, WIDTHS, PROFILES, DIAMETERS, showSuccess, showError, isSaving]);
 
   const handleDeleteProduct = useCallback((id: string) => {
     setConfirmModal({ isOpen: true, productId: id });
