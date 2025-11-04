@@ -29,30 +29,74 @@ export default allowCors(async function handler(req, res) {
       const body = await parseBody(req);
       
       // Log para depurar
-      console.log('[Products API] POST request:', { pathname, url: req.url });
+      console.log('[Products API] POST request:', { 
+        pathname, 
+        url: req.url,
+        method: req.method,
+        isArray: Array.isArray(body),
+        bodyLength: Array.isArray(body) ? body.length : 'N/A'
+      });
 
-      // Manejar bulk-create - puede venir como pathname o como parte de la URL
-      if (pathname === '/api/products/bulk-create' || pathname?.endsWith('/bulk-create') || req.url?.includes('/bulk-create')) {
+      // Detectar bulk-create: verificar si el body es un array (indica bulk-create)
+      // o si la URL contiene 'bulk-create'
+      const isBulkCreate = Array.isArray(body) && body.length > 0 && 
+        (pathname?.includes('/bulk-create') || req.url?.includes('/bulk-create') || 
+         (body[0] && typeof body[0] === 'object' && 'sku' in body[0] && 'name' in body[0]));
+
+      if (isBulkCreate) {
+        console.log('[Products API] Detected bulk-create request:', {
+          productCount: body.length,
+          sampleProduct: body[0] ? {
+            sku: body[0].sku,
+            name: body[0].name,
+            brand: body[0].brand,
+            hasIsActive: 'isActive' in (body[0] || {})
+          } : null
+        });
+
         if (!Array.isArray(body) || body.length === 0) {
+          console.error('[Products API] Invalid bulk-create body:', { isArray: Array.isArray(body), length: body?.length });
           res.statusCode = 400;
-          res.json({ error: 'Array of new products is required for bulk creation' });
+          res.json({ error: 'Array de productos es requerido para creación masiva', received: typeof body });
           return;
         }
 
+        console.log('[Products API] Processing', body.length, 'products for bulk-create');
+
         const brandsResponse = await supabase.from('brands').select('*');
         if (brandsResponse.error) {
+          console.error('[Products API] Error fetching brands:', brandsResponse.error);
           throw new Error(brandsResponse.error.message);
         }
+
+        console.log('[Products API] Found', brandsResponse.data?.length || 0, 'brands');
 
         const payload = body.map((product: Product) => {
           const brand = brandsResponse.data?.find((item: any) => item.name === product.brand);
           return mapProductForInsert(product, brand);
         });
 
+        console.log('[Products API] Mapped payload:', {
+          count: payload.length,
+          sample: payload[0] ? {
+            sku: payload[0].sku,
+            name: payload[0].name,
+            brand_name: payload[0].brand_name,
+            hasIsActive: 'is_active' in payload[0],
+            isActive: payload[0].is_active
+          } : null
+        });
+
         const { data, error } = await supabase
           .from('products')
           .insert(payload)
           .select();
+
+        console.log('[Products API] Insert result:', {
+          hasError: !!error,
+          error: error?.message,
+          dataCount: data?.length || 0
+        });
 
         if (error) {
           console.error('[Products API] Error en bulk-create:', error);
@@ -65,6 +109,7 @@ export default allowCors(async function handler(req, res) {
         }
 
         const formatted = (data || []).map(toClientProduct);
+        console.log('[Products API] Bulk-create completed successfully:', formatted.length, 'products created');
         res.statusCode = 201;
         res.json(formatted);
         return;
