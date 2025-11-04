@@ -37,11 +37,30 @@ export default allowCors(async function handler(req, res) {
       return;
     }
     
-    console.log('[Products API [id]] Processing request:', { method: req.method, productId, pathname });
+    console.log('[Products API [id]] Processing request:', { 
+      method: req.method, 
+      productId, 
+      pathname,
+      url: req.url,
+      query: query
+    });
 
     if (req.method === 'PUT') {
+      console.log('[Products API [id]] PUT request received for product:', productId);
       const body = await parseBody(req);
+      console.log('[Products API [id]] Body parsed:', {
+        hasBody: !!body,
+        hasIsActive: 'isActive' in (body || {}),
+        isActive: body?.isActive,
+        name: body?.name
+      });
       const updated = await updateSingleProduct(supabase, productId, body as Product);
+      console.log('[Products API [id]] Product updated successfully:', {
+        id: updated.id,
+        name: updated.name,
+        hasIsActive: 'is_active' in updated,
+        isActive: updated.is_active
+      });
       res.statusCode = 200;
       res.json(toClientProduct(updated));
       return;

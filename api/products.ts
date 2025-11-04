@@ -38,9 +38,10 @@ export default allowCors(async function handler(req, res) {
       });
 
       // Detectar bulk-create: verificar si el body es un array (indica bulk-create)
-      // o si la URL contiene 'bulk-create'
+      // o si la URL contiene 'bulk' o 'bulk-create'
       const isBulkCreate = Array.isArray(body) && body.length > 0 && 
         (pathname?.includes('/bulk-create') || req.url?.includes('/bulk-create') || 
+         req.url?.includes('bulk=true') || query?.bulk === 'true' ||
          (body[0] && typeof body[0] === 'object' && 'sku' in body[0] && 'name' in body[0]));
 
       if (isBulkCreate) {

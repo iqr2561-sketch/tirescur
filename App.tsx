@@ -396,18 +396,44 @@ const App: React.FC = () => {
       // The `id` from `updatedProduct` is the client-facing ID which maps to Supabase's UUID.
       // The body sent to the API should not contain `id` as `id` is handled by the URL param.
       const { id, ...productDataToSend } = updatedProduct;
-      const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+      const url = `${API_BASE_URL}/products/${id}`;
+      
+      console.log('[App] Update product request:', {
+        url,
+        method: 'PUT',
+        productId: id,
+        productName: updatedProduct.name,
+        hasIsActive: 'isActive' in productDataToSend,
+        isActive: productDataToSend.isActive
+      });
+      
+      const res = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productDataToSend),
       });
       
+      console.log('[App] Update product response:', {
+        status: res.status,
+        statusText: res.statusText,
+        contentType: res.headers.get('content-type'),
+        ok: res.ok
+      });
+      
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
+        console.error('[App] Update product error:', errorData);
         throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
       }
       
       const updatedProductResponse = await res.json();
+      console.log('[App] Update product success:', {
+        id: updatedProductResponse.id,
+        name: updatedProductResponse.name,
+        hasIsActive: 'is_active' in updatedProductResponse,
+        isActive: updatedProductResponse.is_active
+      });
+      
       const mappedProduct: Product = {
         ...updatedProductResponse,
         brand: updatedProductResponse.brand_name || updatedProductResponse.brand,
@@ -419,7 +445,7 @@ const App: React.FC = () => {
       setProducts(prevProducts => prevProducts ? prevProducts.map(p => p.id === updatedProduct.id ? mappedProduct : p) : []);
       showSuccess(`✅ Producto "${mappedProduct.name}" actualizado correctamente`, 6000);
     } catch (err: any) {
-      console.error('Error updating product:', err);
+      console.error('[App] Error updating product:', err);
       const errorMessage = err?.message || 'Error desconocido';
       
       // Mensajes más específicos según el tipo de error
@@ -511,7 +537,8 @@ const App: React.FC = () => {
   const addProductsBulk = useCallback(async (newProductsArray: Omit<Product, 'id'>[]) => {
     if (newProductsArray.length === 0) return [];
     try {
-      const url = `${API_BASE_URL}/products/bulk-create`;
+      // Usar /api/products y dejar que el servidor detecte automáticamente bulk-create
+      const url = `${API_BASE_URL}/products?bulk=true`;
       console.log('[App] Bulk create request:', {
         url,
         method: 'POST',
