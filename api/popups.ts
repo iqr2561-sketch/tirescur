@@ -9,6 +9,8 @@ export default allowCors(async function handler(req, res) {
     const popupId = query.id as string;
 
     if (req.method === 'GET') {
+      const activeOnly = query.active === 'true';
+      
       if (popupId) {
         // Get single popup
         const { data, error } = await supabase
@@ -26,20 +28,46 @@ export default allowCors(async function handler(req, res) {
         res.statusCode = 200;
         res.json(data);
         return;
-      } else {
-        // Get active popups
+      } else if (activeOnly) {
+        // Get active popups only
         const now = new Date().toISOString();
-        const { data, error } = await supabase
+        let queryBuilder = supabase
           .from('popups')
           .select('*')
-          .eq('is_active', true)
+          .eq('is_active', true);
+        
+        // Filter by date range
+        queryBuilder = queryBuilder
           .or(`start_date.is.null,start_date.lte.${now}`)
-          .or(`end_date.is.null,end_date.gte.${now}`)
+          .or(`end_date.is.null,end_date.gte.${now}`);
+        
+        const { data, error } = await queryBuilder
           .order('priority', { ascending: false })
           .order('created_at', { ascending: false });
 
         if (error) {
-          throw new Error(error.message);
+          console.error('[Popups API] Error fetching active popups:', error);
+          res.statusCode = 500;
+          res.json({ error: error.message || 'Error al obtener popups activos' });
+          return;
+        }
+
+        res.statusCode = 200;
+        res.json(data || []);
+        return;
+      } else {
+        // Get all popups
+        const { data, error } = await supabase
+          .from('popups')
+          .select('*')
+          .order('priority', { ascending: false })
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[Popups API] Error fetching popups:', error);
+          res.statusCode = 500;
+          res.json({ error: error.message || 'Error al obtener popups' });
+          return;
         }
 
         res.statusCode = 200;
