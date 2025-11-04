@@ -52,8 +52,9 @@ const DealZoneTimer: React.FC<DealZoneTimerProps> = ({ config, products = [], on
     return () => clearInterval(timer);
   }, [config.targetDate, hasTargetDate]);
 
-  // Filter products on sale
-  const productsOnSale = products.filter(p => p.isOnSale).slice(0, 5);
+  // Filter products on sale - Validar que products sea un array
+  const safeProducts = products || [];
+  const productsOnSale = safeProducts.filter(p => p.isOnSale).slice(0, 5);
 
   const timerComponents: React.ReactElement[] = [];
 

@@ -17,16 +17,17 @@ interface HomePageProps {
 }
 
 const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsappPhoneNumber, dealZoneConfig, products, categories, onInitiateOrder, onOpenProductSelectionModal }) => {
-  // Use the products passed as props
-  const featuredProducts = products.slice(0, 5); // Example: Take first 5 for featured
-  const newArrivals = products.slice(5, 10); // Example: Take next 5 for new arrivals
+  // Use the products passed as props - Validar que products sea un array
+  const safeProducts = products || [];
+  const featuredProducts = safeProducts.slice(0, 5); // Example: Take first 5 for featured
+  const newArrivals = safeProducts.slice(5, 10); // Example: Take next 5 for new arrivals
   const [activeFilter, setActiveFilter] = useState<string>('Todos');
 
   const filterOptions = ['Todos', 'Verano', 'Invierno', 'Todo el Año'];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <HeroSearch heroImageUrl={heroImageUrl} products={products} />
+      <HeroSearch heroImageUrl={heroImageUrl} products={safeProducts} />
 
       {/* Services/Benefits Section */}
       <section className="bg-white py-10 shadow-sm dark:bg-gray-800">
@@ -82,7 +83,7 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
               <ProductCard 
                 key={product.id} 
                 product={product} 
-                allProducts={products} // Pass all products for variation selection
+                allProducts={safeProducts} // Pass all products for variation selection
                 onOpenProductSelectionModal={onOpenProductSelectionModal} // Pass the new prop
               />
             ))}
@@ -92,7 +93,7 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
 
       <DealZoneTimer 
         config={dealZoneConfig} 
-        products={products}
+        products={safeProducts}
         onOpenProductSelectionModal={onOpenProductSelectionModal}
       />
 
@@ -107,7 +108,7 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
               <ProductCard 
                 key={product.id} 
                 product={product} 
-                allProducts={products} // Pass all products for variation selection
+                allProducts={safeProducts} // Pass all products for variation selection
                 onOpenProductSelectionModal={onOpenProductSelectionModal} // Pass the new prop
               />
             ))}

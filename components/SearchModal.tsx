@@ -38,7 +38,8 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, products }) 
       return;
     }
     const lowerCaseTerm = term.toLowerCase();
-    const filtered = products.filter(product => // Use products prop here
+    const safeProducts = products || [];
+    const filtered = safeProducts.filter(product => // Use products prop here
       product.name.toLowerCase().includes(lowerCaseTerm) ||
       product.brand.toLowerCase().includes(lowerCaseTerm) ||
       product.sku.toLowerCase().includes(lowerCaseTerm) ||

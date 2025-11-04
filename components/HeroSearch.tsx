@@ -18,7 +18,8 @@ const HeroSearch: React.FC<HeroSearchProps> = ({ heroImageUrl, products }) => {
     const filter: TireFilter = { width, profile, diameter };
     console.log('Buscando neumáticos con filtros:', filter);
 
-    const filteredProducts = products.filter(product => { // Use products prop here
+    const safeProducts = products || [];
+    const filteredProducts = safeProducts.filter(product => { // Use products prop here
       const matchWidth = (width === WIDTHS[0] || product.width === width);
       const matchProfile = (profile === PROFILES[0] || product.profile === profile);
       const matchDiameter = (diameter === DIAMETERS[0] || product.diameter === diameter);
