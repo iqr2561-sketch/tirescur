@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sale } from '../types';
 
 interface AdminDashboardPageProps {
@@ -8,10 +9,11 @@ interface AdminDashboardPageProps {
 }
 
 const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ 
-  totalProducts, 
-  sales = [], 
-  totalUsers = 0 
+  totalProducts,
+  sales = [],
+  totalUsers = 0
 }) => {
+  const navigate = useNavigate();
   const [isTransitioning, setIsTransitioning] = useState(true);
   
   useEffect(() => {
@@ -171,19 +173,36 @@ const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         </div>
       </div>
 
-      {/* Ventas Recientes */}
-      <div className={`bg-white p-6 rounded-lg shadow-md mt-8 dark:bg-gray-800 transition-all duration-700 delay-400 ${
-        isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
-      }`}>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Ventas Recientes</h2>
-          <a 
-            href="/admin/sales" 
-            className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+          {/* Ventas Recientes - Card Clickable */}
+          <div 
+            className={`bg-white p-6 rounded-lg shadow-md mt-8 dark:bg-gray-800 transition-all duration-700 delay-400 hover:shadow-lg cursor-pointer ${
+              isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+            }`}
+            onClick={() => navigate('/admin/sales')}
           >
-            Ver todas →
-          </a>
-        </div>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-red-100 dark:bg-red-900 rounded-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Ventas Recientes</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Ver todas las ventas con detalles completos</p>
+                </div>
+              </div>
+              <a
+                href="/admin/sales"
+                className="flex items-center space-x-2 text-sm font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-all duration-200 hover:scale-105"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span>Ver todas</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </div>
         {safeSales.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-4">No hay ventas registradas aún</p>
         ) : (

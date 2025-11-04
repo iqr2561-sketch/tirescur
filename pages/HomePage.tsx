@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import HeroSearch from '../components/HeroSearch';
 import ProductCard from '../components/ProductCard';
 import DealZoneTimer from '../components/DealZoneTimer';
@@ -17,6 +18,8 @@ interface HomePageProps {
 }
 
 const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsappPhoneNumber, dealZoneConfig, products, categories, onInitiateOrder, onOpenProductSelectionModal }) => {
+  const navigate = useNavigate();
+  
   // Use the products passed as props - Validar que products sea un array
   const safeProducts = products || [];
   const featuredProducts = safeProducts.slice(0, 5); // Example: Take first 5 for featured
@@ -25,6 +28,30 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
 
   const filterOptions = ['Todos', 'Verano', 'Invierno', 'Todo el Año'];
 
+  // Handlers para navegación desde las tarjetas
+  const handleCardClick = (section: string) => {
+    switch (section) {
+      case 'envio':
+        // Scroll a la sección de envío o navegar a información
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        break;
+      case 'soporte':
+        // Abrir WhatsApp para soporte
+        window.open(`https://wa.me/${whatsappPhoneNumber.replace(/[^0-9]/g, '')}`, '_blank');
+        break;
+      case 'seguridad':
+        // Navegar a página de información de seguridad
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        break;
+      case 'ofertas':
+        // Navegar a la tienda con filtro de ofertas
+        navigate('/shop?offer=true');
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <HeroSearch heroImageUrl={heroImageUrl} products={safeProducts} />
@@ -32,26 +59,38 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
       {/* Services/Benefits Section */}
       <section className="bg-white py-10 shadow-sm dark:bg-gray-800">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
-          <div className="flex flex-col items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 13v-1m4 1v-1m4 1v-1M4 14v6a2 2 0 002 2h12a2 2 0 002-2v-6M4 14h16M4 14l-.454-.546C4.443 13.064 4.896 13 5.372 13h13.256c.476 0 .93.064 1.076.454L20 14m-12 0H6a2 2 0 00-2 2v4a2 2 0 002 2h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2m-4 0v4m-6-4h4" /></svg>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Envío Gratis</h3>
+          <button
+            onClick={() => handleCardClick('envio')}
+            className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer group"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 13v-1m4 1v-1m4 1v-1M4 14v6a2 2 0 002 2h12a2 2 0 002-2v-6M4 14h16M4 14l-.454-.546C4.443 13.064 4.896 13 5.372 13h13.256c.476 0 .93.064 1.076.454L20 14m-12 0H6a2 2 0 00-2 2v4a2 2 0 002 2h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2m-4 0v4m-6-4h4" /></svg>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 group-hover:text-red-600 transition-colors">Envío Gratis</h3>
             <p className="text-sm text-gray-600 dark:text-gray-300">Para pedidos desde $50</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4v2m0 4v2m0 4a1 1 0 100-2 1 1 0 000 2z" /></svg>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Soporte 24/7</h3>
+          </button>
+          <button
+            onClick={() => handleCardClick('soporte')}
+            className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer group"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4v2m0 4v2m0 4a1 1 0 100-2 1 1 0 000 2z" /></svg>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 group-hover:text-red-600 transition-colors">Soporte 24/7</h3>
             <p className="text-sm text-gray-600 dark:text-gray-300">Llámanos en cualquier momento</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.001 12.001 0 002.924 12c0 3.078 1.137 5.968 3.076 8.125l.001.001C7.618 21.365 9.773 22 12 22c2.227 0 4.382-.635 6.099-1.875l.001-.001c1.939-2.157 3.076-5.047 3.076-8.125a12.001 12.001 0 00-2.382-7.06" /></svg>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">100% Seguridad</h3>
+          </button>
+          <button
+            onClick={() => handleCardClick('seguridad')}
+            className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer group"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.001 12.001 0 002.924 12c0 3.078 1.137 5.968 3.076 8.125l.001.001C7.618 21.365 9.773 22 12 22c2.227 0 4.382-.635 6.099-1.875l.001-.001c1.939-2.157 3.076-5.047 3.076-8.125a12.001 12.001 0 00-2.382-7.06" /></svg>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 group-hover:text-red-600 transition-colors">100% Seguridad</h3>
             <p className="text-sm text-gray-600 dark:text-gray-300">Solo pagos seguros</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Ofertas Calientes</h3>
+          </button>
+          <button
+            onClick={() => handleCardClick('ofertas')}
+            className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer group"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 group-hover:text-red-600 transition-colors">Ofertas Calientes</h3>
             <p className="text-sm text-gray-600 dark:text-gray-300">Descuentos de hasta el 90%</p>
-          </div>
+          </button>
         </div>
       </section>
 

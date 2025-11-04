@@ -6,6 +6,8 @@ import SidebarCart from './components/SidebarCart';
 import MobileNavbar from './components/MobileNavbar';
 import SearchModal from './components/SearchModal';
 import AdminSidebar from './components/AdminSidebar';
+import FloatingCartButton from './components/FloatingCartButton';
+import ProductAddedToast from './components/ProductAddedToast';
 import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
@@ -622,6 +624,8 @@ const App: React.FC = () => {
   }, [showSuccess, showError]);
 
 
+  const [lastAddedProduct, setLastAddedProduct] = useState<{ name: string; show: boolean } | null>(null);
+
   const addToCart = useCallback((product: Product) => {
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
@@ -633,6 +637,10 @@ const App: React.FC = () => {
         return [...prevItems, { ...product, quantity: 1 }];
       }
     });
+    
+    // Mostrar notificación de producto agregado
+    setLastAddedProduct({ name: product.name, show: true });
+    
     // setIsCartOpen(true); // Don't open cart here, modal handles confirmation
   }, []);
 
@@ -1031,6 +1039,23 @@ const App: React.FC = () => {
         onClose={closeAdminLogin}
         onAuthenticate={handleAdminAuthenticate}
       />
+
+      {/* Botón flotante del carrito */}
+      {!isAdminRoute && (
+        <FloatingCartButton
+          totalItems={totalItemsInCart}
+          onClick={toggleCart}
+        />
+      )}
+
+      {/* Notificación de producto agregado */}
+      {lastAddedProduct && (
+        <ProductAddedToast
+          productName={lastAddedProduct.name}
+          isVisible={lastAddedProduct.show}
+          onClose={() => setLastAddedProduct(null)}
+        />
+      )}
     </div>
   );
 };

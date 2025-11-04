@@ -54,12 +54,18 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     salePrice: '',
     discountPercentage: '',
     categoryId: '',
+    // Product status
+    isActive: true, // Default to active
   });
+
+  // Validar que products y brands sean arrays
+  const safeProducts = products || [];
+  const safeBrands = brands || [];
 
   // Initialize brand field to the first actual brand if available, or empty string
   // when the modal opens for adding a new product.
   // Using useMemo to prevent re-calculating on every render if brands don't change.
-  const initialBrand = useMemo(() => brands.length > 0 ? brands[0].name : '', [brands]);
+  const initialBrand = useMemo(() => safeBrands.length > 0 ? safeBrands[0].name : '', [safeBrands]);
 
   const getInputFieldClasses = () => `
     mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-500 focus:border-red-500
@@ -88,6 +94,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       salePrice: '',
       discountPercentage: '',
       categoryId: '',
+      isActive: true,
     });
     setIsModalOpen(true);
   };
@@ -114,6 +121,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       salePrice: product.salePrice ? product.salePrice.toFixed(2) : '',
       discountPercentage: product.discountPercentage ? product.discountPercentage.toString() : '',
       categoryId: product.categoryId || '',
+      isActive: product.isActive !== undefined ? product.isActive : true,
     });
     setIsModalOpen(true);
   }, []);
@@ -167,7 +175,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       }
     }
 
-    const selectedBrand = brands.find(b => b.name === formData.brand);
+    const selectedBrand = safeBrands.find(b => b.name === formData.brand);
 
     const baseProduct: Omit<Product, 'id'> = { // Base object without 'id'
       sku: formData.sku,
@@ -198,6 +206,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
         return formData.discountPercentage ? parseFloat(formData.discountPercentage) : undefined;
       })(),
       categoryId: formData.categoryId || undefined,
+      isActive: formData.isActive !== undefined ? formData.isActive : true,
     };
 
     if (editingProduct) {
@@ -228,16 +237,16 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
 
   // Filtrar y ordenar productos
   const filteredAndSortedProducts = useMemo(() => {
-    let filtered = [...products];
+    let filtered = [...safeProducts];
 
     // Búsqueda por término
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(term) ||
-        product.sku.toLowerCase().includes(term) ||
-        product.brand.toLowerCase().includes(term) ||
-        product.description.toLowerCase().includes(term)
+        (product.name || '').toLowerCase().includes(term) ||
+        (product.sku || '').toLowerCase().includes(term) ||
+        (product.brand || '').toLowerCase().includes(term) ||
+        (product.description || '').toLowerCase().includes(term)
       );
     }
 
@@ -274,13 +283,31 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     });
 
     return filtered;
-  }, [products, searchTerm, selectedBrand, filterOnSale, sortBy, sortOrder]);
+  }, [safeProducts, searchTerm, selectedBrand, filterOnSale, sortBy, sortOrder]);
 
   // Obtener marcas únicas para el filtro
   const uniqueBrands = useMemo(() => {
-    const brandsSet = new Set(products.map(p => p.brand).filter(Boolean));
+    const brandsSet = new Set(safeProducts.map(p => p.brand).filter(Boolean));
     return Array.from(brandsSet).sort();
-  }, [products]);
+  }, [safeProducts]);
+
+  // Si no hay productos, mostrar mensaje
+  if (safeProducts.length === 0 && products !== null) {
+    return (
+      <div className="flex-1 p-8 bg-gray-100 overflow-auto dark:bg-gray-900">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Gestión de Productos</h1>
+        </div>
+        <div className="bg-white p-8 rounded-lg shadow-md text-center dark:bg-gray-800">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h4a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <p className="text-gray-500 dark:text-gray-400 text-lg">No hay productos registrados</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Haz clic en "Añadir Nuevo Producto" para comenzar</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 p-8 bg-gray-100 overflow-auto dark:bg-gray-900">
@@ -288,7 +315,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Gestión de Productos</h1>
         <div className="flex items-center space-x-3">
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {filteredAndSortedProducts.length} de {products.length} productos
+            {filteredAndSortedProducts.length} de {safeProducts.length} productos
           </span>
           {/* View Mode Toggle */}
           <div className="flex items-center bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
@@ -476,7 +503,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
               </thead>
               <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
                 {filteredAndSortedProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <tr key={product.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${product.isActive === false ? 'opacity-60' : ''}`}>
                     <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                       <SafeImage
                         src={product.imageUrl}
@@ -488,7 +515,14 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                       {product.sku}
                     </td>
                     <td className="px-3 md:px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{product.name}</div>
+                      <div className="flex items-center space-x-2 flex-wrap">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{product.name}</div>
+                        {product.isActive === false && (
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                            Inactivo
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 sm:hidden mt-1">
                         SKU: {product.sku}
                       </div>
@@ -613,8 +647,8 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                 className={getInputFieldClasses() + " appearance-none"}
                 required
               >
-                {brands.length === 0 && <option value="">No hay marcas disponibles</option>}
-                {brands.map((brandOption) => (
+                {safeBrands.length === 0 && <option value="">No hay marcas disponibles</option>}
+                {safeBrands.map((brandOption) => (
                   <option key={brandOption.id} value={brandOption.name}>{brandOption.name}</option>
                 ))}
               </select>
@@ -790,6 +824,25 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                   Producto en oferta
                 </span>
               </label>
+            </div>
+
+            {/* Estado del Producto */}
+            <div className="mb-4 border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isActive"
+                  checked={formData.isActive !== undefined ? formData.isActive : true}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, isActive: e.target.checked }))}
+                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                />
+                <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Producto activo (visible para clientes)
+                </span>
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                Los productos inactivos no serán visibles en la tienda
+              </p>
             </div>
             
             {formData.isOnSale && (

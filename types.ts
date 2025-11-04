@@ -28,6 +28,8 @@ export interface Product {
   salePrice?: number; // Special sale price
   discountPercentage?: number; // Discount percentage
   categoryId?: string; // Category ID for filtering
+  // Product status/availability
+  isActive?: boolean; // Product is active and visible to customers
 }
 
 export interface CartItem extends Product {
@@ -70,6 +72,8 @@ export interface AdminProductFormData {
   salePrice?: string; // Keep as string for form input
   discountPercentage?: string; // Keep as string for form input
   categoryId?: string;
+  // Product status
+  isActive?: boolean; // Product is active and visible to customers
 }
 
 export interface AdminSettingsFormData {

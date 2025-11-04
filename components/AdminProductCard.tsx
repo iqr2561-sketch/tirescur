@@ -21,8 +21,15 @@ const AdminProductCard: React.FC<AdminProductCardProps> = ({ product, onEdit, on
 
   const stockInfo = getStockIndicator(product.stock);
 
+  const isActive = product.isActive !== undefined ? product.isActive : true;
+
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col dark:bg-gray-800">
+    <div className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col dark:bg-gray-800 ${!isActive ? 'opacity-60 border-2 border-red-300' : ''}`}>
+      {!isActive && (
+        <div className="absolute top-2 right-2 z-10 bg-red-600 text-white text-xs px-2 py-1 rounded-full font-semibold">
+          Inactivo
+        </div>
+      )}
       <div className="relative h-48 flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-700">
         <SafeImage src={product.imageUrl} alt={product.name} className="max-h-full max-w-full object-contain" />
         <div className="absolute top-2 left-2 h-8 w-8">

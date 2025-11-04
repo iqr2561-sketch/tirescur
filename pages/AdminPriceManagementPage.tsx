@@ -89,13 +89,93 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
     setExcelMessage('Procesando archivo...');
 
     const reader = new FileReader();
+    
+    reader.onerror = () => {
+      console.error('Error al leer el archivo');
+      setExcelStatus('error');
+      setExcelMessage('Error al leer el archivo. Por favor, intenta con otro archivo.');
+      setFile(null);
+    };
+
     reader.onload = async (event) => {
       try {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+        // Validar que el resultado del reader sea válido
+        if (!event.target?.result) {
+          throw new Error('No se pudo leer el contenido del archivo');
+        }
+
+        const data = new Uint8Array(event.target.result as ArrayBuffer);
+        
+        // Validar que el archivo no esté vacío
+        if (data.length === 0) {
+          throw new Error('El archivo está vacío');
+        }
+
+        let workbook;
+        try {
+          // Detectar si es CSV por extensión
+          const isCSV = file.name.toLowerCase().endsWith('.csv');
+          
+          if (isCSV) {
+            // Leer CSV: primero convertir a string, luego parsear
+            const text = new TextDecoder('utf-8').decode(data);
+            // XLSX.read puede leer CSV directamente desde string
+            workbook = XLSX.read(text, { 
+              type: 'string',
+              raw: false,
+              defval: ''
+            });
+          } else {
+            // Leer Excel (.xlsx, .xls)
+            workbook = XLSX.read(data, { 
+              type: 'array', 
+              cellDates: false, 
+              cellNF: false, 
+              cellText: false,
+              sheetStubs: false,
+              raw: false
+            });
+          }
+        } catch (readError: any) {
+          console.error('Error específico de XLSX.read:', readError);
+          console.error('Detalles del error:', {
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+            error: readError
+          });
+          const errorDetails = readError?.message || readError?.toString() || 'Desconocido';
+          throw new Error(`Error al procesar el archivo "${file.name}". Verifica que sea un archivo .xlsx o .csv válido. Detalles: ${errorDetails}`);
+        }
+
+        // Validar que el workbook tenga hojas
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          throw new Error('El archivo Excel no contiene hojas de cálculo');
+        }
+
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json: ExcelProductRow[] = XLSX.utils.sheet_to_json(worksheet);
+        
+        if (!worksheet) {
+          throw new Error('No se pudo leer la primera hoja del archivo');
+        }
+
+        let json: ExcelProductRow[];
+        try {
+          json = XLSX.utils.sheet_to_json(worksheet, { 
+            defval: '', 
+            raw: false,
+            blankrows: false 
+          }) as ExcelProductRow[];
+        } catch (jsonError) {
+          console.error('Error al convertir a JSON:', jsonError);
+          throw new Error(`Error al convertir los datos del Excel. Verifica que el formato sea correcto.`);
+        }
+
+        // Validar que hay datos
+        if (!json || json.length === 0) {
+          throw new Error('El archivo Excel no contiene datos. Verifica que tenga filas con información.');
+        }
 
         let updatedCount = 0;
         let createdCount = 0;
@@ -196,15 +276,24 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
         setExcelStatus('success');
         setExcelMessage(`Actualización por Excel completada: ${updatedCount} productos actualizados, ${createdCount} productos creados, ${errorCount} errores. Consulta la consola para detalles.`);
         console.log('Errores de Excel:', errors);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error al leer el archivo Excel:', error);
         setExcelStatus('error');
-        setExcelMessage('Error al leer el archivo Excel. Asegúrate de que es un formato válido.');
+        const errorMessage = error?.message || 'Error desconocido al leer el archivo';
+        setExcelMessage(`Error: ${errorMessage}. Asegúrate de que el archivo es un Excel (.xlsx) o CSV válido con las columnas correctas.`);
       } finally {
         setFile(null); // Clear selected file after processing
       }
     };
-    reader.readAsArrayBuffer(file);
+    
+    try {
+      reader.readAsArrayBuffer(file);
+    } catch (error: any) {
+      console.error('Error al iniciar la lectura del archivo:', error);
+      setExcelStatus('error');
+      setExcelMessage(`Error al leer el archivo: ${error?.message || 'Error desconocido'}`);
+      setFile(null);
+    }
   }, [file, products, brands, onUpdateProductsBulk, onAddProductsBulk, showWarning]);
 
   return (
