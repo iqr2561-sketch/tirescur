@@ -22,12 +22,13 @@ import AdminUsersManagementPage from './pages/AdminUsersManagementPage';
 import CustomerInfoModal from './components/CustomerInfoModal';
 import LoadingSpinner from './components/LoadingSpinner'; // Import new component
 import ProductSelectionModal from './components/ProductSelectionModal'; // Import new component
+import PopupModal from './components/PopupModal';
 import { useToast } from './contexts/ToastContext';
 import AdminLoginModal from './components/AdminLoginModal';
 import AccountPage from './pages/AccountPage';
 import { ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_DISPLAY_NAME } from './config/auth';
 
-import { Product, CartItem, HeroImageUpdateFunction, PhoneNumberUpdateFunction, FooterContent, FooterUpdateFunction, DealZoneConfig, DealZoneConfigUpdateFunction, Sale, Brand, GlobalSettings, MenuItem, Category } from './types';
+import { Product, CartItem, HeroImageUpdateFunction, PhoneNumberUpdateFunction, FooterContent, FooterUpdateFunction, DealZoneConfig, DealZoneConfigUpdateFunction, Sale, Brand, GlobalSettings, MenuItem, Category, Popup } from './types';
 import {
   DEFAULT_HERO_IMAGE_URL,
   DEFAULT_WHATSAPP_PHONE_NUMBER,
@@ -65,6 +66,9 @@ const App: React.FC = () => {
   const [footerContent, setFooterContent] = useState<FooterContent | null>(null);
   const [dealZoneConfig, setDealZoneConfig] = useState<DealZoneConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [popups, setPopups] = useState<Popup[]>([]);
+  const [activePopup, setActivePopup] = useState<Popup | null>(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
   // State for the new ProductSelectionModal
   const [isProductSelectionModalOpen, setIsProductSelectionModalOpen] = useState(false);
@@ -197,12 +201,12 @@ const App: React.FC = () => {
         const productsPromise = fetch(`${API_BASE_URL}/products`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
         const brandsPromise = fetch(`${API_BASE_URL}/brands`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
         const salesPromise = fetch(`${API_BASE_URL}/sales`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
-        const settingsPromise = fetch(`${API_BASE_URL}/settings`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
         const menusPromise = fetch(`${API_BASE_URL}/menus`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
         const categoriesPromise = fetch(`${API_BASE_URL}/categories`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
+        const popupsPromise = fetch(`${API_BASE_URL}/popups?active=true`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
 
-        const [productsRes, brandsRes, salesRes, settingsRes, menusRes, categoriesRes] = await Promise.all([
-          productsPromise, brandsPromise, salesPromise, settingsPromise, menusPromise, categoriesPromise
+        const [productsRes, brandsRes, salesRes, menusRes, categoriesRes, popupsRes] = await Promise.all([
+          productsPromise, brandsPromise, salesPromise, menusPromise, categoriesPromise, popupsPromise
         ]);
 
         clearTimeout(timeoutId);
@@ -233,10 +237,28 @@ const App: React.FC = () => {
           failedResources.push('categorías');
         }
 
-        const fetchedSettings = settingsRes && settingsRes.ok ? await settingsRes.json() : null;
-        if (!settingsRes || !settingsRes.ok) {
-          failedResources.push('configuración');
+        const fetchedPopups = popupsRes && popupsRes.ok ? await popupsRes.json() : [];
+        if (!popupsRes || !popupsRes.ok) {
+          // Popups no son críticos, no agregar a failedResources
         }
+
+        // Cargar configuraciones individuales
+        const heroImageRes = await fetch(`${API_BASE_URL}/settings?key=heroImageUrl`).catch(() => null);
+        const whatsappRes = await fetch(`${API_BASE_URL}/settings?key=whatsappPhoneNumber`).catch(() => null);
+        const footerRes = await fetch(`${API_BASE_URL}/settings?key=footer`).catch(() => null);
+        const offerZoneRes = await fetch(`${API_BASE_URL}/settings?key=offer_zone`).catch(() => null);
+
+        const heroImageData = heroImageRes && heroImageRes.ok ? await heroImageRes.json() : null;
+        const whatsappData = whatsappRes && whatsappRes.ok ? await whatsappRes.json() : null;
+        const footerData = footerRes && footerRes.ok ? await footerRes.json() : null;
+        const offerZoneData = offerZoneRes && offerZoneRes.ok ? await offerZoneRes.json() : null;
+
+        const fetchedSettings = {
+          heroImageUrl: heroImageData?.value || DEFAULT_HERO_IMAGE_URL,
+          whatsappPhoneNumber: whatsappData?.value || DEFAULT_WHATSAPP_PHONE_NUMBER,
+          footerContent: footerData?.value || DEFAULT_FOOTER_CONTENT,
+          dealZoneConfig: offerZoneData?.value || DEFAULT_DEAL_ZONE_CONFIG,
+        };
 
         // Map Supabase product data to client-side Product interface
         const mappedProducts: Product[] = fetchedProductsData.map((p: any) => ({
@@ -282,10 +304,41 @@ const App: React.FC = () => {
         setSales(mappedSales);
         setMenus(mappedMenus);
         setCategories(mappedCategories);
-        setHeroImageUrl(mappedSettings.heroImageUrl);
-        setWhatsappPhoneNumber(mappedSettings.whatsappPhoneNumber);
-        setFooterContent(mappedSettings.footerContent);
-        setDealZoneConfig(mappedSettings.dealZoneConfig);
+        setHeroImageUrl(fetchedSettings.heroImageUrl);
+        setWhatsappPhoneNumber(fetchedSettings.whatsappPhoneNumber);
+        setFooterContent(fetchedSettings.footerContent);
+        setDealZoneConfig(fetchedSettings.dealZoneConfig);
+        setPopups(fetchedPopups || []);
+
+        // Determinar popup activo a mostrar
+        if (fetchedPopups && fetchedPopups.length > 0) {
+          const now = new Date();
+          const validPopups = fetchedPopups.filter((popup: Popup) => {
+            if (!popup.is_active || !popup.show_on_page_load) return false;
+            if (popup.start_date && new Date(popup.start_date) > now) return false;
+            if (popup.end_date && new Date(popup.end_date) < now) return false;
+            return true;
+          });
+
+          if (validPopups.length > 0) {
+            // Ordenar por prioridad y tomar el primero
+            validPopups.sort((a: Popup, b: Popup) => (b.priority || 0) - (a.priority || 0));
+            const popupToShow = validPopups[0];
+
+            // Verificar si ya se mostró en esta sesión
+            if (popupToShow.show_once_per_session) {
+              const shownKey = `popup_shown_${popupToShow.id}`;
+              if (!sessionStorage.getItem(shownKey)) {
+                setActivePopup(popupToShow);
+                setIsPopupOpen(true);
+                sessionStorage.setItem(shownKey, 'true');
+              }
+            } else {
+              setActivePopup(popupToShow);
+              setIsPopupOpen(true);
+            }
+          }
+        }
 
         if (failedResources.length > 0) {
           showWarning(`No se pudieron cargar completamente: ${failedResources.join(', ')}.`);
@@ -780,36 +833,42 @@ const App: React.FC = () => {
     setCartItems((prevItems) => prevItems.filter((item) => item.id !== productId));
   }, []);
 
-  const handleUpdateSettings = useCallback(async (key: keyof GlobalSettings, value: any) => {
+  const handleUpdateSettings = useCallback(async (key: string, value: any) => {
     try {
-      // Ensure we have current settings to merge with, using defaults if not yet loaded
-      const currentSettings: GlobalSettings = {
-        heroImageUrl: heroImageUrl || DEFAULT_HERO_IMAGE_URL,
-        whatsappPhoneNumber: whatsappPhoneNumber || DEFAULT_WHATSAPP_PHONE_NUMBER,
-        footerContent: footerContent || DEFAULT_FOOTER_CONTENT,
-        dealZoneConfig: dealZoneConfig || DEFAULT_DEAL_ZONE_CONFIG,
-      };
-      
-      const updatedSettings = { ...currentSettings, [key as string]: value };
-
-      const res = await fetch(`${API_BASE_URL}/settings`, {
+      const res = await fetch(`${API_BASE_URL}/settings?key=${encodeURIComponent(key)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedSettings),
+        body: JSON.stringify({
+          key,
+          value: typeof value === 'string' ? value : value,
+        }),
       });
-      if (!res.ok) throw new Error('Failed to update setting');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
+        throw new Error(errorData.error || 'Failed to update setting');
+      }
+      
       const responseData = await res.json();
-      // Update individual states with the response from the server
-      setHeroImageUrl(responseData.heroImageUrl);
-      setWhatsappPhoneNumber(responseData.whatsappPhoneNumber);
-      setFooterContent(responseData.footerContent);
-      setDealZoneConfig(responseData.dealZoneConfig);
+      const settingValue = responseData.value;
+      
+      // Actualizar el estado correspondiente según la key
+      if (key === 'heroImageUrl') {
+        setHeroImageUrl(settingValue);
+      } else if (key === 'whatsappPhoneNumber') {
+        setWhatsappPhoneNumber(settingValue);
+      } else if (key === 'footer') {
+        setFooterContent(settingValue);
+      } else if (key === 'offer_zone') {
+        setDealZoneConfig(settingValue);
+      }
+      
       showSuccess('Configuración actualizada con éxito!');
-    } catch (err) {
-      console.error(`Error updating ${String(key)} setting:`, err);
-      showError(`Error al actualizar la configuración de ${String(key)}.`);
+    } catch (err: any) {
+      console.error(`Error updating ${key} setting:`, err);
+      showError(`Error al actualizar la configuración: ${err?.message || 'Error desconocido'}`);
     }
-  }, [heroImageUrl, whatsappPhoneNumber, footerContent, dealZoneConfig, showSuccess, showError]);
+  }, [showSuccess, showError]);
 
   const handleUpdateHeroImage: HeroImageUpdateFunction = useCallback((url: string) => {
     handleUpdateSettings('heroImageUrl', url);
@@ -820,11 +879,11 @@ const App: React.FC = () => {
   }, [handleUpdateSettings]);
 
   const handleUpdateFooterContent: FooterUpdateFunction = useCallback((newContent: FooterContent) => {
-    handleUpdateSettings('footerContent', newContent);
+    handleUpdateSettings('footer', newContent);
   }, [handleUpdateSettings]);
 
   const handleUpdateDealZoneConfig: DealZoneConfigUpdateFunction = useCallback((newConfig: DealZoneConfig) => {
-    handleUpdateSettings('dealZoneConfig', newConfig);
+    handleUpdateSettings('offer_zone', newConfig);
   }, [handleUpdateSettings]);
 
   const addSale = useCallback(async (newSale: Omit<Sale, 'id'>) => {
@@ -1175,6 +1234,22 @@ const App: React.FC = () => {
           productName={lastAddedProduct.name}
           isVisible={lastAddedProduct.show}
           onClose={() => setLastAddedProduct(null)}
+        />
+      )}
+
+      {/* Popup Modal */}
+      {activePopup && (
+        <PopupModal
+          isOpen={isPopupOpen}
+          onClose={() => {
+            setIsPopupOpen(false);
+            setActivePopup(null);
+          }}
+          imageUrl={activePopup.image_url}
+          title={activePopup.title}
+          content={activePopup.message || ''}
+          linkUrl={activePopup.button_link}
+          autoCloseDelay={activePopup.auto_close_seconds || 0}
         />
       )}
     </div>

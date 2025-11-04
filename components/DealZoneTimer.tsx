@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DealZoneConfig, Product } from '../types';
 import ProductCard from './ProductCard';
+import { Link } from 'react-router-dom';
 
 interface TimeLeft {
   days: number;
@@ -11,6 +12,8 @@ interface TimeLeft {
 
 interface DealZoneTimerProps {
   config: DealZoneConfig;
+  products?: Product[];
+  onOpenProductSelectionModal?: (product: Product) => void;
 }
 
 const calculateTimeLeft = (targetDateString: string): TimeLeft => {
@@ -73,9 +76,23 @@ const DealZoneTimer: React.FC<DealZoneTimerProps> = ({ config, products = [], on
     }
   });
 
+  const backgroundStyle: React.CSSProperties = config.backgroundImage
+    ? {
+        backgroundImage: `url(${config.backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }
+    : {
+        backgroundColor: config.backgroundColor || '#1f2937',
+      };
+
   return (
-    <div className="bg-gray-800 text-white py-12">
-      <div className="container mx-auto px-4 text-center">
+    <div className="text-white py-12 relative" style={backgroundStyle}>
+      {config.backgroundImage && (
+        <div className="absolute inset-0 bg-black/50"></div>
+      )}
+      <div className="container mx-auto px-4 text-center relative z-10">
         <h2 className="text-3xl font-bold mb-2">{config.discountText?.trim() ? '¡Atención! Zona de Ofertas' : 'Configura tus promociones'}</h2>
         <p className="text-lg mb-6">
           {config.discountText?.trim()
@@ -87,12 +104,12 @@ const DealZoneTimer: React.FC<DealZoneTimerProps> = ({ config, products = [], on
             {timerComponents.length ? timerComponents : <span className="text-xl">¡Oferta Terminada!</span>}
           </div>
         )}
-        <a 
-          href="/shop"
+        <Link 
+          to="/shop?offer=true"
           className="inline-block bg-red-600 text-white font-semibold py-3 px-8 rounded-full hover:bg-red-700 transition-colors mb-8"
         >
           {config.buttonText?.trim() || 'Ver productos'}
-        </a>
+        </Link>
         
         {/* Products on Sale */}
         {productsOnSale.length > 0 && (

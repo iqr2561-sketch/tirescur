@@ -88,12 +88,51 @@ export interface FooterContent {
   contactEmail: string;
   contactHours: string;
   copyrightText: string;
+  socialMedia?: {
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    whatsapp?: string;
+  };
 }
 
 export interface DealZoneConfig {
   targetDate: string; // ISO string format for date and time (YYYY-MM-DDTHH:MM)
   discountText: string; // e.g., "hasta el 70%"
   buttonText: string; // e.g., "Ver Todas las Ofertas Disponibles"
+  backgroundImage?: string; // URL de imagen de fondo
+  backgroundColor?: string; // Color de fondo si no hay imagen
+}
+
+export interface ContactConfig {
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  phone: string;
+  email: string;
+  latitude?: number;
+  longitude?: number;
+  mapZoom?: number;
+}
+
+export interface Popup {
+  id: string;
+  title: string;
+  message?: string;
+  image_url?: string;
+  button_text?: string;
+  button_link?: string;
+  is_active: boolean;
+  auto_close_seconds?: number;
+  show_on_page_load: boolean;
+  show_once_per_session: boolean;
+  priority: number;
+  start_date?: string;
+  end_date?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Sale {

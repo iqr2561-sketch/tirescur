@@ -202,21 +202,32 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
 
-    // Basic validation
-    if (!formData.name || !formData.brand || !formData.price || !formData.sku || !formData.stock) {
-      showError('Por favor, completa todos los campos obligatorios.');
-      return;
+    // Validación mejorada - solo validar campos críticos
+    const errors: string[] = [];
+    
+    if (!formData.name?.trim()) {
+      errors.push('El nombre del producto es obligatorio');
     }
-    if (isNaN(parseFloat(formData.price)) || parseFloat(formData.price) <= 0) {
-      showError('El precio debe ser un número positivo.');
-      return;
+    if (!formData.brand?.trim()) {
+      errors.push('La marca es obligatoria');
     }
-    if (isNaN(parseInt(formData.stock)) || parseInt(formData.stock) < 0) {
-      showError('El stock debe ser un número entero no negativo.');
-      return;
+    if (!formData.sku?.trim()) {
+      errors.push('El SKU es obligatorio');
     }
+    if (!formData.price || isNaN(parseFloat(formData.price)) || parseFloat(formData.price) <= 0) {
+      errors.push('El precio debe ser un número positivo');
+    }
+    if (!formData.stock || isNaN(parseInt(formData.stock)) || parseInt(formData.stock) < 0) {
+      errors.push('El stock debe ser un número entero no negativo');
+    }
+    
+    // Validar dimensiones solo si no son los valores placeholder
     if (formData.width === WIDTHS[0] || formData.profile === PROFILES[0] || formData.diameter === DIAMETERS[0]) {
-      showError('Por favor, selecciona un valor válido para ancho, perfil y diámetro.');
+      errors.push('Por favor, selecciona valores válidos para ancho, perfil y diámetro');
+    }
+    
+    if (errors.length > 0) {
+      showError(`Por favor, corrige los siguientes errores:\n${errors.join('\n')}`);
       return;
     }
     
