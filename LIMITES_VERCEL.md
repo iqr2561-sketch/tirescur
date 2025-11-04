@@ -4,7 +4,7 @@
 
 **IMPORTANTE**: El plan Hobby de Vercel tiene un límite de **12 Serverless Functions** por deployment.
 
-### Endpoints API Actuales (13 archivos)
+### Endpoints API Actuales (12 archivos)
 
 1. `/api/auth.ts` - Autenticación
 2. `/api/products.ts` - Productos (GET, POST)
@@ -18,9 +18,10 @@
 10. `/api/popups.ts` - Popups
 11. `/api/upload.ts` - Subida de archivos
 12. `/api/crane-quote.ts` - Cotización de grúa
-13. `/api/create-admin.ts` - Crear admin (verificar si se usa)
 
-**Total: 13 funciones** ⚠️ LÍMITE EXCEDIDO (12 máximo)
+**Total: 12 funciones** ✅ LÍMITE ALCANZADO (12 máximo)
+
+**NOTA**: `/api/create-admin.ts` fue eliminado porque no se estaba utilizando.
 
 ### Soluciones para Futuras Implementaciones
 
@@ -75,5 +76,5 @@ Para funcionalidades que no requieren servidor, usar solo código cliente.
 
 ### Historial de Endpoints
 
-- ✅ `crane-quote.ts` - Agregado (último endpoint)
-- ⚠️ Verificar si `create-admin.ts` se usa
+- ✅ `crane-quote.ts` - Agregado
+- ❌ `create-admin.ts` - Eliminado (no se estaba utilizando)
