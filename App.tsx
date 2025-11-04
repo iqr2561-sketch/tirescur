@@ -835,12 +835,20 @@ const App: React.FC = () => {
 
   const handleUpdateSettings = useCallback(async (key: string, value: any) => {
     try {
+      // Para heroImageUrl y whatsappPhoneNumber, necesitamos enviar como JSON string
+      // porque el API espera JSONB y hace JSON.parse
+      let valueToSend = value;
+      if (key === 'heroImageUrl' || key === 'whatsappPhoneNumber') {
+        // Si es un string simple, convertirlo a JSON string válido
+        valueToSend = typeof value === 'string' ? JSON.stringify(value) : value;
+      }
+      
       const res = await fetch(`${API_BASE_URL}/settings?key=${encodeURIComponent(key)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key,
-          value: typeof value === 'string' ? value : value,
+          value: valueToSend,
         }),
       });
       
@@ -854,9 +862,12 @@ const App: React.FC = () => {
       
       // Actualizar el estado correspondiente según la key
       if (key === 'heroImageUrl') {
-        setHeroImageUrl(settingValue);
+        // Si es un objeto JSONB, extraer el valor
+        const heroUrl = typeof settingValue === 'string' ? settingValue : (settingValue || heroImageUrl);
+        setHeroImageUrl(heroUrl);
       } else if (key === 'whatsappPhoneNumber') {
-        setWhatsappPhoneNumber(settingValue);
+        const phoneNumber = typeof settingValue === 'string' ? settingValue : (settingValue || whatsappPhoneNumber);
+        setWhatsappPhoneNumber(phoneNumber);
       } else if (key === 'footer') {
         setFooterContent(settingValue);
       } else if (key === 'offer_zone') {
@@ -868,7 +879,7 @@ const App: React.FC = () => {
       console.error(`Error updating ${key} setting:`, err);
       showError(`Error al actualizar la configuración: ${err?.message || 'Error desconocido'}`);
     }
-  }, [showSuccess, showError]);
+  }, [showSuccess, showError, heroImageUrl, whatsappPhoneNumber]);
 
   const handleUpdateHeroImage: HeroImageUpdateFunction = useCallback((url: string) => {
     handleUpdateSettings('heroImageUrl', url);

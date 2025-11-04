@@ -151,9 +151,57 @@ const AdminSettingsPageComplete: React.FC<AdminSettingsPageProps> = ({
     }
   };
 
+  const handleHeroImageUpload = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64String = reader.result as string;
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              file: base64String,
+              fileName: file.name,
+              fileType: file.type,
+              entityType: 'hero_image',
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al subir la imagen');
+          }
+
+          const data = await response.json();
+          setNewHeroImageUrl(data.url);
+          await onUpdateHeroImage(data.url);
+          showSuccess('Imagen de héroe subida y guardada correctamente');
+        } catch (error: any) {
+          showError(`Error al subir la imagen: ${error.message}`);
+        } finally {
+          setIsUploading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      showError(`Error al procesar la imagen: ${error.message}`);
+      setIsUploading(false);
+    }
+  };
+
+  const handleHeroImageUrlChange = useCallback((url: string) => {
+    setNewHeroImageUrl(url);
+  }, []);
+
   const handleHeroImageUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (!newHeroImageUrl.trim()) {
+        showError('Por favor, introduce una URL válida o sube una imagen');
+        return;
+      }
       await onUpdateHeroImage(newHeroImageUrl);
       showSuccess('URL de imagen principal actualizada con éxito!');
     } catch (error: any) {
@@ -537,9 +585,29 @@ const AdminSettingsPageComplete: React.FC<AdminSettingsPageProps> = ({
       {activeTab === 'sitio' && (
         <div className="p-6 rounded-lg shadow-md mb-8 bg-white dark:bg-gray-800">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 dark:text-gray-100">Configuración del Sitio</h2>
+          
+          {/* Sección de Subir Imagen */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Subir Imagen del Héroe</label>
+            <ImageUploader
+              currentImageUrl={newHeroImageUrl || ''}
+              onImageSelected={handleHeroImageUpload}
+              onImageUrlChange={handleHeroImageUrlChange}
+              label="Subir imagen de héroe"
+              maxSizeMB={5}
+            />
+            {newHeroImageUrl && (
+              <div className="mt-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Vista previa:</p>
+                <img src={newHeroImageUrl} alt="Vista previa" className="h-32 w-full object-cover rounded-lg" />
+              </div>
+            )}
+          </div>
+
+          {/* Sección de URL */}
           <form onSubmit={handleHeroImageUpdate} className="space-y-4 mb-6">
             <div>
-              <label htmlFor="heroImage" className="block text-sm font-medium text-gray-700 dark:text-gray-200">URL de Imagen Principal del Héroe</label>
+              <label htmlFor="heroImage" className="block text-sm font-medium text-gray-700 dark:text-gray-200">O introduce una URL de Imagen</label>
               <input
                 type="url"
                 name="heroImage"
@@ -547,17 +615,19 @@ const AdminSettingsPageComplete: React.FC<AdminSettingsPageProps> = ({
                 value={newHeroImageUrl}
                 onChange={(e) => setNewHeroImageUrl(e.target.value)}
                 className={getInputFieldClasses()}
-                placeholder="Introduce una URL de imagen válida"
-                required
+                placeholder="https://ejemplo.com/imagen.jpg"
               />
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">La imagen actual es: <a href={heroImageUrl} target="_blank" rel="noopener noreferrer" className="text-red-600 hover:underline">{heroImageUrl.substring(0, Math.min(heroImageUrl.length, 50))}...</a></p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Imagen actual: <a href={heroImageUrl} target="_blank" rel="noopener noreferrer" className="text-red-600 hover:underline">{heroImageUrl.substring(0, Math.min(heroImageUrl.length, 50))}...</a>
+              </p>
             </div>
             <button
               type="submit"
-              className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors flex items-center space-x-2"
+              disabled={isUploading}
+              className={`bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors flex items-center space-x-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-              <span>Guardar Imagen</span>
+              <span>{isUploading ? 'Guardando...' : 'Guardar Imagen'}</span>
             </button>
           </form>
 

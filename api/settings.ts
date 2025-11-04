@@ -54,11 +54,24 @@ export default allowCors(async function handler(req, res) {
       }
 
       // Upsert setting
+      // Manejar el value: si es string, intentar parsearlo como JSON, si falla, usar como string
+      let parsedValue = value;
+      if (typeof value === 'string') {
+        try {
+          // Intentar parsear como JSON
+          parsedValue = JSON.parse(value);
+        } catch (e) {
+          // Si no es JSON válido, es un string simple (como una URL)
+          // Guardarlo como string JSON
+          parsedValue = value;
+        }
+      }
+      
       const { data, error } = await supabase
         .from('settings')
         .upsert({
           key,
-          value: typeof value === 'string' ? JSON.parse(value) : value,
+          value: parsedValue,
           description: description || null,
           updated_at: new Date().toISOString()
         }, {
