@@ -71,6 +71,7 @@ const App: React.FC = () => {
   const [dealZoneConfig, setDealZoneConfig] = useState<DealZoneConfig | null>(null);
   const [siteName, setSiteName] = useState<string>(DEFAULT_SITE_NAME);
   const [siteLogo, setSiteLogo] = useState<string>(DEFAULT_SITE_LOGO);
+  const [craneQuoteConfig, setCraneQuoteConfig] = useState<CraneQuoteConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [popups, setPopups] = useState<Popup[]>([]);
   const [activePopup, setActivePopup] = useState<Popup | null>(null);
@@ -210,9 +211,10 @@ const App: React.FC = () => {
         const menusPromise = fetch(`${API_BASE_URL}/menus`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
         const categoriesPromise = fetch(`${API_BASE_URL}/categories`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
         const popupsPromise = fetch(`${API_BASE_URL}/popups?active=true`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
+        const craneQuotePromise = fetch(`${API_BASE_URL}/crane-quote`, { signal: controller.signal, timeout: 3000 }).catch(() => null);
 
-        const [productsRes, brandsRes, salesRes, menusRes, categoriesRes, popupsRes] = await Promise.all([
-          productsPromise, brandsPromise, salesPromise, menusPromise, categoriesPromise, popupsPromise
+        const [productsRes, brandsRes, salesRes, menusRes, categoriesRes, popupsRes, craneQuoteRes] = await Promise.all([
+          productsPromise, brandsPromise, salesPromise, menusPromise, categoriesPromise, popupsPromise, craneQuotePromise
         ]);
 
         clearTimeout(timeoutId);
@@ -1182,6 +1184,16 @@ const App: React.FC = () => {
                 }
               />
               <Route
+                path="/admin/crane-quote"
+                element={
+                  isAdminAuthenticated ? (
+                    <AdminCraneQuotePage />
+                  ) : (
+                    <Navigate to="/account" replace />
+                  )
+                }
+              />
+              <Route
                 path="/admin/settings"
                 element={
                   isAdminAuthenticated ? (
@@ -1259,6 +1271,7 @@ const App: React.FC = () => {
                   categories={finalCategories}
                   onInitiateOrder={initiateOrder}
                   onOpenProductSelectionModal={handleOpenProductSelectionModal} // Pass new prop
+                  craneQuoteConfig={craneQuoteConfig}
                 />
               }
             />
