@@ -32,7 +32,7 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
   const [excelStatus, setExcelStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [excelMessage, setExcelMessage] = useState('');
 
-  const { showWarning } = useToast();
+  const { showSuccess, showError, showWarning } = useToast();
 
   const getInputFieldClasses = () => `
     mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-500 focus:border-red-500
