@@ -320,6 +320,8 @@ const AdminSettingsPageComplete: React.FC<AdminSettingsPageProps> = ({
   const handleDealZoneConfigUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      console.log('[Settings] Guardando configuración de ofertas:', editableDealZoneConfig);
+      
       const res = await fetch(`${API_BASE_URL}/settings?key=offer_zone`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -329,15 +331,26 @@ const AdminSettingsPageComplete: React.FC<AdminSettingsPageProps> = ({
         }),
       });
 
+      console.log('[Settings] Response status:', res.status, res.statusText);
+
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al guardar');
+        const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
+        console.error('[Settings] Error response:', errorData);
+        throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
       }
 
+      const responseData = await res.json();
+      console.log('[Settings] Configuración guardada exitosamente:', responseData);
+      
+      // Actualizar el estado local con la respuesta del servidor
+      const savedConfig = responseData.value || responseData;
+      setEditableDealZoneConfig(prev => ({ ...prev, ...savedConfig }));
+      
       await onUpdateDealZoneConfig(editableDealZoneConfig);
-      showSuccess('Configuración de Zona de Ofertas actualizada con éxito!');
+      showSuccess('✅ Configuración de Zona de Ofertas actualizada con éxito!');
     } catch (error: any) {
-      showError(`Error al actualizar ofertas: ${error?.message || 'Error desconocido'}`);
+      console.error('[Settings] Error al actualizar ofertas:', error);
+      showError(`❌ Error al actualizar ofertas: ${error?.message || 'Error desconocido'}`);
     }
   };
 
