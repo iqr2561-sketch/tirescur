@@ -774,7 +774,23 @@ const App: React.FC = () => {
   // Filter menus by location
   const headerMenus = finalMenus.filter(m => m.location === 'header-desktop').sort((a,b) => a.order - b.order);
   const mobileMenus = finalMenus.filter(m => m.location === 'mobile-navbar').sort((a,b) => a.order - b.order);
-  const adminMenus = finalMenus.filter(m => m.location === 'admin-sidebar').sort((a,b) => a.order - b.order);
+  
+  // Menús admin con fallback si no hay datos en BD
+  const defaultAdminMenus: MenuItem[] = [
+    { id: 'admin-dashboard', name: 'Dashboard', path: '/admin', isExternal: false, order: 1, location: 'admin-sidebar', type: 'route' },
+    { id: 'admin-products', name: 'Productos', path: '/admin/products', isExternal: false, order: 10, location: 'admin-sidebar', type: 'route' },
+    { id: 'admin-brands', name: 'Marcas', path: '/admin/brands', isExternal: false, order: 20, location: 'admin-sidebar', type: 'route' },
+    { id: 'admin-categories', name: 'Categorías', path: '/admin/categories', isExternal: false, order: 75, location: 'admin-sidebar', type: 'route' },
+    { id: 'admin-prices', name: 'Precios', path: '/admin/prices', isExternal: false, order: 30, location: 'admin-sidebar', type: 'route' },
+    { id: 'admin-sales', name: 'Ventas', path: '/admin/sales', isExternal: false, order: 40, location: 'admin-sidebar', type: 'route' },
+    { id: 'admin-users', name: 'Usuarios', path: '/admin/users', isExternal: false, order: 70, location: 'admin-sidebar', type: 'route' },
+    { id: 'admin-settings', name: 'Configuración', path: '/admin/settings', isExternal: false, order: 50, location: 'admin-sidebar', type: 'route' },
+    { id: 'admin-menus', name: 'Menús', path: '/admin/menus', isExternal: false, order: 60, location: 'admin-sidebar', type: 'route' },
+  ];
+  
+  const adminMenusFromDB = finalMenus.filter(m => m.location === 'admin-sidebar').sort((a,b) => a.order - b.order);
+  const adminMenus = adminMenusFromDB.length > 0 ? adminMenusFromDB : defaultAdminMenus;
+  
   const footerInfoMenus = finalMenus.filter(m => m.location === 'footer-info').sort((a,b) => a.order - b.order);
   const footerAccountMenus = finalMenus.filter(m => m.location === 'footer-account').sort((a,b) => a.order - b.order);
 
@@ -801,7 +817,11 @@ const App: React.FC = () => {
                 path="/admin"
                 element={
                   isAdminAuthenticated ? (
-                    <AdminDashboardPage totalProducts={finalProducts.length} />
+                    <AdminDashboardPage 
+                      totalProducts={finalProducts.length} 
+                      sales={finalSales}
+                      totalUsers={0}
+                    />
                   ) : (
                     <Navigate to="/account" replace />
                   )

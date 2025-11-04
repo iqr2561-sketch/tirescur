@@ -28,6 +28,13 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; productId: string | null }>({ isOpen: false, productId: null });
   const { showSuccess, showError, showWarning } = useToast();
+  
+  // Estados para búsqueda y filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBrand, setSelectedBrand] = useState<string>('all');
+  const [filterOnSale, setFilterOnSale] = useState<boolean | 'all'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'stock' | 'created'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [formData, setFormData] = useState<AdminProductFormData>({
     sku: '',
     name: '',
@@ -219,11 +226,70 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     }
   }, [confirmModal.productId, onDeleteProduct, showSuccess]);
 
+  // Filtrar y ordenar productos
+  const filteredAndSortedProducts = useMemo(() => {
+    let filtered = [...products];
+
+    // Búsqueda por término
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(term) ||
+        product.sku.toLowerCase().includes(term) ||
+        product.brand.toLowerCase().includes(term) ||
+        product.description.toLowerCase().includes(term)
+      );
+    }
+
+    // Filtro por marca
+    if (selectedBrand !== 'all') {
+      filtered = filtered.filter(product => product.brand === selectedBrand);
+    }
+
+    // Filtro por ofertas
+    if (filterOnSale === true) {
+      filtered = filtered.filter(product => product.isOnSale === true);
+    } else if (filterOnSale === false) {
+      filtered = filtered.filter(product => product.isOnSale !== true);
+    }
+
+    // Ordenamiento
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'price':
+          comparison = (a.salePrice || a.price) - (b.salePrice || b.price);
+          break;
+        case 'stock':
+          comparison = a.stock - b.stock;
+          break;
+        case 'created':
+          comparison = new Date(a.id).getTime() - new Date(b.id).getTime();
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+  }, [products, searchTerm, selectedBrand, filterOnSale, sortBy, sortOrder]);
+
+  // Obtener marcas únicas para el filtro
+  const uniqueBrands = useMemo(() => {
+    const brandsSet = new Set(products.map(p => p.brand).filter(Boolean));
+    return Array.from(brandsSet).sort();
+  }, [products]);
+
   return (
     <div className="flex-1 p-8 bg-gray-100 overflow-auto dark:bg-gray-900">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Gestión de Productos</h1>
         <div className="flex items-center space-x-3">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {filteredAndSortedProducts.length} de {products.length} productos
+          </span>
           {/* View Mode Toggle */}
           <div className="flex items-center bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
             <button
@@ -263,9 +329,126 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
         </div>
       </div>
 
-      {viewMode === 'grid' ? (
+      {/* Barra de Búsqueda y Filtros */}
+      <div className="bg-white p-4 rounded-lg shadow-md mb-6 dark:bg-gray-800">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Búsqueda */}
+          <div className="lg:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Buscar
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar por nombre, SKU, marca..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Filtro por Marca */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Marca
+            </label>
+            <select
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+            >
+              <option value="all">Todas las marcas</option>
+              {uniqueBrands.map(brand => (
+                <option key={brand} value={brand}>{brand}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro por Ofertas */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Ofertas
+            </label>
+            <select
+              value={filterOnSale === 'all' ? 'all' : filterOnSale ? 'true' : 'false'}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFilterOnSale(value === 'all' ? 'all' : value === 'true');
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+            >
+              <option value="all">Todas</option>
+              <option value="true">En oferta</option>
+              <option value="false">Sin oferta</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Ordenamiento */}
+        <div className="mt-4 flex items-center space-x-4">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ordenar por:</label>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'name' | 'price' | 'stock' | 'created')}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+          >
+            <option value="name">Nombre</option>
+            <option value="price">Precio</option>
+            <option value="stock">Stock</option>
+            <option value="created">Fecha</option>
+          </select>
+          <button
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:text-gray-100"
+            title={`Orden ${sortOrder === 'asc' ? 'ascendente' : 'descendente'}`}
+          >
+            {sortOrder === 'asc' ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </button>
+          {(searchTerm || selectedBrand !== 'all' || filterOnSale !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedBrand('all');
+                setFilterOnSale('all');
+              }}
+              className="px-3 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      </div>
+
+      {filteredAndSortedProducts.length === 0 ? (
+        <div className="bg-white p-8 rounded-lg shadow-md text-center dark:bg-gray-800">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <p className="text-gray-500 dark:text-gray-400 text-lg">No se encontraron productos</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Intenta ajustar los filtros de búsqueda</p>
+        </div>
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {products.map((product) => (
+          {filteredAndSortedProducts.map((product) => (
             <AdminProductCard
               key={product.id}
               product={product}
@@ -292,7 +475,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-                {products.map((product) => (
+                {filteredAndSortedProducts.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                       <SafeImage
