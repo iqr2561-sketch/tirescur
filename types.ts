@@ -135,3 +135,14 @@ export interface MenuItem {
   location: 'header-desktop' | 'mobile-navbar' | 'footer-info' | 'footer-account' | 'admin-sidebar'; // Where the menu item appears
   type?: 'route' | 'external' | 'action'; // Specific for mobile-navbar: 'action' for special functions like toggleCart
 }
+
+// Interface for Admin Users
+export interface AdminUser {
+  id: string; // Supabase UUID
+  username: string;
+  display_name?: string;
+  role: 'admin' | 'editor' | 'viewer';
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}

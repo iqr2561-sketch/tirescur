@@ -1,10 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface AdminDashboardPageProps {
   totalProducts: number;
 }
 
 const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ totalProducts }) => {
+  const [isTransitioning, setIsTransitioning] = useState(true);
+  
+  useEffect(() => {
+    // Simular transición de entrada
+    const timer = setTimeout(() => {
+      setIsTransitioning(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   const currentDate = new Date();
   const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   const formattedDate = currentDate.toLocaleDateString('es-ES', options);
@@ -17,11 +27,19 @@ const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ totalProducts }
   };
 
   return (
-    <div className="flex-1 p-8 bg-gray-100 overflow-auto dark:bg-gray-900">
-      <h1 className="text-3xl font-bold text-gray-800 mb-2 dark:text-gray-100">Panel de Control</h1>
-      <p className="text-gray-600 text-lg mb-6 dark:text-gray-300">Fecha Actual: {formattedDate}</p>
+    <div className={`flex-1 p-8 bg-gray-100 overflow-auto dark:bg-gray-900 transition-all duration-700 ${
+      isTransitioning ? 'opacity-0 translate-x-10' : 'opacity-100 translate-x-0'
+    }`}>
+      <div className={`transition-all duration-700 delay-100 ${
+        isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+      }`}>
+        <h1 className="text-3xl font-bold text-gray-800 mb-2 dark:text-gray-100">Panel de Control</h1>
+        <p className="text-gray-600 text-lg mb-6 dark:text-gray-300">Fecha Actual: {formattedDate}</p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 transition-all duration-700 delay-200 ${
+        isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+      }`}>
         <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between dark:bg-gray-800">
           <div>
             <p className="text-gray-500 text-sm dark:text-gray-400">Total de Productos</p>
@@ -55,7 +73,9 @@ const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ totalProducts }
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-md mt-8 dark:bg-gray-800">
+      <div className={`bg-white p-6 rounded-lg shadow-md mt-8 dark:bg-gray-800 transition-all duration-700 delay-300 ${
+        isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+      }`}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4 dark:text-gray-100">Actividades Recientes</h2>
         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
           <li className="py-2 text-gray-700 dark:text-gray-200">El usuario John Doe se registró.</li>

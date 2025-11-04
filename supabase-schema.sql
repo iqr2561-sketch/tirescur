@@ -179,6 +179,34 @@ BEGIN
 END $$;
 
 -- =====================================================
+-- TABLA: admin_users (Usuarios Administrativos)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS admin_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL, -- En producción, debería ser un hash
+    display_name VARCHAR(255),
+    role VARCHAR(50) DEFAULT 'admin' CHECK (role IN ('admin', 'editor', 'viewer')),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Índices para admin_users
+CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users(username);
+CREATE INDEX IF NOT EXISTS idx_admin_users_role ON admin_users(role);
+CREATE INDEX IF NOT EXISTS idx_admin_users_is_active ON admin_users(is_active);
+
+-- Insertar usuario admin inicial si no existe
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM admin_users WHERE username = 'admin') THEN
+        INSERT INTO admin_users (username, password, display_name, role, is_active)
+        VALUES ('admin', '1234', 'Administrador', 'admin', true);
+    END IF;
+END $$;
+
+-- =====================================================
 -- FUNCIONES Y TRIGGERS
 -- =====================================================
 
@@ -208,6 +236,9 @@ CREATE TRIGGER update_menu_items_updated_at BEFORE UPDATE ON menu_items
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_app_settings_updated_at BEFORE UPDATE ON app_settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_admin_users_updated_at BEFORE UPDATE ON admin_users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================

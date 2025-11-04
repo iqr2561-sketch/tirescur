@@ -16,6 +16,7 @@ import AdminSalesPage from './pages/AdminSalesPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import AdminMenuManagementPage from './pages/AdminMenuManagementPage'; // New Admin page
 import AdminCategoryManagementPage from './pages/AdminCategoryManagementPage';
+import AdminUsersManagementPage from './pages/AdminUsersManagementPage';
 import CustomerInfoModal from './components/CustomerInfoModal';
 import LoadingSpinner from './components/LoadingSpinner'; // Import new component
 import ProductSelectionModal from './components/ProductSelectionModal'; // Import new component
@@ -96,18 +97,40 @@ const App: React.FC = () => {
     const sanitizedUsername = username.trim();
     const sanitizedPassword = password.trim();
 
-    const isValid = sanitizedUsername === ADMIN_USERNAME && sanitizedPassword === ADMIN_PASSWORD;
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: sanitizedUsername,
+          password: sanitizedPassword,
+        }),
+      });
 
-    if (isValid) {
-      setIsAdminAuthenticated(true);
-      showSuccess(`Bienvenido ${ADMIN_DISPLAY_NAME}.`);
-      closeAdminLogin();
-      navigate('/admin');
-      return true;
+      if (!res.ok) {
+        const error = await res.json();
+        showError(error.error || 'Usuario o contraseña incorrectos.');
+        throw new Error(error.error || 'Usuario o contraseña incorrectos.');
+      }
+
+      const data = await res.json();
+      if (data.success && data.user) {
+        setIsAdminAuthenticated(true);
+        showSuccess(`Bienvenido ${data.user.display_name || data.user.username}.`);
+        closeAdminLogin();
+        navigate('/admin');
+        return true;
+      }
+
+      showError('Usuario o contraseña incorrectos.');
+      throw new Error('Usuario o contraseña incorrectos.');
+    } catch (err: any) {
+      console.error('Error en autenticación:', err);
+      if (err.message && err.message !== 'Usuario o contraseña incorrectos.') {
+        showError('Error al verificar credenciales. Intenta nuevamente.');
+      }
+      throw err;
     }
-
-    showError('Usuario o contraseña incorrectos.');
-    throw new Error('Usuario o contraseña incorrectos.');
   }, [closeAdminLogin, navigate, showError, showSuccess]);
 
   const handleAdminLogout = useCallback(() => {
@@ -881,6 +904,16 @@ const App: React.FC = () => {
                     <AdminCategoryManagementPage
                       categories={finalCategories}
                     />
+                  ) : (
+                    <Navigate to="/account" replace />
+                  )
+                }
+              />
+              <Route
+                path="/admin/users" // New route for users management
+                element={
+                  isAdminAuthenticated ? (
+                    <AdminUsersManagementPage />
                   ) : (
                     <Navigate to="/account" replace />
                   )
