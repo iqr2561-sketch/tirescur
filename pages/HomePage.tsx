@@ -37,7 +37,9 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
         break;
       case 'soporte':
         // Abrir WhatsApp para soporte
-        window.open(`https://wa.me/${whatsappPhoneNumber.replace(/[^0-9]/g, '')}`, '_blank');
+        if (whatsappPhoneNumber) {
+          window.open(`https://wa.me/${whatsappPhoneNumber.replace(/[^0-9]/g, '')}`, '_blank');
+        }
         break;
       case 'seguridad':
         // Navegar a página de información de seguridad

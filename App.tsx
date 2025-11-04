@@ -956,7 +956,15 @@ const App: React.FC = () => {
   const finalCategories = categories ?? [];
   const finalHeroImageUrl = heroImageUrl || DEFAULT_HERO_IMAGE_URL;
   const finalWhatsappPhoneNumber = whatsappPhoneNumber || DEFAULT_WHATSAPP_PHONE_NUMBER;
-  const finalFooterContent = footerContent || DEFAULT_FOOTER_CONTENT;
+  const finalFooterContent: FooterContent = footerContent ? {
+    aboutUsText: footerContent.aboutUsText || DEFAULT_FOOTER_CONTENT.aboutUsText,
+    contactAddress: footerContent.contactAddress || DEFAULT_FOOTER_CONTENT.contactAddress,
+    contactPhone: footerContent.contactPhone || DEFAULT_FOOTER_CONTENT.contactPhone,
+    contactEmail: footerContent.contactEmail || DEFAULT_FOOTER_CONTENT.contactEmail,
+    contactHours: footerContent.contactHours || DEFAULT_FOOTER_CONTENT.contactHours,
+    copyrightText: footerContent.copyrightText || DEFAULT_FOOTER_CONTENT.copyrightText,
+    socialMedia: footerContent.socialMedia || DEFAULT_FOOTER_CONTENT.socialMedia,
+  } : DEFAULT_FOOTER_CONTENT;
   const finalDealZoneConfig = dealZoneConfig || DEFAULT_DEAL_ZONE_CONFIG;
 
   // Filter menus by location

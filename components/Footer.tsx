@@ -30,7 +30,7 @@ const Footer: React.FC<FooterProps> = ({ footerContent, footerInfoMenus, footerA
         {/* About Us */}
         <div>
           <h3 className="text-white text-lg font-semibold mb-4">Sobre Nosotros</h3>
-          <p className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: footerContent.aboutUsText.replace(/\n/g, '<br/>') }}>
+          <p className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: (footerContent?.aboutUsText || '').replace(/\n/g, '<br/>') }}>
           </p>
           <div className="flex space-x-4 mt-4">
             {footerContent.socialMedia?.facebook && (
@@ -78,17 +78,23 @@ const Footer: React.FC<FooterProps> = ({ footerContent, footerInfoMenus, footerA
         <div>
           <h3 className="text-white text-lg font-semibold mb-4">Contáctanos</h3>
           <address className="not-italic text-sm space-y-2">
-            <p dangerouslySetInnerHTML={{ __html: footerContent.contactAddress.replace(/\n/g, '<br/>') }}></p>
-            <p>Teléfono: <a href={`tel:${footerContent.contactPhone.replace(/\s/g, '')}`} className="hover:text-red-600 transition-colors">{footerContent.contactPhone}</a></p>
-            <p>Email: <a href={`mailto:${footerContent.contactEmail}`} className="hover:text-red-600 transition-colors">{footerContent.contactEmail}</a></p>
-            <p>Horario: {footerContent.contactHours}</p>
+            <p dangerouslySetInnerHTML={{ __html: (footerContent?.contactAddress || '').replace(/\n/g, '<br/>') }}></p>
+            {footerContent?.contactPhone && (
+              <p>Teléfono: <a href={`tel:${footerContent.contactPhone.replace(/\s/g, '')}`} className="hover:text-red-600 transition-colors">{footerContent.contactPhone}</a></p>
+            )}
+            {footerContent?.contactEmail && (
+              <p>Email: <a href={`mailto:${footerContent.contactEmail}`} className="hover:text-red-600 transition-colors">{footerContent.contactEmail}</a></p>
+            )}
+            {footerContent?.contactHours && (
+              <p>Horario: {footerContent.contactHours}</p>
+            )}
           </address>
         </div>
       </div>
 
       <div className="border-t border-gray-800 mt-8 pt-8">
         <div className="text-center text-sm text-gray-500 dark:text-gray-400 mb-2">
-          &copy; {new Date().getFullYear()} {footerContent.copyrightText}
+          &copy; {new Date().getFullYear()} {footerContent?.copyrightText || ''}
         </div>
         <div className="text-center text-sm">
           <a
