@@ -160,6 +160,36 @@ export type PhoneNumberUpdateFunction = (phoneNumber: string) => void;
 export type FooterUpdateFunction = (newContent: FooterContent) => void;
 export type DealZoneConfigUpdateFunction = (newConfig: DealZoneConfig) => void;
 
+// Cotización de Grúa
+export interface VehicleType {
+  id?: string;
+  name: string;
+  basePrice: number;
+}
+
+export interface AdditionalOption {
+  id?: string;
+  name: string;
+  price: number;
+}
+
+export interface CraneQuoteConfig {
+  pricePerKilometer: number;
+  pricePerPassenger: number;
+  pricePerTrailer: number;
+  whatsappNumber: string;
+  vehicleTypes: VehicleType[];
+  additionalOptions: AdditionalOption[];
+}
+
+export interface CraneQuoteRequest {
+  vehicleTypeId: string;
+  kilometers: number;
+  passengers: number;
+  trailers: number;
+  selectedOptions: string[];
+}
+
 // For Excel Import
 export interface ExcelProductRow {
   Marca: string;

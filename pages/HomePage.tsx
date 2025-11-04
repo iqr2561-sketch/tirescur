@@ -4,7 +4,8 @@ import HeroSearch from '../components/HeroSearch';
 import ProductCard from '../components/ProductCard';
 import DealZoneTimer from '../components/DealZoneTimer';
 import CategoryCarousel from '../components/CategoryCarousel';
-import { Product, DealZoneConfig, Category } from '../types';
+import CraneQuoteModal from '../components/CraneQuoteModal';
+import { Product, DealZoneConfig, Category, CraneQuoteConfig } from '../types';
 
 interface HomePageProps {
   onAddToCart: (product: Product) => void;
@@ -15,10 +16,12 @@ interface HomePageProps {
   categories: Category[];
   onInitiateOrder: (products: { productId: string; name: string; quantity: number; price: number; }[], total: number) => void;
   onOpenProductSelectionModal: (product: Product) => void; // New prop
+  craneQuoteConfig: CraneQuoteConfig | null;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsappPhoneNumber, dealZoneConfig, products, categories, onInitiateOrder, onOpenProductSelectionModal }) => {
+const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsappPhoneNumber, dealZoneConfig, products, categories, onInitiateOrder, onOpenProductSelectionModal, craneQuoteConfig }) => {
   const navigate = useNavigate();
+  const [isCraneQuoteModalOpen, setIsCraneQuoteModalOpen] = useState(false);
   
   // Use the products passed as props - Validar que products sea un array
   const safeProducts = products || [];
@@ -36,10 +39,8 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
         window.scrollTo({ top: 0, behavior: 'smooth' });
         break;
       case 'soporte':
-        // Abrir WhatsApp para soporte
-        if (whatsappPhoneNumber) {
-          window.open(`https://wa.me/${whatsappPhoneNumber.replace(/[^0-9]/g, '')}`, '_blank');
-        }
+        // Abrir modal de cotización de grúa
+        setIsCraneQuoteModalOpen(true);
         break;
       case 'seguridad':
         // Navegar a página de información de seguridad
@@ -71,11 +72,15 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
           </button>
           <button
             onClick={() => handleCardClick('soporte')}
-            className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer group"
+            className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer group relative"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4v2m0 4v2m0 4a1 1 0 100-2 1 1 0 000 2z" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3 group-hover:scale-110 transition-transform animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4v2m0 4v2m0 4a1 1 0 100-2 1 1 0 000 2z" /></svg>
+            <span className="absolute top-2 right-2 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+            </span>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 group-hover:text-red-600 transition-colors">Soporte 24/7</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">Llámanos en cualquier momento</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Servicio de Grúa</p>
           </button>
           <button
             onClick={() => handleCardClick('seguridad')}

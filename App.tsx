@@ -20,6 +20,7 @@ import AdminSettingsPage from './pages/AdminSettingsPage';
 import AdminMenuManagementPage from './pages/AdminMenuManagementPage'; // New Admin page
 import AdminCategoryManagementPage from './pages/AdminCategoryManagementPage';
 import AdminUsersManagementPage from './pages/AdminUsersManagementPage';
+import AdminCraneQuotePage from './pages/AdminCraneQuotePage';
 import CustomerInfoModal from './components/CustomerInfoModal';
 import LoadingSpinner from './components/LoadingSpinner'; // Import new component
 import ProductSelectionModal from './components/ProductSelectionModal'; // Import new component
@@ -29,7 +30,7 @@ import AdminLoginModal from './components/AdminLoginModal';
 import AccountPage from './pages/AccountPage';
 import { ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_DISPLAY_NAME } from './config/auth';
 
-import { Product, CartItem, HeroImageUpdateFunction, PhoneNumberUpdateFunction, FooterContent, FooterUpdateFunction, DealZoneConfig, DealZoneConfigUpdateFunction, Sale, Brand, GlobalSettings, MenuItem, Category, Popup } from './types';
+import { Product, CartItem, HeroImageUpdateFunction, PhoneNumberUpdateFunction, FooterContent, FooterUpdateFunction, DealZoneConfig, DealZoneConfigUpdateFunction, Sale, Brand, GlobalSettings, MenuItem, Category, Popup, CraneQuoteConfig } from './types';
 import {
   DEFAULT_HERO_IMAGE_URL,
   DEFAULT_WHATSAPP_PHONE_NUMBER,
@@ -247,6 +248,11 @@ const App: React.FC = () => {
           // Popups no son críticos, no agregar a failedResources
         }
 
+        const fetchedCraneQuoteConfig = craneQuoteRes && craneQuoteRes.ok ? await craneQuoteRes.json() : null;
+        if (!craneQuoteRes || !craneQuoteRes.ok) {
+          // Crane quote no es crítico
+        }
+
         // Cargar configuraciones individuales
         const heroImageRes = await fetch(`${API_BASE_URL}/settings?key=heroImageUrl`).catch(() => null);
         const whatsappRes = await fetch(`${API_BASE_URL}/settings?key=whatsappPhoneNumber`).catch(() => null);
@@ -322,6 +328,7 @@ const App: React.FC = () => {
         setSiteName(fetchedSettings.siteName);
         setSiteLogo(fetchedSettings.siteLogo);
         setPopups(fetchedPopups || []);
+        setCraneQuoteConfig(fetchedCraneQuoteConfig);
         
         // Actualizar título de la página y manifest dinámicamente
         if (fetchedSettings.siteName) {
