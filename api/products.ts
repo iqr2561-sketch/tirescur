@@ -27,8 +27,12 @@ export default allowCors(async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = await parseBody(req);
+      
+      // Log para depurar
+      console.log('[Products API] POST request:', { pathname, url: req.url });
 
-      if (pathname === '/api/products/bulk-create') {
+      // Manejar bulk-create - puede venir como pathname o como parte de la URL
+      if (pathname === '/api/products/bulk-create' || pathname?.endsWith('/bulk-create') || req.url?.includes('/bulk-create')) {
         if (!Array.isArray(body) || body.length === 0) {
           res.statusCode = 400;
           res.json({ error: 'Array of new products is required for bulk creation' });
