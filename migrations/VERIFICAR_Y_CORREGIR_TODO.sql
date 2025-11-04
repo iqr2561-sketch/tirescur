@@ -36,6 +36,18 @@ CREATE TABLE IF NOT EXISTS categories (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Agregar columna is_active a categories si no existe (ANTES de crear índices)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'categories' AND column_name = 'is_active'
+    ) THEN
+        ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT true;
+        COMMENT ON COLUMN categories.is_active IS 'Categoría activa y visible';
+    END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_categories_name ON categories(name);
 CREATE INDEX IF NOT EXISTS idx_categories_order ON categories("order");
 CREATE INDEX IF NOT EXISTS idx_categories_is_active ON categories(is_active);
@@ -73,7 +85,7 @@ CREATE TABLE IF NOT EXISTS products (
     )
 );
 
--- Agregar columna is_active si no existe
+-- Agregar columna is_active a products si no existe (ANTES de crear índices)
 DO $$ 
 BEGIN
     IF NOT EXISTS (
@@ -82,18 +94,6 @@ BEGIN
     ) THEN
         ALTER TABLE products ADD COLUMN is_active BOOLEAN DEFAULT true;
         COMMENT ON COLUMN products.is_active IS 'Producto activo y visible para clientes';
-    END IF;
-END $$;
-
--- Agregar columna is_active a categories si no existe
-DO $$ 
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'categories' AND column_name = 'is_active'
-    ) THEN
-        ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT true;
-        COMMENT ON COLUMN categories.is_active IS 'Categoría activa y visible';
     END IF;
 END $$;
 
