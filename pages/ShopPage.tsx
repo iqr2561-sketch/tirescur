@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Product, Brand } from '../types';
 import ProductCard from '../components/ProductCard';
 import ShopSidebar from '../components/ShopSidebar';
@@ -16,6 +17,9 @@ const ShopPage: React.FC<ShopPageProps> = ({
   onAddToCart,
   onOpenProductSelectionModal,
 }) => {
+  const [searchParams] = useSearchParams();
+  const isOfferPage = searchParams.get('offer') === 'true';
+  
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filters, setFilters] = useState({
     searchQuery: '',
@@ -24,8 +28,15 @@ const ShopPage: React.FC<ShopPageProps> = ({
     width: '',
     profile: '',
     diameter: '',
-    showOnlyOnSale: false,
+    showOnlyOnSale: isOfferPage, // Activar automáticamente si viene de ofertas
   });
+
+  // Actualizar filtro cuando cambie la URL
+  useEffect(() => {
+    if (isOfferPage) {
+      setFilters(prev => ({ ...prev, showOnlyOnSale: true }));
+    }
+  }, [isOfferPage]);
 
   // Calculate initial price range
   const initialPriceRange = useMemo(() => {
@@ -41,9 +52,15 @@ const ShopPage: React.FC<ShopPageProps> = ({
     }
   }, [initialPriceRange]);
 
-  // Filter products
+  // Filter products - Solo mostrar productos activos y en oferta si es página de ofertas
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      // Solo mostrar productos activos
+      if (product.isActive === false) return false;
+
+      // Si estamos en la página de ofertas, SOLO mostrar productos en oferta
+      if (isOfferPage && !product.isOnSale) return false;
+
       // Search query
       if (filters.searchQuery) {
         const searchLower = filters.searchQuery.toLowerCase();
@@ -78,7 +95,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
       return true;
     });
-  }, [products, filters]);
+  }, [products, filters, isOfferPage]);
 
   const handleToggleSidebar = useCallback(() => {
     setSidebarOpen(!sidebarOpen);
@@ -92,10 +109,10 @@ const ShopPage: React.FC<ShopPageProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Tienda
+                {isOfferPage ? '🎯 Ofertas Especiales' : 'Tienda'}
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} encontrado{filteredProducts.length !== 1 ? 's' : ''}
+                {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} {isOfferPage ? 'en oferta' : 'encontrado'}{filteredProducts.length !== 1 ? 's' : ''}
               </p>
             </div>
             <button

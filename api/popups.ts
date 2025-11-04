@@ -6,20 +6,20 @@ export default allowCors(async function handler(req, res) {
   try {
     const supabase = ensureSupabase();
     const { query, pathname } = parse(req.url ?? '', true);
-    const settingKey = query.key as string;
+    const popupId = query.id as string;
 
     if (req.method === 'GET') {
-      if (settingKey) {
-        // Get single setting
+      if (popupId) {
+        // Get single popup
         const { data, error } = await supabase
-          .from('settings')
+          .from('popups')
           .select('*')
-          .eq('key', settingKey)
+          .eq('id', popupId)
           .single();
 
         if (error || !data) {
           res.statusCode = 404;
-          res.json({ error: 'Configuración no encontrada' });
+          res.json({ error: 'Popup no encontrado' });
           return;
         }
 
@@ -27,11 +27,16 @@ export default allowCors(async function handler(req, res) {
         res.json(data);
         return;
       } else {
-        // Get all settings
+        // Get active popups
+        const now = new Date().toISOString();
         const { data, error } = await supabase
-          .from('settings')
+          .from('popups')
           .select('*')
-          .order('key', { ascending: true });
+          .eq('is_active', true)
+          .or(`start_date.is.null,start_date.lte.${now}`)
+          .or(`end_date.is.null,end_date.gte.${now}`)
+          .order('priority', { ascending: false })
+          .order('created_at', { ascending: false });
 
         if (error) {
           throw new Error(error.message);
@@ -43,27 +48,35 @@ export default allowCors(async function handler(req, res) {
       }
     }
 
-    if (req.method === 'POST' || req.method === 'PUT') {
+    if (req.method === 'POST') {
       const body = await parseBody(req);
-      const { key, value, description } = body;
+      const { data: inserted, error } = await supabase
+        .from('popups')
+        .insert(body)
+        .select()
+        .single();
 
-      if (!key || !value) {
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      res.statusCode = 201;
+      res.json(inserted);
+      return;
+    }
+
+    if (req.method === 'PUT') {
+      if (!popupId) {
         res.statusCode = 400;
-        res.json({ error: 'key y value son requeridos' });
+        res.json({ error: 'id es requerido para actualizar' });
         return;
       }
 
-      // Upsert setting
-      const { data, error } = await supabase
-        .from('settings')
-        .upsert({
-          key,
-          value: typeof value === 'string' ? JSON.parse(value) : value,
-          description: description || null,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'key'
-        })
+      const body = await parseBody(req);
+      const { data: updated, error } = await supabase
+        .from('popups')
+        .update(body)
+        .eq('id', popupId)
         .select()
         .single();
 
@@ -72,21 +85,21 @@ export default allowCors(async function handler(req, res) {
       }
 
       res.statusCode = 200;
-      res.json(data);
+      res.json(updated);
       return;
     }
 
     if (req.method === 'DELETE') {
-      if (!settingKey) {
+      if (!popupId) {
         res.statusCode = 400;
-        res.json({ error: 'key es requerido para eliminar' });
+        res.json({ error: 'id es requerido para eliminar' });
         return;
       }
 
       const { error } = await supabase
-        .from('settings')
+        .from('popups')
         .delete()
-        .eq('key', settingKey);
+        .eq('id', popupId);
 
       if (error) {
         throw new Error(error.message);
@@ -100,7 +113,7 @@ export default allowCors(async function handler(req, res) {
     res.statusCode = 405;
     res.json({ error: 'Método no permitido' });
   } catch (error: any) {
-    console.error('[Settings API] Error:', error);
+    console.error('[Popups API] Error:', error);
     res.statusCode = 500;
     res.json({ error: error?.message || 'Error interno del servidor' });
   }
@@ -126,3 +139,4 @@ async function parseBody(req: any): Promise<any> {
     req.on('error', (error: Error) => reject(error));
   });
 }
+
