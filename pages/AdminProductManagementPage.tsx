@@ -237,10 +237,12 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       return;
     }
 
-    setIsSaving(true);
-    
-    // Validate sale price if product is on sale
-    if (formData.isOnSale && formData.salePrice) {
+    // Validate sale price if product is on sale (ANTES de setIsSaving)
+    if (formData.isOnSale) {
+      if (!formData.salePrice || formData.salePrice.trim() === '') {
+        showError('Si el producto está en oferta, debes ingresar un precio de oferta.');
+        return;
+      }
       const salePrice = parseFloat(formData.salePrice);
       const regularPrice = parseFloat(formData.price);
       if (isNaN(salePrice) || salePrice <= 0) {
@@ -252,6 +254,8 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
         return;
       }
     }
+
+    setIsSaving(true);
 
     const selectedBrand = safeBrands.find(b => b.name === formData.brand);
 

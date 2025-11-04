@@ -457,7 +457,10 @@ const App: React.FC = () => {
         productId: id,
         productName: updatedProduct.name,
         hasIsActive: 'isActive' in productDataToSend,
-        isActive: productDataToSend.isActive
+        isActive: productDataToSend.isActive,
+        isOnSale: productDataToSend.isOnSale,
+        salePrice: productDataToSend.salePrice,
+        discountPercentage: productDataToSend.discountPercentage
       });
       
       const res = await fetch(url, {
@@ -476,7 +479,13 @@ const App: React.FC = () => {
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
         console.error('[App] Update product error:', errorData);
-        throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
+        
+        // Si el error es sobre constraint de sale_price
+        if (errorData.error?.includes('check_sale_price') || errorData.error?.includes('sale_price')) {
+          throw new Error('El precio de oferta debe ser menor que el precio regular.');
+        }
+        
+        throw new Error(errorData.error || errorData.message || `Error ${res.status}: ${res.statusText}`);
       }
       
       const updatedProductResponse = await res.json();
@@ -484,7 +493,9 @@ const App: React.FC = () => {
         id: updatedProductResponse.id,
         name: updatedProductResponse.name,
         hasIsActive: 'is_active' in updatedProductResponse,
-        isActive: updatedProductResponse.is_active
+        isActive: updatedProductResponse.is_active,
+        isOnSale: updatedProductResponse.is_on_sale,
+        salePrice: updatedProductResponse.sale_price
       });
       
       const mappedProduct: Product = {
@@ -493,6 +504,9 @@ const App: React.FC = () => {
         brandId: updatedProductResponse.brand_id || updatedProductResponse.brandId,
         brandLogoUrl: updatedProductResponse.brand_logo_url || updatedProductResponse.brandLogoUrl,
         isActive: updatedProductResponse.is_active !== undefined ? updatedProductResponse.is_active : updatedProductResponse.isActive !== undefined ? updatedProductResponse.isActive : true,
+        isOnSale: updatedProductResponse.is_on_sale || false,
+        salePrice: updatedProductResponse.sale_price ? Number(updatedProductResponse.sale_price) : undefined,
+        discountPercentage: updatedProductResponse.discount_percentage || undefined,
       };
       
       setProducts(prevProducts => prevProducts ? prevProducts.map(p => p.id === updatedProduct.id ? mappedProduct : p) : []);
@@ -508,9 +522,12 @@ const App: React.FC = () => {
         showError(`❌ Error de configuración: La columna 'is_active' no existe. Ejecuta la migración en Supabase.`);
       } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
         showError(`❌ Producto no encontrado. Por favor, recarga la página.`);
+      } else if (errorMessage.includes('sale_price') || errorMessage.includes('precio de oferta')) {
+        showError(`❌ ${errorMessage}`);
       } else {
         showError(`❌ Error al actualizar el producto: ${errorMessage}`);
       }
+      throw err; // Re-lanzar para que el componente pueda manejar el error
     }
   }, [showSuccess, showError]);
 

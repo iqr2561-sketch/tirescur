@@ -126,6 +126,28 @@ async function updateSingleProduct(supabase: any, productId: string, product: Pr
 }
 
 function mapProductForInsert(product: any, brand: any) {
+  // Si está en oferta pero no tiene sale_price, calcular uno con 10% de descuento
+  let salePriceValue = null;
+  if (product.isOnSale) {
+    if (product.salePrice) {
+      salePriceValue = Number(product.salePrice).toString();
+    } else {
+      // Calcular precio de oferta con 10% de descuento por defecto
+      const regularPrice = Number(product.price || 0);
+      salePriceValue = (regularPrice * 0.9).toFixed(2);
+    }
+  }
+
+  // Calcular discount_percentage si no está presente pero hay sale_price
+  let discountPercentageValue = product.discountPercentage || null;
+  if (product.isOnSale && salePriceValue && !discountPercentageValue) {
+    const regularPrice = Number(product.price || 0);
+    const salePrice = Number(salePriceValue);
+    if (regularPrice > 0) {
+      discountPercentageValue = Math.round(((regularPrice - salePrice) / regularPrice) * 100);
+    }
+  }
+
   return {
     sku: product.sku,
     name: product.name,
@@ -143,8 +165,8 @@ function mapProductForInsert(product: any, brand: any) {
     profile: product.profile || '',
     diameter: product.diameter || '',
     is_on_sale: product.isOnSale || false,
-    sale_price: product.salePrice ? Number(product.salePrice).toString() : null,
-    discount_percentage: product.discountPercentage || null,
+    sale_price: salePriceValue,
+    discount_percentage: discountPercentageValue,
     category_id: product.categoryId || null,
     is_active: product.isActive !== undefined ? product.isActive : true
   };
