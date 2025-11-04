@@ -1,8 +1,6 @@
--- =====================================================
--- Script para crear tabla de configuración de cotización de grúa
--- =====================================================
+-- Script para crear tabla de configuracion de cotizacion de grua
 
--- Crear tabla para configuración de cotización de grúa
+-- Crear tabla para configuracion de cotizacion de grua
 CREATE TABLE IF NOT EXISTS crane_quote_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   price_per_kilometer DECIMAL(10, 2) NOT NULL DEFAULT 2000,
@@ -15,10 +13,10 @@ CREATE TABLE IF NOT EXISTS crane_quote_config (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Crear índice único para asegurar una sola configuración
+-- Crear indice unico para asegurar una sola configuracion
 CREATE UNIQUE INDEX IF NOT EXISTS idx_crane_quote_config_single ON crane_quote_config((1));
 
--- Insertar configuración inicial si no existe
+-- Insertar configuracion inicial si no existe
 INSERT INTO crane_quote_config (
   price_per_kilometer,
   price_per_passenger,
@@ -39,7 +37,7 @@ INSERT INTO crane_quote_config (
 )
 ON CONFLICT DO NOTHING;
 
--- Crear trigger para actualizar updated_at automáticamente
+-- Crear trigger para actualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION update_crane_quote_config_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -67,4 +65,3 @@ SELECT
     updated_at
 FROM crane_quote_config
 LIMIT 1;
-
