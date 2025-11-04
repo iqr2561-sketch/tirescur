@@ -366,17 +366,6 @@ const App: React.FC = () => {
       }
       
       const addedProduct = await res.json();
-      setProducts(prevProducts => (prevProducts ? [...prevProducts, {
-        ...addedProduct,
-        brand: addedProduct.brand_name, // Map back for client
-        brandId: addedProduct.brand_id,
-        brandLogoUrl: addedProduct.brand_logo_url,
-      }] : [{
-        ...addedProduct,
-        brand: addedProduct.brand_name,
-        brandId: addedProduct.brand_id,
-        brandLogoUrl: addedProduct.brand_logo_url,
-      }]));
       const mappedProduct: Product = {
         ...addedProduct,
         brand: addedProduct.brand_name || addedProduct.brand,
