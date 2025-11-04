@@ -295,9 +295,16 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
 
         setExcelStatus('success');
         const successMessage = errorCount > 0 
-          ? `Actualización completada: ${updatedCount} productos actualizados, ${createdCount} productos creados, ${errorCount} ${errorCount === 1 ? 'error' : 'errores'}. Consulta la consola para detalles.`
-          : `¡Actualización exitosa! ${updatedCount} productos actualizados, ${createdCount} productos creados.`;
+          ? `✅ Actualización completada: ${updatedCount} productos actualizados, ${createdCount} productos creados, ${errorCount} ${errorCount === 1 ? 'error' : 'errores'}. Consulta la consola para detalles.`
+          : `✅ ¡Actualización exitosa! ${updatedCount} productos actualizados, ${createdCount} productos creados.`;
         setExcelMessage(successMessage);
+        
+        // Mostrar notificación toast también
+        if (errorCount === 0) {
+          showSuccess(`✅ ${updatedCount} productos actualizados, ${createdCount} productos creados`, 7000);
+        } else {
+          showWarning(`⚠️ Actualización con errores: ${updatedCount} actualizados, ${createdCount} creados, ${errorCount} errores`, 8000);
+        }
         if (errors.length > 0) {
           console.error('Errores de Excel:', errors);
         }

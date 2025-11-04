@@ -213,11 +213,11 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       // For update, we need the existing ID
       const productToUpdate: Product = { ...baseProduct, id: editingProduct.id };
       onUpdateProduct(productToUpdate);
-      showSuccess('Producto actualizado exitosamente');
+      // La notificación se muestra en App.tsx después de que onUpdateProduct complete
     } else {
-      // For add, we pass the product without ID, MongoDB will generate it
+      // For add, we pass the product without ID
       onAddProduct(baseProduct);
-      showSuccess('Producto agregado exitosamente');
+      // La notificación se muestra en App.tsx después de que onAddProduct complete
     }
 
     handleCloseModal();
