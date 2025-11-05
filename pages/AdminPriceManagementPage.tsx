@@ -11,11 +11,14 @@ interface AdminPriceManagementPageProps {
   onAddProductsBulk: (products: Omit<Product, 'id'>[]) => Promise<Product[]>; // New prop
 }
 
-// Helper to parse "Size" column from Excel (e.g., "155/70R12")
+// Helper to parse "Size" column from Excel (e.g., "155/70R12", "205/55RR16")
 const parseExcelSize = (sizeString: string) => {
   if (!sizeString) return { width: '', profile: '' }; // Diameter will come from RIM
   const str = sizeString.toUpperCase().replace(/\s/g, ''); // Clean string
-  const regex = /(\d+)\/(\d+)(?:R\d+)?/; // e.g., "155/70R12" or "155/70"
+  
+  // Manejar formatos con "RR" (ej: "205/55RR16") o "R" (ej: "155/70R12")
+  // Regex mejorado: captura width/profile y opcionalmente R/RR seguido de dígitos
+  const regex = /(\d+)\/(\d+)(?:R{1,2}\d+)?/; // e.g., "155/70R12", "205/55RR16", "155/70"
   const match = str.match(regex);
   if (match) {
     return {
@@ -81,18 +84,40 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
   const handleDownloadTemplate = useCallback(() => {
     try {
       // Preparar datos para Excel con SKU incluido
-      const excelData = products.map(product => {
-        // Construir Size desde width y profile (ej: "155/70")
+      // Filtrar productos que tengan datos mínimos necesarios
+      const validProducts = products.filter(product => {
+        return product.sku && product.brand && product.name && product.price > 0;
+      });
+
+      if (validProducts.length === 0) {
+        showWarning('No hay productos válidos para generar la plantilla. Asegúrate de que los productos tengan SKU, marca, nombre y precio.');
+        return;
+      }
+
+      const excelData = validProducts.map(product => {
+        // Construir Size desde width y profile (ej: "155/70R12" o "205/55R16")
+        // Si diameter incluye "R", no agregar otro "R"
+        let diameterForSize = product.diameter || '';
+        if (diameterForSize && !diameterForSize.startsWith('R')) {
+          diameterForSize = `R${diameterForSize}`;
+        }
+        
         const size = product.width && product.profile 
-          ? `${product.width}/${product.profile}${product.diameter ? `R${product.diameter}` : ''}`
+          ? `${product.width}/${product.profile}${diameterForSize}`
           : '';
+        
+        // Asegurar que RIM tenga formato correcto
+        let rimValue = product.diameter || '';
+        if (rimValue && !rimValue.startsWith('R')) {
+          rimValue = `R${rimValue}`;
+        }
         
         return {
           'SKU': product.sku || '',
           'Marca': product.brand || '',
           'Modelo': product.name || '',
           'Size': size,
-          'RIM': product.diameter || '',
+          'RIM': rimValue,
           'Precio': product.price || 0,
           'Imagen': product.imageUrl || ''
         };
@@ -129,12 +154,12 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      showSuccess(`✅ Plantilla descargada con ${products.length} productos. Edita los precios y vuelve a subir el archivo.`);
+      showSuccess(`✅ Plantilla descargada con ${validProducts.length} productos. Edita los precios y vuelve a subir el archivo.`);
     } catch (error: any) {
       console.error('Error al generar plantilla Excel:', error);
       showError(`❌ Error al generar la plantilla: ${error?.message || 'Error desconocido'}`);
     }
-  }, [products, showSuccess, showError]);
+  }, [products, showSuccess, showError, showWarning]);
 
   const handleUploadExcel = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -300,35 +325,15 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
         for (const row of json) {
           try {
             const parsedSize = parseExcelSize(row.Size || '');
-            const rimValue = (row.RIM || '').toString().replace(/^R?/i, ''); // Remove 'R' prefix if present
+            const rimValue = (row.RIM || '').toString().replace(/^R+/i, ''); // Remove 'R' or 'RR' prefix if present
             const diameter = rimValue ? `R${rimValue}` : ''; // Ensure 'R' prefix for consistency
 
-            const brandName = (row.Marca || '').toString().trim();
-            const productName = (row.Modelo || '').toString().trim();
-            const priceValue = row.Precio ? (typeof row.Precio === 'string' ? row.Precio : row.Precio.toString()) : '';
-            const newPrice = parseFloat(priceValue);
-            const imageUrl = ((row.Imagen || '').toString()).trim();
-
-            // Skip row if essential data is missing
-            if (!brandName || !productName || isNaN(newPrice) || newPrice <= 0 || !parsedSize.width || !parsedSize.profile || !diameter) {
-                errorCount++;
-                errors.push(`Fila ${json.indexOf(row) + 1} (Marca: ${row.Marca || 'N/A'}, Modelo: ${row.Modelo || 'N/A'}, Size: ${row.Size || 'N/A'}, RIM: ${row.RIM || 'N/A'}, Precio: ${row.Precio || 'N/A'}): Datos insuficientes o precio inválido.`);
-                continue;
-            }
-
-            // Get SKU from Excel row if present (from template download)
+            // Get SKU from Excel row FIRST (prioridad máxima para matching)
             const excelSku = (row.SKU || '').toString().trim();
             const normalizedExcelSku = excelSku ? excelSku.toLowerCase() : '';
             
-            // Generate the SKU that would be used for this product (fallback)
-            const brandInfo = brandsMap.get(brandName.toLowerCase());
-            const brandPrefix = brandName.length >= 3 ? brandName.substring(0, 3).toUpperCase() : brandName.toUpperCase();
-            const productPrefix = productName.length >= 3 ? productName.substring(0, 3).toUpperCase() : productName.toUpperCase();
-            const generatedSku = `SKU: ${brandPrefix}-${productPrefix}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
-            const normalizedGeneratedSku = generatedSku.trim().toLowerCase();
-            
             let foundProduct: Product | undefined = undefined;
-
+            
             // PRIORIDAD 1: Try to match by SKU from Excel (if provided in template)
             if (normalizedExcelSku) {
               foundProduct = existingProductsMap.get(normalizedExcelSku);
@@ -337,7 +342,56 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
               }
             }
 
-            // PRIORIDAD 2: Try to match by generated SKU (most reliable for new uploads)
+            // Extraer datos del Excel
+            let brandName = (row.Marca || '').toString().trim();
+            const productName = (row.Modelo || '').toString().trim();
+            const priceValue = row.Precio ? (typeof row.Precio === 'string' ? row.Precio : row.Precio.toString()) : '';
+            const newPrice = parseFloat(priceValue);
+            const imageUrl = ((row.Imagen || '').toString()).trim();
+
+            // Si encontramos el producto por SKU pero no hay marca en Excel, usar la marca del producto existente
+            if (foundProduct && !brandName && foundProduct.brand) {
+              brandName = foundProduct.brand;
+              console.log(`[Excel Import] Using brand from existing product: ${brandName}`);
+            }
+
+            // Validación más flexible:
+            // - Si hay SKU y producto encontrado, solo validar precio
+            // - Si no hay SKU o producto no encontrado, validar todos los campos
+            const hasValidSkuAndProduct = normalizedExcelSku && foundProduct;
+            const hasValidPrice = !isNaN(newPrice) && newPrice > 0;
+            
+            if (hasValidSkuAndProduct) {
+              // Si tenemos SKU y producto encontrado, solo validar precio
+              if (!hasValidPrice) {
+                errorCount++;
+                errors.push(`Fila ${json.indexOf(row) + 1} (SKU: ${excelSku}): Precio inválido o faltante (${row.Precio || 'N/A'}).`);
+                continue;
+              }
+            } else {
+              // Si no hay SKU o producto no encontrado, validar todos los campos requeridos
+              if (!brandName || !productName || !hasValidPrice || !parsedSize.width || !parsedSize.profile || !diameter) {
+                errorCount++;
+                const missingFields = [];
+                if (!brandName) missingFields.push('Marca');
+                if (!productName) missingFields.push('Modelo');
+                if (!hasValidPrice) missingFields.push('Precio válido');
+                if (!parsedSize.width || !parsedSize.profile) missingFields.push('Size válido');
+                if (!diameter) missingFields.push('RIM');
+                
+                errors.push(`Fila ${json.indexOf(row) + 1} (SKU: ${excelSku || 'N/A'}, Marca: ${brandName || 'N/A'}, Modelo: ${productName || 'N/A'}, Size: ${row.Size || 'N/A'}, RIM: ${row.RIM || 'N/A'}, Precio: ${row.Precio || 'N/A'}): Datos insuficientes. Faltan: ${missingFields.join(', ')}.`);
+                continue;
+              }
+            }
+            
+            // Generate the SKU that would be used for this product (fallback, solo si no hay SKU en Excel)
+            const brandInfo = brandsMap.get(brandName.toLowerCase());
+            const brandPrefix = brandName.length >= 3 ? brandName.substring(0, 3).toUpperCase() : brandName.toUpperCase();
+            const productPrefix = productName.length >= 3 ? productName.substring(0, 3).toUpperCase() : productName.toUpperCase();
+            const generatedSku = `SKU: ${brandPrefix}-${productPrefix}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
+            const normalizedGeneratedSku = generatedSku.trim().toLowerCase();
+
+            // PRIORIDAD 2: Try to match by generated SKU (most reliable for new uploads, solo si no encontramos por SKU de Excel)
             if (!foundProduct && normalizedGeneratedSku) {
               foundProduct = existingProductsMap.get(normalizedGeneratedSku);
               if (foundProduct) {
@@ -349,12 +403,18 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
             if (!foundProduct && brandName && productName) {
               const dimensionalKey = `${brandName.toLowerCase()}-${productName.toLowerCase()}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
               foundProduct = existingProductsMap.get(dimensionalKey);
+              if (foundProduct) {
+                console.log(`[Excel Import] Found product by dimensional key: ${dimensionalKey}`);
+              }
             }
             
             // PRIORIDAD 4: Also try to match if the product name in Excel starts with "SKU: "
             if (!foundProduct && productName && productName.startsWith('SKU: ')) {
               const skuFromName = productName.substring(5).toLowerCase();
               foundProduct = existingProductsMap.get(skuFromName);
+              if (foundProduct) {
+                console.log(`[Excel Import] Found product by SKU from name: ${skuFromName}`);
+              }
             }
 
             if (foundProduct) {
