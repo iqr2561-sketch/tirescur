@@ -8,8 +8,50 @@ export default allowCors(async function handler(req, res) {
     const supabase = ensureSupabase();
 
     const { query, pathname } = parse(req.url ?? '', true);
+    
+    // Extraer ID del producto si está en la URL (para rutas como /api/products/[id])
+    // El ID puede venir de query.id (Vercel dynamic routes) o del pathname
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let productId: string | undefined = Array.isArray(query.id) ? query.id[0] : query.id;
+    
+    // Si no está en query, intentar extraerlo del pathname
+    if (!productId && pathname) {
+      const pathParts = pathname.split('/').filter(p => p);
+      const productsIndex = pathParts.indexOf('products');
+      if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
+        const potentialId = pathParts[productsIndex + 1];
+        // Solo usar si parece un UUID válido (no es "bulk" u otra palabra)
+        if (uuidRegex.test(potentialId)) {
+          productId = potentialId;
+        }
+      }
+    }
 
     if (req.method === 'GET') {
+      // Si hay un productId, devolver solo ese producto
+      if (productId) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', productId)
+          .single();
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (!data || !uuidRegex.test(data.id)) {
+          res.statusCode = 404;
+          res.json({ error: 'Producto no encontrado' });
+          return;
+        }
+
+        res.statusCode = 200;
+        res.json(toClientProduct(data));
+        return;
+      }
+      
+      // GET sin ID: listar todos los productos
       const { data, error } = await supabase
         .from('products')
         .select('*')
@@ -189,13 +231,15 @@ export default allowCors(async function handler(req, res) {
     if (req.method === 'PUT') {
       const body = await parseBody(req);
 
-      // Detectar bulk update: PRIMERO verificar query parameter, luego URL, luego estructura del body
-      // Priorizar query.bulk para evitar conflictos con [id].ts
-      const isBulkUpdate = query?.bulk === 'true' ||
-                          query?.bulk === true ||
-                          pathname?.includes('/bulk') || 
-                          req.url?.includes('/bulk') || 
-                          (Array.isArray(body) && body.length > 0 && body[0]?.id && !body[0].id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));
+      // Detectar bulk update: verificar query parameter, URL, o si el body es un array
+      // Si hay productId en la URL, es update individual, no bulk
+      const isBulkUpdate = !productId && (
+        query?.bulk === 'true' ||
+        query?.bulk === true ||
+        pathname?.includes('/bulk') || 
+        req.url?.includes('/bulk') || 
+        (Array.isArray(body) && body.length > 0 && body[0]?.id && uuidRegex.test(body[0].id))
+      );
 
       if (isBulkUpdate) {
         console.log('[Products API] Detected bulk-update request:', {
@@ -256,22 +300,10 @@ export default allowCors(async function handler(req, res) {
         return;
       }
 
-      // Para productos individuales, usar el endpoint [id].ts
-      // Si llegamos aquí, es porque Vercel no está usando [id].ts
-      // Intentar extraer el ID del pathname como fallback
-      let productId = Array.isArray(query.id) ? query.id[0] : query.id;
-      
-      if (!productId && pathname) {
-        const pathParts = pathname.split('/').filter(p => p);
-        const productsIndex = pathParts.indexOf('products');
-        if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
-          productId = pathParts[productsIndex + 1];
-        }
-      }
-      
+      // PUT individual: actualizar un producto por ID
       if (!productId) {
         res.statusCode = 400;
-        res.json({ error: 'Product ID is required for update. Use /api/products/[id] endpoint.' });
+        res.json({ error: 'Product ID is required for update. Use /api/products/[id] or include ID in URL path.' });
         return;
       }
 
@@ -281,21 +313,11 @@ export default allowCors(async function handler(req, res) {
       return;
     }
 
-    // DELETE también debería usar [id].ts, pero mantenemos como fallback
     if (req.method === 'DELETE') {
-      let productId = Array.isArray(query.id) ? query.id[0] : query.id;
-      
-      if (!productId && pathname) {
-        const pathParts = pathname.split('/').filter(p => p);
-        const productsIndex = pathParts.indexOf('products');
-        if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
-          productId = pathParts[productsIndex + 1];
-        }
-      }
-      
+      // DELETE: eliminar un producto por ID
       if (!productId) {
         res.statusCode = 400;
-        res.json({ error: 'Product ID is required for delete. Use /api/products/[id] endpoint.' });
+        res.json({ error: 'Product ID is required for delete. Use /api/products/[id] or include ID in URL path.' });
         return;
       }
 
