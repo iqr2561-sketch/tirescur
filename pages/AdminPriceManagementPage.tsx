@@ -185,23 +185,49 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
         const productsToUpdate: Product[] = [];
         const productsToCreate: Omit<Product, 'id'>[] = [];
 
+        // Helper function to validate UUID (also used later in the code)
+        const isValidUUID = (str: string): boolean => {
+          if (!str) return false;
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          return uuidRegex.test(str);
+        };
+
         // Create a map for efficient lookup of existing products by SKU or combination
+        // SOLO incluir productos con IDs válidos (UUIDs) para evitar errores de actualización
         const existingProductsMap = new Map<string, Product>();
         const safeProducts = products || [];
         console.log('[Excel Import] Building existing products map from', safeProducts.length, 'products');
+        
+        let validProductsCount = 0;
+        let invalidProductsCount = 0;
+        
         safeProducts.forEach(p => {
-            // Store by SKU (normalized to lowercase)
-            if (p.sku) {
-              const normalizedSku = (p.sku || '').trim().toLowerCase();
-              existingProductsMap.set(normalizedSku, p);
-            }
-            // Also store by a combined key for dimensional match if SKU fails
-            const brand = (p.brand || '').toLowerCase().trim();
-            const name = (p.name || '').toLowerCase().trim();
-            const dimensionalKey = `${brand}-${name}-${p.width || ''}-${p.profile || ''}-${p.diameter || ''}`;
-            existingProductsMap.set(dimensionalKey, p);
+          // Solo incluir productos con IDs válidos en el mapa
+          if (!p.id || !isValidUUID(p.id)) {
+            invalidProductsCount++;
+            console.warn(`[Excel Import] Skipping product with invalid ID: ${p.sku || p.name} (ID: ${p.id || 'missing'})`);
+            return; // Saltar productos con IDs inválidos
+          }
+          
+          validProductsCount++;
+          // Store by SKU (normalized to lowercase)
+          if (p.sku) {
+            const normalizedSku = (p.sku || '').trim().toLowerCase();
+            existingProductsMap.set(normalizedSku, p);
+          }
+          // Also store by a combined key for dimensional match if SKU fails
+          const brand = (p.brand || '').toLowerCase().trim();
+          const name = (p.name || '').toLowerCase().trim();
+          const dimensionalKey = `${brand}-${name}-${p.width || ''}-${p.profile || ''}-${p.diameter || ''}`;
+          existingProductsMap.set(dimensionalKey, p);
         });
-        console.log('[Excel Import] Existing products map size:', existingProductsMap.size, 'keys');
+        
+        console.log('[Excel Import] Existing products map:', {
+          totalProducts: safeProducts.length,
+          validProducts: validProductsCount,
+          invalidProducts: invalidProductsCount,
+          mapSize: existingProductsMap.size
+        });
 
         // Create a map for brands to get logo URLs for new products
         const brandsMap = new Map<string, Brand>();
@@ -262,15 +288,59 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
             }
 
             if (foundProduct) {
-              // Product found, update it
-              console.log(`[Excel Import] Product found for update: ${foundProduct.sku || foundProduct.name} (SKU: ${generatedSku})`);
-              const updatedProduct = {
-                ...foundProduct,
-                price: newPrice,
-                imageUrl: imageUrl || foundProduct.imageUrl, // Update image if provided
-              };
-              productsToUpdate.push(updatedProduct);
-              updatedCount++;
+              // Validar que el producto encontrado tenga un ID válido (UUID)
+              // Nota: isValidUUID ya está definida arriba, pero por si acaso la validamos aquí también
+              if (!foundProduct.id || !isValidUUID(foundProduct.id)) {
+                // Producto encontrado pero con ID inválido - tratarlo como nuevo
+                console.warn(`[Excel Import] Product found but has invalid ID "${foundProduct.id}". Treating as new product.`, foundProduct);
+                // Intentar buscar otro producto con el mismo SKU que tenga ID válido
+                const validProduct = safeProducts.find(p => 
+                  p.sku && p.sku.trim().toLowerCase() === normalizedGeneratedSku && 
+                  p.id && isValidUUID(p.id)
+                );
+                
+                if (validProduct) {
+                  console.log(`[Excel Import] Found valid product with same SKU: ${validProduct.sku}`);
+                  const updatedProduct = {
+                    ...validProduct,
+                    price: newPrice,
+                    imageUrl: imageUrl || validProduct.imageUrl,
+                  };
+                  productsToUpdate.push(updatedProduct);
+                  updatedCount++;
+                } else {
+                  // No hay producto válido con este SKU, crear uno nuevo
+                  console.log(`[Excel Import] Creating new product (old one had invalid ID): ${generatedSku}`);
+                  productsToCreate.push({
+                    sku: generatedSku,
+                    name: productName,
+                    brand: brandName,
+                    brandLogoUrl: brandInfo?.logoUrl,
+                    price: newPrice,
+                    rating: 0,
+                    reviews: 0,
+                    imageUrl: imageUrl || '',
+                    description: `Neumático ${productName} de la marca ${brandName} con dimensiones ${parsedSize.width}/${parsedSize.profile}${diameter}.`,
+                    tags: [],
+                    stock: 10,
+                    width: parsedSize.width,
+                    profile: parsedSize.profile,
+                    diameter: diameter,
+                    isActive: true,
+                  });
+                  createdCount++;
+                }
+              } else {
+                // Producto encontrado con ID válido - actualizarlo
+                console.log(`[Excel Import] Product found for update: ${foundProduct.sku || foundProduct.name} (ID: ${foundProduct.id}, SKU: ${generatedSku})`);
+                const updatedProduct = {
+                  ...foundProduct,
+                  price: newPrice,
+                  imageUrl: imageUrl || foundProduct.imageUrl, // Update image if provided
+                };
+                productsToUpdate.push(updatedProduct);
+                updatedCount++;
+              }
             } else {
               // Product not found, create a new one
               console.log(`[Excel Import] Creating new product: ${generatedSku}`);
