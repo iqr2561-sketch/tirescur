@@ -254,11 +254,13 @@ const App: React.FC = () => {
         if (craneQuoteRes && craneQuoteRes.ok) {
           try {
             fetchedCraneQuoteConfig = await craneQuoteRes.json();
+            console.log('[App] Crane quote config loaded:', fetchedCraneQuoteConfig);
           } catch (e) {
-            console.error('Error parsing crane quote config:', e);
+            console.error('[App] Error parsing crane quote config:', e);
           }
         }
         if (!craneQuoteRes || !craneQuoteRes.ok) {
+          console.warn('[App] Crane quote config not loaded, using defaults');
           // Crane quote no es crítico
         }
 
@@ -338,6 +340,7 @@ const App: React.FC = () => {
         setSiteLogo(fetchedSettings.siteLogo);
         setPopups(fetchedPopups || []);
         setCraneQuoteConfig(fetchedCraneQuoteConfig);
+        console.log('[App] Crane quote config set to state:', fetchedCraneQuoteConfig);
         
         // Actualizar título de la página y manifest dinámicamente
         if (fetchedSettings.siteName) {

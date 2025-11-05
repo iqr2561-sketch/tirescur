@@ -119,8 +119,22 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
     onClose();
   };
 
+  // Log para depurar
+  useEffect(() => {
+    if (isOpen) {
+      console.log('[CraneQuoteModal] Modal opened with config:', config);
+      console.log('[CraneQuoteModal] Vehicle types:', config?.vehicleTypes);
+      console.log('[CraneQuoteModal] Additional options:', config?.additionalOptions);
+    }
+  }, [isOpen, config]);
+
   if (!config) {
+    console.warn('[CraneQuoteModal] Config is null, modal will not render');
     return null;
+  }
+
+  if (!config.vehicleTypes || config.vehicleTypes.length === 0) {
+    console.warn('[CraneQuoteModal] No vehicle types available');
   }
 
   return (
