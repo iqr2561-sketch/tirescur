@@ -6,32 +6,50 @@ export default allowCors(async function handler(req, res) {
     const supabase = ensureSupabase();
 
     if (req.method === 'GET') {
-      // Obtener configuración
-      const { data, error } = await supabase
+      // Obtener configuración principal
+      const { data: configData, error: configError } = await supabase
         .from('crane_quote_config')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
-        // PGRST116 = no rows returned, pero no es un error si no hay config
-        console.error('[Crane Quote API] Error fetching config:', error);
-        throw new Error(error.message);
+      if (configError && configError.code !== 'PGRST116') {
+        console.error('[Crane Quote API] Error fetching config:', configError);
+        throw new Error(configError.message);
       }
 
-      if (!data) {
-        // Retornar configuración por defecto
+      // Obtener tipos de vehículos
+      const { data: vehicleTypesData, error: vehicleTypesError } = await supabase
+        .from('crane_vehicle_types')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (vehicleTypesError) {
+        console.error('[Crane Quote API] Error fetching vehicle types:', vehicleTypesError);
+        // Continuar con array vacío si hay error
+      }
+
+      // Obtener opciones adicionales
+      const { data: additionalOptionsData, error: additionalOptionsError } = await supabase
+        .from('crane_additional_options')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (additionalOptionsError) {
+        console.error('[Crane Quote API] Error fetching additional options:', additionalOptionsError);
+        // Continuar con array vacío si hay error
+      }
+
+      // Si no hay configuración, retornar valores por defecto
+      if (!configData) {
         res.statusCode = 200;
         res.json({
           pricePerKilometer: 2000,
           pricePerPassenger: 3000,
           pricePerTrailer: 600,
           whatsappNumber: '+5492245506078',
-          vehicleTypes: [
-            { id: '1', name: 'Utilitario', basePrice: 5000 },
-            { id: '2', name: 'Auto', basePrice: 200 },
-          ],
-          additionalOptions: [],
+          vehicleTypes: vehicleTypesData || [],
+          additionalOptions: additionalOptionsData || [],
         });
         return;
       }
@@ -39,12 +57,12 @@ export default allowCors(async function handler(req, res) {
       // Mapear datos de Supabase a formato cliente
       res.statusCode = 200;
       res.json({
-        pricePerKilometer: parseFloat(data.price_per_kilometer || 2000),
-        pricePerPassenger: parseFloat(data.price_per_passenger || 3000),
-        pricePerTrailer: parseFloat(data.price_per_trailer || 600),
-        whatsappNumber: data.whatsapp_number || '+5492245506078',
-        vehicleTypes: data.vehicle_types || [],
-        additionalOptions: data.additional_options || [],
+        pricePerKilometer: parseFloat(configData.price_per_kilometer || 2000),
+        pricePerPassenger: parseFloat(configData.price_per_passenger || 3000),
+        pricePerTrailer: parseFloat(configData.price_per_trailer || 600),
+        whatsappNumber: configData.whatsapp_number || '+5492245506078',
+        vehicleTypes: vehicleTypesData || [],
+        additionalOptions: additionalOptionsData || [],
       });
       return;
     }
@@ -52,59 +70,177 @@ export default allowCors(async function handler(req, res) {
     if (req.method === 'PUT') {
       // Actualizar configuración
       const body = await parseBody(req);
-      
-      const { data: existingData } = await supabase
+
+      // 1. Actualizar o crear configuración principal
+      const { data: existingConfig, error: fetchError } = await supabase
         .from('crane_quote_config')
         .select('id')
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw new Error(fetchError.message);
+      }
 
       const configData = {
         price_per_kilometer: body.pricePerKilometer || 2000,
         price_per_passenger: body.pricePerPassenger || 3000,
         price_per_trailer: body.pricePerTrailer || 600,
         whatsapp_number: body.whatsappNumber || '+5492245506078',
-        vehicle_types: body.vehicleTypes || [],
-        additional_options: body.additionalOptions || [],
         updated_at: new Date().toISOString(),
       };
 
-      let result;
-      if (existingData) {
-        // Actualizar
+      let configResult;
+      if (existingConfig) {
+        // Actualizar configuración existente
         const { data, error } = await supabase
           .from('crane_quote_config')
           .update(configData)
-          .eq('id', existingData.id)
+          .eq('id', existingConfig.id)
           .select()
           .single();
 
-        if (error) {
-          throw new Error(error.message);
-        }
-        result = data;
+        if (error) throw new Error(error.message);
+        configResult = data;
       } else {
-        // Crear nuevo
+        // Crear nueva configuración
         const { data, error } = await supabase
           .from('crane_quote_config')
           .insert(configData)
           .select()
           .single();
 
-        if (error) {
-          throw new Error(error.message);
-        }
-        result = data;
+        if (error) throw new Error(error.message);
+        configResult = data;
       }
+
+      // 2. Manejar tipos de vehículos
+      if (body.vehicleTypes && Array.isArray(body.vehicleTypes)) {
+        // Obtener IDs existentes en la BD
+        const { data: existingVehicles } = await supabase
+          .from('crane_vehicle_types')
+          .select('id');
+
+        const existingIds = (existingVehicles || []).map(v => v.id);
+        const newVehicleIds = body.vehicleTypes
+          .filter(v => v.id && existingIds.includes(v.id))
+          .map(v => v.id);
+
+        // Eliminar vehículos que ya no están en la lista
+        const idsToDelete = existingIds.filter(id => !newVehicleIds.includes(id));
+        if (idsToDelete.length > 0) {
+          await supabase
+            .from('crane_vehicle_types')
+            .delete()
+            .in('id', idsToDelete);
+        }
+
+        // Actualizar o crear vehículos
+        for (const vehicle of body.vehicleTypes) {
+          // Ignorar IDs temporales (empiezan con 'temp-')
+          if (vehicle.id && !vehicle.id.toString().startsWith('temp-') && existingIds.includes(vehicle.id)) {
+            // Actualizar existente
+            const { error: updateError } = await supabase
+              .from('crane_vehicle_types')
+              .update({
+                name: vehicle.name,
+                base_price: vehicle.basePrice,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', vehicle.id);
+            
+            if (updateError) {
+              console.error('[Crane Quote API] Error updating vehicle:', updateError);
+            }
+          } else {
+            // Crear nuevo (o si tiene ID temporal)
+            const { error: insertError } = await supabase
+              .from('crane_vehicle_types')
+              .insert({
+                name: vehicle.name,
+                base_price: vehicle.basePrice,
+              });
+            
+            if (insertError) {
+              console.error('[Crane Quote API] Error inserting vehicle:', insertError);
+            }
+          }
+        }
+      }
+
+      // 3. Manejar opciones adicionales
+      if (body.additionalOptions && Array.isArray(body.additionalOptions)) {
+        // Obtener IDs existentes en la BD
+        const { data: existingOptions } = await supabase
+          .from('crane_additional_options')
+          .select('id');
+
+        const existingOptionIds = (existingOptions || []).map(o => o.id);
+        const newOptionIds = body.additionalOptions
+          .filter(o => o.id && existingOptionIds.includes(o.id))
+          .map(o => o.id);
+
+        // Eliminar opciones que ya no están en la lista
+        const optionIdsToDelete = existingOptionIds.filter(id => !newOptionIds.includes(id));
+        if (optionIdsToDelete.length > 0) {
+          await supabase
+            .from('crane_additional_options')
+            .delete()
+            .in('id', optionIdsToDelete);
+        }
+
+        // Actualizar o crear opciones
+        for (const option of body.additionalOptions) {
+          // Ignorar IDs temporales (empiezan con 'temp-')
+          if (option.id && !option.id.toString().startsWith('temp-') && existingOptionIds.includes(option.id)) {
+            // Actualizar existente
+            const { error: updateError } = await supabase
+              .from('crane_additional_options')
+              .update({
+                name: option.name,
+                price: option.price,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', option.id);
+            
+            if (updateError) {
+              console.error('[Crane Quote API] Error updating option:', updateError);
+            }
+          } else {
+            // Crear nuevo (o si tiene ID temporal)
+            const { error: insertError } = await supabase
+              .from('crane_additional_options')
+              .insert({
+                name: option.name,
+                price: option.price,
+              });
+            
+            if (insertError) {
+              console.error('[Crane Quote API] Error inserting option:', insertError);
+            }
+          }
+        }
+      }
+
+      // 4. Retornar configuración actualizada
+      const { data: updatedVehicleTypes } = await supabase
+        .from('crane_vehicle_types')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      const { data: updatedAdditionalOptions } = await supabase
+        .from('crane_additional_options')
+        .select('*')
+        .order('created_at', { ascending: true });
 
       res.statusCode = 200;
       res.json({
-        pricePerKilometer: parseFloat(result.price_per_kilometer),
-        pricePerPassenger: parseFloat(result.price_per_passenger),
-        pricePerTrailer: parseFloat(result.price_per_trailer),
-        whatsappNumber: result.whatsapp_number,
-        vehicleTypes: result.vehicle_types || [],
-        additionalOptions: result.additional_options || [],
+        pricePerKilometer: parseFloat(configResult.price_per_kilometer),
+        pricePerPassenger: parseFloat(configResult.price_per_passenger),
+        pricePerTrailer: parseFloat(configResult.price_per_trailer),
+        whatsappNumber: configResult.whatsapp_number,
+        vehicleTypes: updatedVehicleTypes || [],
+        additionalOptions: updatedAdditionalOptions || [],
       });
       return;
     }
@@ -138,4 +274,3 @@ async function parseBody(req: any): Promise<any> {
     req.on('error', (error: Error) => reject(error));
   });
 }
-

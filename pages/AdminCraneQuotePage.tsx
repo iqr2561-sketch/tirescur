@@ -54,13 +54,15 @@ const AdminCraneQuotePage: React.FC = () => {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Error desconocido' }));
-        throw new Error(errorData.error || 'Error al guardar configuración');
+        throw new Error(errorData.error || errorData.message || 'Error al guardar configuración');
       }
 
-      showSuccess('Configuración guardada correctamente');
+      const updatedConfig = await res.json();
+      setConfig(updatedConfig); // Actualizar con los datos del servidor (incluye IDs generados)
+      showSuccess('✅ Configuración guardada correctamente', 5000);
     } catch (err: any) {
       console.error('Error saving config:', err);
-      showError(err?.message || 'Error al guardar la configuración');
+      showError(`❌ Error al guardar la configuración: ${err?.message || 'Error desconocido'}`);
     } finally {
       setIsSaving(false);
     }
@@ -78,8 +80,9 @@ const AdminCraneQuotePage: React.FC = () => {
       return;
     }
 
+    // Usar ID temporal que se reemplazará con el ID real de la BD al guardar
     const newVehicle: VehicleType = {
-      id: Date.now().toString(),
+      id: `temp-${Date.now()}`,
       name: newVehicleName.trim(),
       basePrice: price,
     };
@@ -112,8 +115,9 @@ const AdminCraneQuotePage: React.FC = () => {
       return;
     }
 
+    // Usar ID temporal que se reemplazará con el ID real de la BD al guardar
     const newOption: AdditionalOption = {
-      id: Date.now().toString(),
+      id: `temp-${Date.now()}`,
       name: newOptionName.trim(),
       price: price,
     };
@@ -235,35 +239,40 @@ const AdminCraneQuotePage: React.FC = () => {
             Tipos de Vehículo
           </h2>
           <div className="space-y-4">
-            {config.vehicleTypes.map((vehicle) => (
-              <div
-                key={vehicle.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-              >
-                <span className="text-gray-800 dark:text-gray-200">
-                  {vehicle.name} - $ {vehicle.basePrice.toLocaleString('es-AR')}
-                </span>
-                <button
-                  onClick={() => handleDeleteVehicle(vehicle.id || '')}
-                  className="text-red-600 hover:text-red-800 transition-colors"
+            {config.vehicleTypes.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400 text-sm italic">No hay tipos de vehículos configurados</p>
+            ) : (
+              config.vehicleTypes.map((vehicle) => (
+                <div
+                  key={vehicle.id || `vehicle-${vehicle.name}`}
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="2"
+                  <span className="text-gray-800 dark:text-gray-200">
+                    {vehicle.name} - $ {vehicle.basePrice.toLocaleString('es-AR')}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteVehicle(vehicle.id || '')}
+                    className="text-red-600 hover:text-red-800 transition-colors"
+                    aria-label={`Eliminar ${vehicle.name}`}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-              </div>
-            ))}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))
+            )}
             <div className="flex space-x-2">
               <input
                 type="text"
@@ -306,18 +315,22 @@ const AdminCraneQuotePage: React.FC = () => {
             Opciones Adicionales
           </h2>
           <div className="space-y-4">
-            {config.additionalOptions.map((option) => (
-              <div
-                key={option.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-              >
-                <span className="text-gray-800 dark:text-gray-200">
-                  {option.name} - $ {option.price.toLocaleString('es-AR')}
-                </span>
-                <button
-                  onClick={() => handleDeleteOption(option.id || '')}
-                  className="text-red-600 hover:text-red-800 transition-colors"
+            {config.additionalOptions.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400 text-sm italic">No hay opciones adicionales configuradas</p>
+            ) : (
+              config.additionalOptions.map((option) => (
+                <div
+                  key={option.id || `option-${option.name}`}
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                 >
+                  <span className="text-gray-800 dark:text-gray-200">
+                    {option.name} - $ {option.price.toLocaleString('es-AR')}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteOption(option.id || '')}
+                    className="text-red-600 hover:text-red-800 transition-colors"
+                    aria-label={`Eliminar ${option.name}`}
+                  >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-5 w-5"

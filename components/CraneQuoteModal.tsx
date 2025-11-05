@@ -62,7 +62,9 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
 
     // Additional options
     selectedOptions.forEach((optionId) => {
-      const option = config.additionalOptions.find((opt: AdditionalOption) => opt.id === optionId);
+      const option = config.additionalOptions.find((opt: AdditionalOption) => 
+        opt.id === optionId || (opt.id && opt.id.toString() === optionId)
+      );
       if (option) {
         total += option.price;
       }
@@ -137,11 +139,11 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
               required
             >
               <option value="">Seleccione un tipo de vehículo</option>
-              {config.vehicleTypes.map((vehicle: VehicleType) => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.name} - ${vehicle.basePrice.toLocaleString('es-AR')}
-                </option>
-              ))}
+                {config.vehicleTypes.map((vehicle: VehicleType) => (
+                  <option key={vehicle.id || `vehicle-${vehicle.name}`} value={vehicle.id || ''}>
+                    {vehicle.name} - ${vehicle.basePrice.toLocaleString('es-AR')}
+                  </option>
+                ))}
             </select>
             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
               <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
