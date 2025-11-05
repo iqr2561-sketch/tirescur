@@ -614,9 +614,37 @@ const App: React.FC = () => {
         throw new Error(errorMessage);
       }
       
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
-        throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
+      // Read response data first
+      let responseData: any = {};
+      try {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          responseData = await res.json();
+        } else {
+          const text = await res.text();
+          responseData = { error: text || `Error ${res.status}: ${res.statusText}` };
+        }
+      } catch (parseError) {
+        responseData = { error: `Error ${res.status}: ${res.statusText}` };
+      }
+      
+      // Handle errors (but not partial success 207)
+      if (!res.ok && res.status !== 207) {
+        // Construir mensaje de error más detallado
+        const errorMessage = responseData.error || responseData.message || `Error ${res.status}: ${res.statusText}`;
+        const errorDetails = responseData.details || responseData.errorDetails || '';
+        const errorCode = responseData.code || '';
+        const errorHint = responseData.hint || '';
+        
+        const fullError = new Error(errorMessage);
+        (fullError as any).details = errorDetails;
+        (fullError as any).code = errorCode;
+        (fullError as any).hint = errorHint;
+        (fullError as any).status = res.status;
+        (fullError as any).updated = responseData.updated || 0;
+        (fullError as any).errors = responseData.errors || 0;
+        
+        throw fullError;
       }
       
       // Re-fetch products to ensure state is fully consistent after bulk operation
@@ -639,11 +667,54 @@ const App: React.FC = () => {
         brandLogoUrl: p.brand_logo_url || p.brandLogoUrl,
       }));
       setProducts(mappedUpdatedProducts);
-      showSuccess('Precios actualizados masivamente con éxito!');
+      
+      // Show appropriate message based on response status
+      if (res.status === 207) {
+        // Partial success
+        const updatedCount = responseData.updated || 0;
+        const errorCount = responseData.errors || 0;
+        if (updatedCount > 0) {
+          showSuccess(`✅ ${updatedCount} productos actualizados${errorCount > 0 ? `, ${errorCount} con errores` : ''}`);
+        }
+      } else {
+        showSuccess('Precios actualizados masivamente con éxito!');
+      }
     } catch (err: any) {
       console.error('Error bulk updating products:', err);
+      console.error('Error details:', {
+        message: err?.message,
+        details: err?.details,
+        code: err?.code,
+        hint: err?.hint,
+        status: err?.status,
+        updated: err?.updated,
+        errors: err?.errors
+      });
+      
       const errorMessage = err?.message || 'Error desconocido al actualizar productos';
-      showError(`No se pudieron actualizar los precios: ${errorMessage}`);
+      const errorDetails = err?.details || '';
+      const errorCode = err?.code || '';
+      const errorHint = err?.hint || '';
+      const updatedCount = err?.updated || 0;
+      const errorCount = err?.errors || 0;
+      
+      // Construir mensaje de error más detallado
+      let userMessage = '';
+      
+      if (err?.status === 207 && updatedCount > 0) {
+        // Partial success - some products were updated
+        userMessage = `⚠️ Actualización parcial: ${updatedCount} productos actualizados, ${errorCount} errores`;
+        if (errorDetails) {
+          userMessage += `\n\nErrores:\n${Array.isArray(errorDetails) ? errorDetails.join('\n') : errorDetails}`;
+        }
+      } else {
+        userMessage = `❌ No se pudieron actualizar los precios: ${errorMessage}`;
+        if (errorDetails) userMessage += `\n\nDetalles: ${errorDetails}`;
+        if (errorHint) userMessage += `\n\n💡 Sugerencia: ${errorHint}`;
+        if (errorCode) userMessage += `\n\nCódigo de error: ${errorCode}`;
+      }
+      
+      showError(userMessage);
       throw err;
     }
   }, [showSuccess, showError]);

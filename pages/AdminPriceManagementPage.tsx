@@ -333,20 +333,64 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
             }
         }
 
-        // Perform bulk creations
+        // Perform bulk creations - FILTER OUT DUPLICATES FIRST
         if (productsToCreate.length > 0) {
             console.log('[Excel Import] Creating', productsToCreate.length, 'products');
-            console.log('[Excel Import] Sample product to create:', productsToCreate[0] ? {
-              sku: productsToCreate[0].sku,
-              name: productsToCreate[0].name,
-              brand: productsToCreate[0].brand,
-              hasIsActive: 'isActive' in productsToCreate[0],
-              isActive: productsToCreate[0].isActive
+            
+            // Create a Set of existing SKUs for quick lookup
+            const existingSkus = new Set<string>();
+            safeProducts.forEach(p => {
+              if (p.sku) {
+                existingSkus.add(p.sku.trim().toLowerCase());
+              }
+            });
+            
+            // Filter out products that already exist by SKU
+            let duplicatesFound = 0;
+            const productsToCreateFiltered = productsToCreate.filter(product => {
+              const productSku = (product.sku || '').trim().toLowerCase();
+              const exists = existingSkus.has(productSku);
+              if (exists) {
+                duplicatesFound++;
+                console.warn(`[Excel Import] Skipping duplicate product: ${product.sku} - already exists`);
+                // Try to find the existing product and add it to update list instead
+                const existingProduct = safeProducts.find(p => p.sku && p.sku.trim().toLowerCase() === productSku);
+                if (existingProduct) {
+                  const updatedProduct = {
+                    ...existingProduct,
+                    price: product.price,
+                    imageUrl: product.imageUrl || existingProduct.imageUrl,
+                  };
+                  // Check if not already in productsToUpdate
+                  if (!productsToUpdate.find(p => p.id === existingProduct.id)) {
+                    productsToUpdate.push(updatedProduct);
+                    updatedCount++;
+                    createdCount--; // Adjust count since we're updating instead of creating
+                  }
+                }
+                return false; // Filter out this product
+              }
+              return true; // Keep this product for creation
+            });
+            
+            if (duplicatesFound > 0) {
+              console.log(`[Excel Import] Found ${duplicatesFound} duplicate products, moved to update list`);
+            }
+            
+            console.log('[Excel Import] After filtering duplicates:', productsToCreateFiltered.length, 'products to create');
+            console.log('[Excel Import] Sample product to create:', productsToCreateFiltered[0] ? {
+              sku: productsToCreateFiltered[0].sku,
+              name: productsToCreateFiltered[0].name,
+              brand: productsToCreateFiltered[0].brand,
+              hasIsActive: 'isActive' in productsToCreateFiltered[0],
+              isActive: productsToCreateFiltered[0].isActive
             } : null);
-            try {
-              const createdProducts = await onAddProductsBulk(productsToCreate);
-              console.log('[Excel Import] Bulk create completed successfully,', createdProducts?.length || 0, 'products created');
-            } catch (createError: any) {
+            
+            if (productsToCreateFiltered.length > 0) {
+              try {
+                const createdProducts = await onAddProductsBulk(productsToCreateFiltered);
+                console.log('[Excel Import] Bulk create completed successfully,', createdProducts?.length || 0, 'products created');
+              } catch (createError: any) {
               console.error('[Excel Import] Error in bulk create:', createError);
               console.error('[Excel Import] Error details:', {
                 message: createError?.message,
@@ -369,8 +413,11 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
                 detailedError += `\n\n💡 Sugerencia: ${errorHint}`;
               }
               
-              errorCount += productsToCreate.length;
+              errorCount += productsToCreateFiltered.length;
               errors.push(detailedError);
+            }
+            } else {
+              console.log('[Excel Import] All products were duplicates, skipping creation');
             }
         }
 

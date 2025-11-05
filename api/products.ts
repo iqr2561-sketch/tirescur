@@ -169,19 +169,68 @@ export default allowCors(async function handler(req, res) {
     if (req.method === 'PUT') {
       const body = await parseBody(req);
 
-      if (pathname === '/api/products/bulk') {
+      // Detectar bulk update: verificar si la URL contiene 'bulk' o si el body es un array con productos que tienen id
+      const isBulkUpdate = pathname?.includes('/bulk') || 
+                          req.url?.includes('/bulk') || 
+                          query?.bulk === 'true' ||
+                          (Array.isArray(body) && body.length > 0 && body[0]?.id);
+
+      if (isBulkUpdate) {
+        console.log('[Products API] Detected bulk-update request:', {
+          pathname,
+          url: req.url,
+          productCount: Array.isArray(body) ? body.length : 0,
+          sampleProduct: Array.isArray(body) && body[0] ? {
+            id: body[0].id,
+            sku: body[0].sku,
+            name: body[0].name,
+            price: body[0].price
+          } : null
+        });
+
         if (!Array.isArray(body) || body.length === 0) {
           res.statusCode = 400;
           res.json({ error: 'Array of products is required for bulk update' });
           return;
         }
 
-        for (const product of body as Product[]) {
-          await updateSingleProduct(supabase, product.id, product);
+        const updateResults = [];
+        const errors = [];
+
+        // Update products one by one and collect results
+        for (let i = 0; i < body.length; i++) {
+          const product = body[i] as Product;
+          try {
+            if (!product.id) {
+              errors.push(`Product ${i + 1}: Missing ID (SKU: ${product.sku || 'N/A'})`);
+              continue;
+            }
+            const updated = await updateSingleProduct(supabase, product.id, product);
+            updateResults.push(updated);
+          } catch (error: any) {
+            console.error(`[Products API] Error updating product ${i + 1} (${product.id}):`, error);
+            errors.push(`Product ${i + 1} (${product.sku || product.name || 'N/A'}): ${error?.message || 'Error desconocido'}`);
+          }
         }
 
+        if (errors.length > 0) {
+          console.error('[Products API] Bulk update completed with errors:', errors);
+          res.statusCode = 207; // Multi-Status - partial success
+          res.json({ 
+            message: `Bulk update completed: ${updateResults.length} updated, ${errors.length} errors`,
+            updated: updateResults.length,
+            errors: errors.length,
+            errorDetails: errors
+          });
+          return;
+        }
+
+        console.log('[Products API] Bulk update completed successfully:', updateResults.length, 'products updated');
         res.statusCode = 200;
-        res.json({ message: 'Products updated in bulk' });
+        res.json({ 
+          message: 'Products updated in bulk',
+          updated: updateResults.length
+        });
         return;
       }
 
