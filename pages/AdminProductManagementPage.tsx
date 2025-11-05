@@ -103,12 +103,37 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
   };
 
   const handleOpenEditModal = useCallback((product: Product) => {
+    console.log('[AdminProductManagement] Opening edit modal for product:', {
+      id: product.id,
+      name: product.name,
+      brand: product.brand,
+      brandType: typeof product.brand,
+      availableBrands: safeBrands.map(b => b.name)
+    });
+    
+    // Asegurar que el brand tenga un valor válido
+    let brandValue = product.brand || '';
+    // Si el brand del producto no está en la lista de marcas disponibles, usar la primera disponible
+    if (brandValue && !safeBrands.some(b => b.name === brandValue)) {
+      console.warn('[AdminProductManagement] Product brand not in available brands, using first available:', {
+        productBrand: brandValue,
+        availableBrands: safeBrands.map(b => b.name),
+        willUse: safeBrands.length > 0 ? safeBrands[0].name : ''
+      });
+      brandValue = safeBrands.length > 0 ? safeBrands[0].name : '';
+    }
+    // Si no hay brand, usar la primera marca disponible
+    if (!brandValue && safeBrands.length > 0) {
+      brandValue = safeBrands[0].name;
+      console.log('[AdminProductManagement] No brand found, using first available:', brandValue);
+    }
+    
     setEditingProduct(product);
     setFormData({
       id: product.id,
       sku: product.sku,
       name: product.name,
-      brand: product.brand, // Use existing brand for editing
+      brand: brandValue, // Asegurar que siempre tenga un valor válido
       price: product.price.toFixed(2),
       rating: product.rating.toString(),
       reviews: product.reviews.toString(),
@@ -126,8 +151,10 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       categoryId: product.categoryId || '',
       isActive: product.isActive !== undefined ? product.isActive : true,
     });
+    
+    console.log('[AdminProductManagement] Form data set with brand:', brandValue);
     setIsModalOpen(true);
-  }, []);
+  }, [safeBrands]);
 
   const handleCloseModal = useCallback(() => {
     console.log('[AdminProductManagement] handleCloseModal called');
@@ -225,12 +252,44 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     // Validación mejorada - solo validar campos críticos
     const errors: string[] = [];
     
+    console.log('[AdminProductManagement] Validating form data:', {
+      name: formData.name,
+      brand: formData.brand,
+      brandType: typeof formData.brand,
+      brandLength: formData.brand?.length,
+      sku: formData.sku,
+      price: formData.price,
+      stock: formData.stock,
+      editingProduct: !!editingProduct,
+      availableBrands: safeBrands.map(b => b.name)
+    });
+    
     if (!formData.name?.trim()) {
       errors.push('El nombre del producto es obligatorio');
     }
-    if (!formData.brand?.trim()) {
+    
+    // Validar brand - puede ser string vacío, null, o undefined
+    const brandValue = formData.brand?.trim();
+    if (!brandValue || brandValue === '') {
+      console.log('[AdminProductManagement] Brand validation failed:', {
+        brandValue,
+        brandOriginal: formData.brand,
+        availableBrands: safeBrands.map(b => b.name)
+      });
       errors.push('La marca es obligatoria');
+    } else {
+      // Verificar que la marca exista en la lista de marcas disponibles
+      const brandExists = safeBrands.some(b => b.name === brandValue);
+      if (!brandExists) {
+        console.log('[AdminProductManagement] Brand not found in available brands:', {
+          selectedBrand: brandValue,
+          availableBrands: safeBrands.map(b => b.name)
+        });
+        // No es un error crítico, solo un warning - permitir continuar
+        console.warn('[AdminProductManagement] Selected brand not in available brands list, but allowing save');
+      }
     }
+    
     if (!formData.sku?.trim()) {
       errors.push('El SKU es obligatorio');
     }
