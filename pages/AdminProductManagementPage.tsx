@@ -798,7 +798,25 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       )}
 
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingProduct ? 'Editar Producto' : 'Añadir Nuevo Producto'}>
-        <form id="product-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <form 
+          id="product-form" 
+          onSubmit={(e) => {
+            console.log('[AdminProductManagement] Form onSubmit event triggered');
+            handleSubmit(e);
+          }}
+          className="space-y-4" 
+          noValidate
+          onKeyDown={(e) => {
+            // Permitir Enter en textareas y inputs de texto, pero prevenir submit accidental
+            if (e.key === 'Enter' && (e.target instanceof HTMLTextAreaElement || (e.target instanceof HTMLInputElement && e.target.type === 'text'))) {
+              return; // Permitir Enter en estos campos
+            }
+            // Si es Enter en otros campos, prevenir submit accidental
+            if (e.key === 'Enter' && e.target instanceof HTMLElement && e.target.tagName !== 'BUTTON') {
+              // No hacer nada, dejar que el botón maneje el submit
+            }
+          }}
+        >
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Nombre del Producto<span className="text-red-500">*</span></label>
             <input
@@ -809,7 +827,6 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
               onChange={handleChange}
               className={getInputFieldClasses()}
               placeholder="Ej: Neumático de Verano Ultraligero"
-              required
             />
           </div>
           <div>
@@ -822,7 +839,6 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
               onChange={handleChange}
               className={getInputFieldClasses()}
               placeholder="Ej: TNR-205-55-R16"
-              required
             />
           </div>
           <div>
@@ -834,7 +850,6 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                 value={formData.brand}
                 onChange={handleChange}
                 className={getInputFieldClasses() + " appearance-none"}
-                required
               >
                 {safeBrands.length === 0 && <option value="">No hay marcas disponibles</option>}
                 {safeBrands.map((brandOption) => (
@@ -868,10 +883,9 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                 value={formData.price}
                 onChange={handleChange}
                 step="0.01"
-                min="0.01"
+                min="0"
                 className={getInputFieldClasses()}
                 placeholder="Ej: 120.00"
-                required
               />
             </div>
             <div>
@@ -886,7 +900,6 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                 step="1"
                 className={getInputFieldClasses()}
                 placeholder="Ej: 25"
-                required
               />
             </div>
           </div>
@@ -899,7 +912,6 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                     value={formData.width}
                     onChange={handleChange}
                     className={getInputFieldClasses() + " appearance-none"} // Add appearance-none for custom arrow
-                    required
                 >
                     {WIDTHS.map((w) => (
                         <option key={w} value={w} disabled={w === WIDTHS[0]}>{w}</option>
@@ -917,7 +929,6 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                     value={formData.profile}
                     onChange={handleChange}
                     className={getInputFieldClasses() + " appearance-none"}
-                    required
                 >
                     {PROFILES.map((p) => (
                         <option key={p} value={p} disabled={p === PROFILES[0]}>{p}</option>
@@ -935,7 +946,6 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                     value={formData.diameter}
                     onChange={handleChange}
                     className={getInputFieldClasses() + " appearance-none"}
-                    required
                 >
                     {DIAMETERS.map((d) => (
                         <option key={d} value={d} disabled={d === DIAMETERS[0]}>{d}</option>
@@ -1101,9 +1111,12 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
                   isSaving,
                   type: e.currentTarget.type,
                   disabled: e.currentTarget.disabled,
-                  form: e.currentTarget.form ? 'form exists' : 'no form'
+                  form: e.currentTarget.form ? 'form exists' : 'no form',
+                  formId: e.currentTarget.form?.id,
+                  timestamp: new Date().toISOString()
                 });
-                // No prevenir el comportamiento por defecto - dejar que el formulario maneje el submit
+                // Solo loguear, dejar que el formulario maneje el submit naturalmente
+                // Si isSaving es true, el botón ya está deshabilitado, así que no debería llegar aquí
               }}
               className={`py-2 px-4 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-opacity-50 flex items-center justify-center space-x-2 ${
                 isSaving 
