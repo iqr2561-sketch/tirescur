@@ -369,13 +369,64 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       allBrands: safeBrands.map(b => b.name)
     });
 
+    // Preparar valores de oferta
+    const isOnSale = formData.isOnSale || false;
+    const salePriceStr = formData.salePrice?.trim() || '';
+    const discountPercentageStr = formData.discountPercentage?.trim() || '';
+    const regularPrice = parseFloat(formData.price);
+    
+    let finalSalePrice: number | undefined = undefined;
+    let finalDiscountPercentage: number | undefined = undefined;
+    
+    if (isOnSale) {
+      // Si hay precio de oferta directamente, usarlo
+      if (salePriceStr !== '') {
+        const parsedSalePrice = parseFloat(salePriceStr);
+        if (!isNaN(parsedSalePrice) && parsedSalePrice > 0 && parsedSalePrice < regularPrice) {
+          finalSalePrice = parsedSalePrice;
+          // Calcular porcentaje de descuento desde el precio de oferta
+          finalDiscountPercentage = Math.round(((regularPrice - parsedSalePrice) / regularPrice) * 100);
+        }
+      }
+      
+      // Si hay porcentaje de descuento pero no precio de oferta, calcular el precio
+      if (discountPercentageStr !== '' && !finalSalePrice) {
+        const parsedDiscount = parseFloat(discountPercentageStr);
+        if (!isNaN(parsedDiscount) && parsedDiscount > 0 && parsedDiscount < 100) {
+          finalDiscountPercentage = parsedDiscount;
+          finalSalePrice = regularPrice * (1 - parsedDiscount / 100);
+        }
+      }
+      
+      // Si hay ambos, priorizar el precio de oferta (ya calculado arriba)
+      if (salePriceStr !== '' && discountPercentageStr !== '') {
+        const parsedSalePrice = parseFloat(salePriceStr);
+        if (!isNaN(parsedSalePrice) && parsedSalePrice > 0 && parsedSalePrice < regularPrice) {
+          finalSalePrice = parsedSalePrice;
+          // Recalcular porcentaje desde el precio de oferta
+          finalDiscountPercentage = Math.round(((regularPrice - parsedSalePrice) / regularPrice) * 100);
+        }
+      }
+    }
+    
+    console.log('[AdminProductManagement] Offer fields calculation:', {
+      isOnSale,
+      salePriceStr,
+      discountPercentageStr,
+      regularPrice,
+      finalSalePrice,
+      finalDiscountPercentage,
+      formDataSalePrice: formData.salePrice,
+      formDataDiscountPercentage: formData.discountPercentage
+    });
+
     const baseProduct: Omit<Product, 'id'> = { // Base object without 'id'
       sku: formData.sku.trim(),
       name: formData.name.trim(),
       brand: formData.brand,
       brandId: selectedBrand?.id, // Incluir brandId para mejor referencia
       brandLogoUrl: selectedBrand?.logoUrl || '',
-      price: parseFloat(formData.price),
+      price: regularPrice,
       rating: parseFloat(formData.rating),
       reviews: parseInt(formData.reviews) || 0,
       imageUrl: formData.imageUrl.trim(),
@@ -386,33 +437,9 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       profile: formData.profile,
       diameter: formData.diameter,
       // Deal/Offer fields
-      isOnSale: formData.isOnSale || false,
-      salePrice: formData.isOnSale && formData.salePrice && formData.salePrice.trim() !== '' 
-        ? parseFloat(formData.salePrice) 
-        : (formData.isOnSale && formData.discountPercentage && formData.discountPercentage.trim() !== ''
-          ? (() => {
-              // Calcular precio de oferta desde porcentaje de descuento
-              const regularPrice = parseFloat(formData.price);
-              const discount = parseFloat(formData.discountPercentage);
-              return regularPrice * (1 - discount / 100);
-            })()
-          : undefined),
-      discountPercentage: (() => {
-        if (!formData.isOnSale) return undefined;
-        // Si hay porcentaje de descuento, usarlo
-        if (formData.discountPercentage && formData.discountPercentage.trim() !== '') {
-          return parseFloat(formData.discountPercentage);
-        }
-        // Si hay precio de oferta pero no porcentaje, calcularlo
-        if (formData.salePrice && formData.salePrice.trim() !== '') {
-          const regularPrice = parseFloat(formData.price);
-          const salePrice = parseFloat(formData.salePrice);
-          if (regularPrice > 0 && salePrice < regularPrice) {
-            return Math.round(((regularPrice - salePrice) / regularPrice) * 100);
-          }
-        }
-        return undefined;
-      })(),
+      isOnSale: isOnSale,
+      salePrice: isOnSale ? finalSalePrice : undefined,
+      discountPercentage: isOnSale ? finalDiscountPercentage : undefined,
       categoryId: formData.categoryId || undefined,
       isActive: formData.isActive !== undefined ? formData.isActive : true,
     };
@@ -426,7 +453,14 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       discountPercentage: baseProduct.discountPercentage,
       isActive: baseProduct.isActive,
       brand: baseProduct.brand,
-      brandId: baseProduct.brandId
+      brandId: baseProduct.brandId,
+      price: baseProduct.price,
+      offerDetails: {
+        isOnSale: baseProduct.isOnSale,
+        salePrice: baseProduct.salePrice,
+        discountPercentage: baseProduct.discountPercentage,
+        regularPrice: baseProduct.price
+      }
     });
 
     try {
