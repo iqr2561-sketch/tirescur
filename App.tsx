@@ -1194,6 +1194,31 @@ const App: React.FC = () => {
     }
   }, [showSuccess, showError]);
 
+  const updateSaleStatus = useCallback(async (saleId: string, status: 'Pendiente' | 'Completado' | 'Cancelado') => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/sales?id=${saleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
+        throw new Error(errorData.error || errorData.message || `Error ${res.status}: ${res.statusText}`);
+      }
+      const updatedSale = await res.json();
+      setSales(prevSales => {
+        if (!prevSales) return [updatedSale];
+        return prevSales.map(sale => sale.id === saleId ? updatedSale : sale);
+      });
+      showSuccess(`Estado del pedido actualizado a "${status}"`);
+      return updatedSale;
+    } catch (err: any) {
+      console.error('Error updating sale status:', err);
+      showError(`Error al actualizar el estado: ${err?.message || 'Error desconocido'}`);
+      throw err;
+    }
+  }, [showSuccess, showError]);
+
   const initiateOrder = useCallback((products: Sale['products'], total: number) => {
     setPendingOrder({ products, total });
     openCustomerInfoModal();
@@ -1381,7 +1406,7 @@ const App: React.FC = () => {
                 path="/admin/sales"
                 element={
                   isAdminAuthenticated ? (
-                    <AdminSalesPage salesData={finalSales} />
+                    <AdminSalesPage salesData={finalSales} onUpdateSaleStatus={updateSaleStatus} />
                   ) : (
                     <Navigate to="/account" replace />
                   )

@@ -18,6 +18,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
   onOpenProductSelectionModal,
 }) => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const isOfferPage = searchParams.get('offer') === 'true';
   
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -107,7 +108,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
       <div className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-30">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                 {isOfferPage ? '🎯 Ofertas Especiales' : 'Tienda'}
               </h1>
@@ -115,12 +116,34 @@ const ShopPage: React.FC<ShopPageProps> = ({
                 {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} {isOfferPage ? 'en oferta' : 'encontrado'}{filteredProducts.length !== 1 ? 's' : ''}
               </p>
             </div>
-            <button
-              onClick={handleToggleSidebar}
-              className="lg:hidden px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              {sidebarOpen ? 'Ocultar' : 'Mostrar'} Filtros
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Botón rápido para ver ofertas */}
+              {!isOfferPage && (
+                <button
+                  onClick={() => {
+                    setFilters(prev => ({ ...prev, showOnlyOnSale: !prev.showOnlyOnSale }));
+                    if (!filters.showOnlyOnSale) {
+                      navigate('/shop?offer=true');
+                    } else {
+                      navigate('/shop');
+                    }
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    filters.showOnlyOnSale
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {filters.showOnlyOnSale ? '🎯 Ver Ofertas' : 'Ver Ofertas'}
+                </button>
+              )}
+              <button
+                onClick={handleToggleSidebar}
+                className="lg:hidden px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                {sidebarOpen ? 'Ocultar' : 'Mostrar'} Filtros
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -150,6 +173,18 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
           {/* Products Grid */}
           <div className="flex-1">
+            {/* Separación visual para productos en oferta */}
+            {!isOfferPage && filters.showOnlyOnSale && (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-r-lg">
+                <h2 className="text-xl font-bold text-red-800 dark:text-red-200 mb-2">
+                  🎯 Productos en Oferta
+                </h2>
+                <p className="text-sm text-red-700 dark:text-red-300">
+                  Mostrando solo productos con descuentos especiales
+                </p>
+              </div>
+            )}
+            
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 dark:text-gray-400 text-lg">
@@ -171,16 +206,80 @@ const ShopPage: React.FC<ShopPageProps> = ({
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    allProducts={products}
-                    onOpenProductSelectionModal={onOpenProductSelectionModal}
-                  />
-                ))}
-              </div>
+              <>
+                {/* Separar productos en oferta de los demás si no está activo el filtro */}
+                {!isOfferPage && !filters.showOnlyOnSale && (() => {
+                  const productsOnSale = filteredProducts.filter(p => p.isOnSale);
+                  const productsNotOnSale = filteredProducts.filter(p => !p.isOnSale);
+                  
+                  return (
+                    <>
+                      {productsOnSale.length > 0 && (
+                        <div className="mb-8">
+                          <div className="mb-4 flex items-center justify-between">
+                            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                              <span className="text-red-600">🎯</span> Productos en Oferta
+                            </h2>
+                            <button
+                              onClick={() => {
+                                setFilters(prev => ({ ...prev, showOnlyOnSale: true }));
+                                navigate('/shop?offer=true');
+                              }}
+                              className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                            >
+                              Ver todos →
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {productsOnSale.map((product) => (
+                              <ProductCard
+                                key={product.id}
+                                product={product}
+                                allProducts={products}
+                                onOpenProductSelectionModal={onOpenProductSelectionModal}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {productsNotOnSale.length > 0 && (
+                        <div>
+                          {productsOnSale.length > 0 && (
+                            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
+                              Todos los Productos
+                            </h2>
+                          )}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {productsNotOnSale.map((product) => (
+                              <ProductCard
+                                key={product.id}
+                                product={product}
+                                allProducts={products}
+                                onOpenProductSelectionModal={onOpenProductSelectionModal}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+                
+                {/* Mostrar todos si el filtro de ofertas está activo o es página de ofertas */}
+                {(isOfferPage || filters.showOnlyOnSale) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {filteredProducts.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        allProducts={products}
+                        onOpenProductSelectionModal={onOpenProductSelectionModal}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

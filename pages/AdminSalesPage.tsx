@@ -4,12 +4,14 @@ import { Sale } from '../types';
 
 interface AdminSalesPageProps {
   salesData: Sale[];
+  onUpdateSaleStatus: (saleId: string, status: 'Pendiente' | 'Completado' | 'Cancelado') => Promise<Sale>;
 }
 
-const AdminSalesPage: React.FC<AdminSalesPageProps> = ({ salesData }) => {
+const AdminSalesPage: React.FC<AdminSalesPageProps> = ({ salesData, onUpdateSaleStatus }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   
   // Ordenar ventas por fecha más reciente
   const sortedSales = useMemo(() => {
@@ -38,6 +40,22 @@ const AdminSalesPage: React.FC<AdminSalesPageProps> = ({ salesData }) => {
   const closeDetailsModal = () => {
     setIsDetailsModalOpen(false);
     setSelectedSale(null);
+  };
+
+  const handleStatusChange = async (newStatus: 'Pendiente' | 'Completado' | 'Cancelado') => {
+    if (!selectedSale || isUpdatingStatus) return;
+    
+    setIsUpdatingStatus(true);
+    try {
+      const updatedSale = await onUpdateSaleStatus(selectedSale.id, newStatus);
+      setSelectedSale(updatedSale);
+      // También actualizar en la lista local si es necesario
+      // El estado se actualiza desde App.tsx
+    } catch (error) {
+      console.error('Error updating status:', error);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   return (
@@ -190,7 +208,38 @@ const AdminSalesPage: React.FC<AdminSalesPageProps> = ({ salesData }) => {
           <div className="space-y-4 text-gray-700 dark:text-gray-200">
             <p><strong>Cliente:</strong> {selectedSale.customerName}</p>
             <p><strong>Total:</strong> ${selectedSale.total.toFixed(2)}</p>
-            <p><strong>Estado:</strong> <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClasses(selectedSale.status)}`}>{selectedSale.status}</span></p>
+            <div className="flex items-center gap-4">
+              <p><strong>Estado:</strong> <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClasses(selectedSale.status)}`}>{selectedSale.status}</span></p>
+              <div className="flex gap-2">
+                {selectedSale.status !== 'Pendiente' && (
+                  <button
+                    onClick={() => handleStatusChange('Pendiente')}
+                    disabled={isUpdatingStatus}
+                    className="px-3 py-1 bg-yellow-500 text-white text-sm rounded-md hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Marcar como Pendiente
+                  </button>
+                )}
+                {selectedSale.status !== 'Completado' && (
+                  <button
+                    onClick={() => handleStatusChange('Completado')}
+                    disabled={isUpdatingStatus}
+                    className="px-3 py-1 bg-green-500 text-white text-sm rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Marcar como Completado
+                  </button>
+                )}
+                {selectedSale.status !== 'Cancelado' && (
+                  <button
+                    onClick={() => handleStatusChange('Cancelado')}
+                    disabled={isUpdatingStatus}
+                    className="px-3 py-1 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Marcar como Cancelado
+                  </button>
+                )}
+              </div>
+            </div>
             <p><strong>Fecha:</strong> {new Date(selectedSale.date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
             <div className="mt-6">
               <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Productos del Pedido:</h3>

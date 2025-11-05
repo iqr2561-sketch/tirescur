@@ -76,6 +76,46 @@ export default allowCors(async function handler(req, res) {
       return;
     }
 
+    if (req.method === 'PUT') {
+      const body = await parseBody(req);
+      const saleId = Array.isArray(query.id) ? query.id[0] : query.id;
+
+      if (!saleId) {
+        res.statusCode = 400;
+        res.json({ error: 'ID de venta es requerido' });
+        return;
+      }
+
+      // Validar que el status sea válido
+      const validStatuses = ['Pendiente', 'Completado', 'Cancelado'];
+      if (body.status && !validStatuses.includes(body.status)) {
+        res.statusCode = 400;
+        res.json({ error: `Estado inválido. Debe ser uno de: ${validStatuses.join(', ')}` });
+        return;
+      }
+
+      const updateData: any = {};
+      if (body.status) updateData.status = body.status;
+      if (body.customerName) updateData.customer_name = body.customerName;
+      if (body.total !== undefined) updateData.total = Number(body.total).toString();
+      if (body.date) updateData.date = body.date;
+
+      const { data: updatedSale, error: updateError } = await supabase
+        .from('sales')
+        .update(updateData)
+        .eq('id', saleId)
+        .select('*, sale_products(*)')
+        .single();
+
+      if (updateError || !updatedSale) {
+        throw new Error(updateError?.message || 'Error actualizando la venta');
+      }
+
+      res.statusCode = 200;
+      res.json(toClientSale(updatedSale));
+      return;
+    }
+
     res.statusCode = 405;
     res.json({ error: 'Método no permitido' });
   } catch (error: any) {
