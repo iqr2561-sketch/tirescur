@@ -590,6 +590,12 @@ const App: React.FC = () => {
     }
   }, [products, showSuccess, showError]);
 
+  // Helper function to validate UUID
+  const isValidUUID = (str: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
   const updateProductsBulk = useCallback(async (newProductsArray: Product[]) => {
     try {
       console.log('[App] Bulk update: Updating', newProductsArray.length, 'products individually');
@@ -602,14 +608,26 @@ const App: React.FC = () => {
       for (let i = 0; i < newProductsArray.length; i++) {
         const product = newProductsArray[i];
         try {
+          // Validar que el producto tenga ID y que sea un UUID válido
           if (!product.id) {
             errors.push(`Producto ${i + 1}: Falta ID (SKU: ${product.sku || 'N/A'})`);
+            console.warn(`[App] Skipping product ${i + 1}: Missing ID`, product);
             continue;
+          }
+          
+          // VALIDACIÓN CRÍTICA: Verificar que el ID sea un UUID válido
+          if (!isValidUUID(product.id)) {
+            const errorMsg = `Producto ${i + 1}: ID inválido "${product.id}" (SKU: ${product.sku || 'N/A'}). Se espera un UUID válido.`;
+            errors.push(errorMsg);
+            console.error(`[App] ${errorMsg}`, product);
+            continue; // Saltar este producto y continuar con los demás
           }
           
           // Usar el endpoint individual que sabemos que funciona
           const { id, ...productDataToSend } = product;
           const url = `${API_BASE_URL}/products/${id}`;
+          
+          console.log(`[App] Updating product ${i + 1}/${newProductsArray.length}: ${product.sku || product.name} (ID: ${id})`);
           
           const res = await fetch(url, {
             method: 'PUT',
