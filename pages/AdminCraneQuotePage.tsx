@@ -64,8 +64,13 @@ const AdminCraneQuotePage: React.FC = () => {
 
       const updatedConfig = await res.json();
       console.log('[AdminCraneQuotePage] Updated config received:', updatedConfig);
+      console.log('[AdminCraneQuotePage] Vehicle types count:', updatedConfig.vehicleTypes?.length);
+      console.log('[AdminCraneQuotePage] Additional options count:', updatedConfig.additionalOptions?.length);
       setConfig(updatedConfig); // Actualizar con los datos del servidor (incluye IDs generados)
       showSuccess('✅ Configuración guardada correctamente', 5000);
+      
+      // Recargar la configuración desde el servidor para asegurar que tenemos los datos más recientes
+      await fetchConfig();
     } catch (err: any) {
       console.error('[AdminCraneQuotePage] Error saving config:', err);
       showError(`❌ Error al guardar la configuración: ${err?.message || 'Error desconocido'}`);

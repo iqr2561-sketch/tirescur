@@ -197,15 +197,16 @@ export default allowCors(async function handler(req, res) {
             if (insertError) {
               console.error('[Crane Quote API] Error inserting vehicle:', vehicle, insertError);
               vehicleErrors.push(`Error creando ${vehicle.name}: ${insertError.message}`);
+              throw new Error(`Error al crear vehículo ${vehicle.name}: ${insertError.message}`);
             } else {
-              console.log('[Crane Quote API] Vehicle inserted:', insertedVehicle);
+              console.log('[Crane Quote API] Vehicle inserted successfully:', insertedVehicle);
             }
           }
         }
         
         if (vehicleErrors.length > 0) {
-          console.warn('[Crane Quote API] Vehicle errors:', vehicleErrors);
-          // No lanzar error, solo registrar - continuar con el proceso
+          console.error('[Crane Quote API] Vehicle errors:', vehicleErrors);
+          throw new Error(`Errores al guardar vehículos: ${vehicleErrors.join(', ')}`);
         }
       }
 
@@ -267,15 +268,16 @@ export default allowCors(async function handler(req, res) {
             if (insertError) {
               console.error('[Crane Quote API] Error inserting option:', option, insertError);
               optionErrors.push(`Error creando ${option.name}: ${insertError.message}`);
+              throw new Error(`Error al crear opción ${option.name}: ${insertError.message}`);
             } else {
-              console.log('[Crane Quote API] Option inserted:', insertedOption);
+              console.log('[Crane Quote API] Option inserted successfully:', insertedOption);
             }
           }
         }
         
         if (optionErrors.length > 0) {
-          console.warn('[Crane Quote API] Option errors:', optionErrors);
-          // No lanzar error, solo registrar - continuar con el proceso
+          console.error('[Crane Quote API] Option errors:', optionErrors);
+          throw new Error(`Errores al guardar opciones: ${optionErrors.join(', ')}`);
         }
       }
 
