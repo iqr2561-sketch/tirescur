@@ -319,13 +319,18 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     setConfirmModal({ isOpen: true, productId: id });
   }, []);
 
-  const handleConfirmDelete = useCallback(() => {
+  const handleConfirmDelete = useCallback(async () => {
     if (confirmModal.productId) {
-      onDeleteProduct(confirmModal.productId);
-      showSuccess('Producto eliminado exitosamente');
-      setConfirmModal({ isOpen: false, productId: null });
+      try {
+        await onDeleteProduct(confirmModal.productId);
+        setConfirmModal({ isOpen: false, productId: null });
+        // La notificación se muestra en App.tsx después de que onDeleteProduct complete
+      } catch (error) {
+        // El error ya se maneja en App.tsx
+        console.error('Error en confirmación de eliminación:', error);
+      }
     }
-  }, [confirmModal.productId, onDeleteProduct, showSuccess]);
+  }, [confirmModal.productId, onDeleteProduct]);
 
   // Filtrar y ordenar productos
   const filteredAndSortedProducts = useMemo(() => {

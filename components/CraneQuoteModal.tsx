@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
+import CustomerInfoModal from './CustomerInfoModal';
 import { CraneQuoteConfig, VehicleType, AdditionalOption } from '../types';
 
 interface CraneQuoteModalProps {
@@ -21,6 +22,7 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
   const [trailers, setTrailers] = useState<string>('');
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -79,6 +81,12 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
 
   const handleRequestQuote = () => {
     if (!config || !selectedVehicleType) return;
+    // Abrir modal de datos del cliente primero
+    setIsCustomerModalOpen(true);
+  };
+
+  const handleCustomerInfoConfirmed = (customerName: string) => {
+    if (!config || !selectedVehicleType) return;
 
     const vehicleType = config.vehicleTypes.find((vt: VehicleType) => vt.id === selectedVehicleType);
     const vehicleName = vehicleType?.name || '';
@@ -88,6 +96,7 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
     const trailValue = parseFloat(trailers) || 0;
 
     const message = `🚛 *Cotización de Grúa*\n\n` +
+      `👤 *Cliente:* ${customerName}\n\n` +
       `📦 *Tipo de Vehículo:* ${vehicleName}\n` +
       `📍 *Kilómetros:* ${kmValue} km\n` +
       `👥 *Pasajeros:* ${passValue}\n` +
@@ -104,6 +113,7 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 
     window.open(whatsappUrl, '_blank');
+    setIsCustomerModalOpen(false);
     onClose();
   };
 
@@ -299,6 +309,13 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
           </button>
         </div>
       </div>
+      
+      {/* Modal de datos del cliente */}
+      <CustomerInfoModal
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        onConfirm={handleCustomerInfoConfirmed}
+      />
     </Modal>
   );
 };

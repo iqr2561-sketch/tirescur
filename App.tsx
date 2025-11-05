@@ -546,7 +546,7 @@ const App: React.FC = () => {
       };
       
       setProducts(prevProducts => prevProducts ? prevProducts.map(p => p.id === updatedProduct.id ? mappedProduct : p) : []);
-      showSuccess(`✅ Producto "${mappedProduct.name}" actualizado correctamente`, 6000);
+      showSuccess(`✅ Producto "${mappedProduct.name}" guardado y actualizado correctamente`, 6000);
     } catch (err: any) {
       console.error('[App] Error updating product:', err);
       const errorMessage = err?.message || 'Error desconocido';
@@ -573,12 +573,17 @@ const App: React.FC = () => {
       const res = await fetch(`${API_BASE_URL}/products/${productId}`, {
         method: 'DELETE',
       });
-      if (!res.ok) throw new Error('Failed to delete product');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Error desconocido' }));
+        throw new Error(errorData.message || `Error ${res.status}: ${res.statusText}`);
+      }
+      
       setProducts(prevProducts => prevProducts ? prevProducts.filter(p => p.id !== productId) : []);
-      showSuccess(productToDelete ? `Producto "${productToDelete.name}" eliminado.` : 'Producto eliminado correctamente.');
-    } catch (err) {
+      showSuccess(`✅ Producto "${productToDelete?.name || 'eliminado'}" eliminado correctamente`, 5000);
+    } catch (err: any) {
       console.error('Error deleting product:', err);
-      showError('Error al eliminar el producto.');
+      showError(`❌ Error al eliminar el producto: ${err?.message || 'Error desconocido'}`);
     }
   }, [products, showSuccess, showError]);
 
