@@ -299,15 +299,22 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
                   p.id && isValidUUID(p.id)
                 );
                 
-                if (validProduct) {
-                  console.log(`[Excel Import] Found valid product with same SKU: ${validProduct.sku}`);
+                if (validProduct && validProduct.id && isValidUUID(validProduct.id)) {
+                  console.log(`[Excel Import] Found valid product with same SKU: ${validProduct.sku} (ID: ${validProduct.id})`);
                   const updatedProduct = {
                     ...validProduct,
                     price: newPrice,
                     imageUrl: imageUrl || validProduct.imageUrl,
                   };
-                  productsToUpdate.push(updatedProduct);
-                  updatedCount++;
+                  // VALIDACIÓN FINAL antes de push
+                  if (updatedProduct.id && isValidUUID(updatedProduct.id)) {
+                    productsToUpdate.push(updatedProduct);
+                    updatedCount++;
+                  } else {
+                    console.error(`[Excel Import] CRITICAL: Valid product became invalid after update!`, updatedProduct);
+                    errors.push(`Producto ${json.indexOf(row) + 1}: ID inválido en producto de reemplazo (SKU: ${generatedSku})`);
+                    errorCount++;
+                  }
                 } else {
                   // No hay producto válido con este SKU, crear uno nuevo
                   console.log(`[Excel Import] Creating new product (old one had invalid ID): ${generatedSku}`);
@@ -332,14 +339,63 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
                 }
               } else {
                 // Producto encontrado con ID válido - actualizarlo
-                console.log(`[Excel Import] Product found for update: ${foundProduct.sku || foundProduct.name} (ID: ${foundProduct.id}, SKU: ${generatedSku})`);
-                const updatedProduct = {
-                  ...foundProduct,
-                  price: newPrice,
-                  imageUrl: imageUrl || foundProduct.imageUrl, // Update image if provided
-                };
-                productsToUpdate.push(updatedProduct);
-                updatedCount++;
+                // VALIDACIÓN FINAL: Asegurarse de que el ID sea válido antes de agregarlo
+                if (!foundProduct.id || !isValidUUID(foundProduct.id)) {
+                  console.error(`[Excel Import] CRITICAL: Product found but ID is invalid after validation!`, foundProduct);
+                  // Intentar buscar otro producto válido
+                  const validProduct = safeProducts.find(p => 
+                    p.sku && p.sku.trim().toLowerCase() === normalizedGeneratedSku && 
+                    p.id && isValidUUID(p.id)
+                  );
+                  
+                  if (validProduct) {
+                    console.log(`[Excel Import] Found valid product replacement: ${validProduct.sku} (ID: ${validProduct.id})`);
+                    const updatedProduct = {
+                      ...validProduct,
+                      price: newPrice,
+                      imageUrl: imageUrl || validProduct.imageUrl,
+                    };
+                    productsToUpdate.push(updatedProduct);
+                    updatedCount++;
+                  } else {
+                    // Crear nuevo producto
+                    console.log(`[Excel Import] Creating new product (no valid replacement found): ${generatedSku}`);
+                    productsToCreate.push({
+                      sku: generatedSku,
+                      name: productName,
+                      brand: brandName,
+                      brandLogoUrl: brandInfo?.logoUrl,
+                      price: newPrice,
+                      rating: 0,
+                      reviews: 0,
+                      imageUrl: imageUrl || '',
+                      description: `Neumático ${productName} de la marca ${brandName} con dimensiones ${parsedSize.width}/${parsedSize.profile}${diameter}.`,
+                      tags: [],
+                      stock: 10,
+                      width: parsedSize.width,
+                      profile: parsedSize.profile,
+                      diameter: diameter,
+                      isActive: true,
+                    });
+                    createdCount++;
+                  }
+                } else {
+                  console.log(`[Excel Import] Product found for update: ${foundProduct.sku || foundProduct.name} (ID: ${foundProduct.id}, SKU: ${generatedSku})`);
+                  const updatedProduct = {
+                    ...foundProduct,
+                    price: newPrice,
+                    imageUrl: imageUrl || foundProduct.imageUrl, // Update image if provided
+                  };
+                  // VALIDACIÓN FINAL ANTES DE PUSH
+                  if (updatedProduct.id && isValidUUID(updatedProduct.id)) {
+                    productsToUpdate.push(updatedProduct);
+                    updatedCount++;
+                  } else {
+                    console.error(`[Excel Import] CRITICAL: Updated product has invalid ID! Skipping.`, updatedProduct);
+                    errors.push(`Producto ${json.indexOf(row) + 1}: ID inválido después de actualización (SKU: ${generatedSku})`);
+                    errorCount++;
+                  }
+                }
               }
             } else {
               // Product not found, create a new one
@@ -371,13 +427,30 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
           }
         }
         
-        // Perform bulk updates
+        // Perform bulk updates - FILTRAR PRODUCTOS CON IDs INVÁLIDOS ANTES DE ACTUALIZAR
         if (productsToUpdate.length > 0) {
-            console.log('[Excel Import] Updating', productsToUpdate.length, 'products');
-            try {
-              await onUpdateProductsBulk(productsToUpdate);
-              console.log('[Excel Import] Bulk update completed successfully');
-            } catch (updateError: any) {
+            // VALIDACIÓN CRÍTICA FINAL: Filtrar cualquier producto con ID inválido que haya pasado
+            const validProductsToUpdate = productsToUpdate.filter(product => {
+              if (!product.id || !isValidUUID(product.id)) {
+                console.error(`[Excel Import] CRITICAL: Removing product with invalid ID from update list:`, product);
+                errors.push(`Producto con SKU "${product.sku || 'N/A'}" tiene ID inválido "${product.id}" y no se puede actualizar`);
+                errorCount++;
+                return false;
+              }
+              return true;
+            });
+            
+            console.log('[Excel Import] Products to update:', {
+              total: productsToUpdate.length,
+              valid: validProductsToUpdate.length,
+              invalid: productsToUpdate.length - validProductsToUpdate.length
+            });
+            
+            if (validProductsToUpdate.length > 0) {
+              try {
+                await onUpdateProductsBulk(validProductsToUpdate);
+                console.log('[Excel Import] Bulk update completed successfully');
+              } catch (updateError: any) {
               console.error('[Excel Import] Error in bulk update:', updateError);
               console.error('[Excel Import] Update error details:', {
                 message: updateError?.message,
@@ -390,7 +463,7 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
               const errorDetails = updateError?.details || '';
               const errorHint = updateError?.hint || '';
               
-              let detailedError = `Error al actualizar ${productsToUpdate.length} productos: ${errorMessage}`;
+              let detailedError = `Error al actualizar ${validProductsToUpdate.length} productos: ${errorMessage}`;
               if (errorDetails) {
                 detailedError += `\n\nDetalles: ${errorDetails}`;
               }
@@ -398,8 +471,12 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
                 detailedError += `\n\n💡 Sugerencia: ${errorHint}`;
               }
               
-              errorCount += productsToUpdate.length;
+              errorCount += validProductsToUpdate.length;
               errors.push(detailedError);
+              }
+            } else {
+              console.warn('[Excel Import] No valid products to update after filtering');
+              errors.push('No hay productos válidos para actualizar después del filtrado');
             }
         }
 
@@ -431,11 +508,13 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
                     price: product.price,
                     imageUrl: product.imageUrl || existingProduct.imageUrl,
                   };
-                  // Check if not already in productsToUpdate
-                  if (!productsToUpdate.find(p => p.id === existingProduct.id)) {
+                  // Check if not already in productsToUpdate AND validate ID
+                  if (updatedProduct.id && isValidUUID(updatedProduct.id) && !productsToUpdate.find(p => p.id === existingProduct.id)) {
                     productsToUpdate.push(updatedProduct);
                     updatedCount++;
                     createdCount--; // Adjust count since we're updating instead of creating
+                  } else {
+                    console.error(`[Excel Import] CRITICAL: Duplicate filter found invalid ID!`, updatedProduct);
                   }
                 }
                 return false; // Filter out this product
