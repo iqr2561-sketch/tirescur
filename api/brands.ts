@@ -109,13 +109,35 @@ export default allowCors(async function handler(req, res) {
         return;
       }
 
+      // Verificar si hay productos usando esta marca
+      const { data: productsWithBrand, error: checkError } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq('brand_id', brandId)
+        .limit(1);
+
+      if (checkError) {
+        console.error('[Brands API] Error checking products:', checkError);
+        // Continuar con la eliminación aunque haya error al verificar
+      }
+
+      if (productsWithBrand && productsWithBrand.length > 0) {
+        res.statusCode = 409;
+        res.json({ 
+          error: `No se puede eliminar la marca porque hay productos asociados. Por favor, actualiza o elimina los productos primero.`,
+          productsCount: productsWithBrand.length
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('brands')
         .delete()
         .eq('id', brandId);
 
       if (error) {
-        throw new Error(error.message);
+        console.error('[Brands API] Error deleting brand:', error);
+        throw new Error(error.message || 'Error al eliminar la marca');
       }
 
       res.statusCode = 204;
