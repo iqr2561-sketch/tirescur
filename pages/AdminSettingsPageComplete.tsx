@@ -205,6 +205,70 @@ const AdminSettingsPageComplete: React.FC<AdminSettingsPageProps> = ({
     setNewHeroImageUrl(url);
   }, []);
 
+  const handleSiteNameUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await onUpdateSiteName(newSiteName);
+      showSuccess('Nombre del sitio actualizado con éxito!');
+    } catch (error: any) {
+      showError(`Error al actualizar el nombre: ${error?.message || 'Error desconocido'}`);
+    }
+  };
+
+  const handleSiteLogoUpload = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64String = reader.result as string;
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              file: base64String,
+              fileName: file.name,
+              fileType: file.type,
+              entityType: 'site_logo',
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al subir la imagen');
+          }
+
+          const data = await response.json();
+          setNewSiteLogo(data.url);
+          await onUpdateSiteLogo(data.url);
+          showSuccess('Logo del sitio subido y guardado correctamente');
+        } catch (error: any) {
+          showError(`Error al subir el logo: ${error.message}`);
+        } finally {
+          setIsUploading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      showError(`Error al procesar la imagen: ${error.message}`);
+      setIsUploading(false);
+    }
+  };
+
+  const handleSiteLogoUrlChange = useCallback((url: string) => {
+    setNewSiteLogo(url);
+  }, []);
+
+  const handleSiteLogoUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await onUpdateSiteLogo(newSiteLogo);
+      showSuccess('Logo del sitio actualizado con éxito!');
+    } catch (error: any) {
+      showError(`Error al actualizar el logo: ${error?.message || 'Error desconocido'}`);
+    }
+  };
+
   const handleHeroImageUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -596,14 +660,66 @@ const AdminSettingsPageComplete: React.FC<AdminSettingsPageProps> = ({
         <div className="p-6 rounded-lg shadow-md mb-8 bg-white dark:bg-gray-800">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 dark:text-gray-100">Configuración del Sitio</h2>
           
-          {/* Sección de Subir Imagen */}
+          {/* Nombre del Sitio */}
+          <form onSubmit={handleSiteNameUpdate} className="space-y-4 mb-6">
+            <div>
+              <label htmlFor="siteName" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Nombre del Sitio</label>
+              <input
+                type="text"
+                name="siteName"
+                id="siteName"
+                value={newSiteName}
+                onChange={(e) => setNewSiteName(e.target.value)}
+                className={getInputFieldClasses()}
+                placeholder="Ej: Mi Tienda Online"
+              />
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Este nombre se mostrará en el título de la página y en el PWA.</p>
+            </div>
+            <button
+              type="submit"
+              className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+              <span>Guardar Nombre</span>
+            </button>
+          </form>
+
+          {/* Logo del Sitio */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Subir Imagen del Héroe</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Logo del Sitio</label>
+            <ImageUploader
+              currentImageUrl={newSiteLogo || ''}
+              onImageSelected={handleSiteLogoUpload}
+              onImageUrlChange={handleSiteLogoUrlChange}
+              label="Subir logo del sitio"
+              maxSizeMB={2}
+            />
+            {newSiteLogo && (
+              <div className="mt-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Vista previa:</p>
+                <img src={newSiteLogo} alt="Logo del sitio" className="h-20 object-contain rounded-lg" />
+              </div>
+            )}
+            <form onSubmit={handleSiteLogoUpdate} className="mt-4">
+              <button
+                type="submit"
+                disabled={isUploading}
+                className={`bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                <span>{isUploading ? 'Guardando...' : 'Guardar Logo'}</span>
+              </button>
+            </form>
+          </div>
+
+          {/* Imagen Hero - Sección unificada */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Imagen del Héroe (Hero Image)</label>
             <ImageUploader
               currentImageUrl={newHeroImageUrl || ''}
               onImageSelected={handleHeroImageUpload}
               onImageUrlChange={handleHeroImageUrlChange}
-              label="Subir imagen de héroe"
+              label="Subir imagen de héroe o ingresar URL"
               maxSizeMB={5}
             />
             {newHeroImageUrl && (
@@ -612,34 +728,17 @@ const AdminSettingsPageComplete: React.FC<AdminSettingsPageProps> = ({
                 <img src={newHeroImageUrl} alt="Vista previa" className="h-32 w-full object-cover rounded-lg" />
               </div>
             )}
+            <form onSubmit={handleHeroImageUpdate} className="mt-4">
+              <button
+                type="submit"
+                disabled={isUploading}
+                className={`bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors flex items-center space-x-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                <span>{isUploading ? 'Guardando...' : 'Guardar Imagen Hero'}</span>
+              </button>
+            </form>
           </div>
-
-          {/* Sección de URL */}
-          <form onSubmit={handleHeroImageUpdate} className="space-y-4 mb-6">
-            <div>
-              <label htmlFor="heroImage" className="block text-sm font-medium text-gray-700 dark:text-gray-200">O introduce una URL de Imagen</label>
-              <input
-                type="url"
-                name="heroImage"
-                id="heroImage"
-                value={newHeroImageUrl}
-                onChange={(e) => setNewHeroImageUrl(e.target.value)}
-                className={getInputFieldClasses()}
-                placeholder="https://ejemplo.com/imagen.jpg"
-              />
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Imagen actual: <a href={heroImageUrl} target="_blank" rel="noopener noreferrer" className="text-red-600 hover:underline">{heroImageUrl.substring(0, Math.min(heroImageUrl.length, 50))}...</a>
-              </p>
-            </div>
-            <button
-              type="submit"
-              disabled={isUploading}
-              className={`bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors flex items-center space-x-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-              <span>{isUploading ? 'Guardando...' : 'Guardar Imagen'}</span>
-            </button>
-          </form>
 
           <form onSubmit={handlePhoneNumberUpdate} className="space-y-4">
             <div>

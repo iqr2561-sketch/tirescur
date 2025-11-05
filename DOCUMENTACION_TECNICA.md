@@ -7,11 +7,16 @@
 3. [Modal de Login Moderno](#modal-de-login-moderno)
 4. [Panel de Control y Transiciones](#panel-de-control-y-transiciones)
 5. [Sistema de Gestión de Usuarios](#sistema-de-gestión-de-usuarios)
-6. [Estructura de Archivos](#estructura-de-archivos)
-7. [APIs y Endpoints](#apis-y-endpoints)
-8. [Base de Datos](#base-de-datos)
-9. [Flujo de Datos](#flujo-de-datos)
-10. [Configuración y Variables de Entorno](#configuración-y-variables-de-entorno)
+6. [Sistema de Cotización de Grúa](#sistema-de-cotización-de-grúa) ⭐ NUEVO
+7. [Progressive Web App (PWA)](#progressive-web-app-pwa) ⭐ NUEVO
+8. [Configuración del Sitio](#configuración-del-sitio) ⭐ NUEVO
+9. [Sistema de Ofertas y Descuentos](#sistema-de-ofertas-y-descuentos) ⭐ NUEVO
+10. [Sistema de Popups Configurables](#sistema-de-popups-configurables) ⭐ NUEVO
+11. [Estructura de Archivos](#estructura-de-archivos)
+12. [APIs y Endpoints](#apis-y-endpoints)
+13. [Base de Datos](#base-de-datos)
+14. [Flujo de Datos](#flujo-de-datos)
+15. [Configuración y Variables de Entorno](#configuración-y-variables-de-entorno)
 
 ---
 
@@ -705,6 +710,228 @@ proxy: {
    - Validación de entrada más estricta
    - Sanitización de datos
    - Validación de roles en cada endpoint
+
+---
+
+## 🚛 Sistema de Cotización de Grúa
+
+### Descripción General
+
+Sistema completo para gestionar cotizaciones de servicio de grúa, permitiendo a los clientes calcular el precio estimado basado en:
+- Tipo de vehículo (con precios base configurables)
+- Distancia en kilómetros
+- Número de pasajeros
+- Número de trailers
+- Opciones adicionales (configurables)
+
+### Componentes Principales
+
+**Frontend:**
+- `components/CraneQuoteModal.tsx`: Modal interactivo para calcular cotizaciones
+- `components/CustomerInfoModal.tsx`: Captura datos del cliente antes de enviar
+- `pages/HomePage.tsx`: Card "Soporte 24/7" que abre el modal
+- `pages/AdminCraneQuotePage.tsx`: Panel de administración para configurar precios y opciones
+
+**Backend:**
+- `api/crane-quote.ts`: API REST para gestionar configuración
+- Tablas: `crane_quote_config`, `crane_vehicle_types`, `crane_additional_options`
+
+### Flujo de Usuario
+
+1. Usuario hace clic en "Soporte 24/7" en la página principal
+2. Se abre `CraneQuoteModal` con formulario de cotización
+3. Usuario selecciona tipo de vehículo, ingresa kilómetros, pasajeros, trailers
+4. Sistema calcula precio total en tiempo real
+5. Usuario hace clic en "Solicitar Cotización"
+6. Se abre `CustomerInfoModal` para capturar nombre del cliente
+7. Se genera mensaje de WhatsApp con todos los datos y se abre WhatsApp Web/App
+
+### Configuración desde Admin
+
+**Ruta**: `/admin/crane-quote`
+
+**Campos configurables:**
+- Precio por kilómetro
+- Precio por pasajero
+- Precio por trailer
+- Número de WhatsApp para cotizaciones
+- Tipos de vehículos (nombre + precio base)
+- Opciones adicionales (nombre + precio)
+
+**Características:**
+- CRUD completo para vehículos y opciones
+- IDs temporales para nuevos elementos (se reemplazan al guardar)
+- Validación de campos antes de guardar
+- Notificaciones de éxito/error
+
+### Base de Datos
+
+```sql
+-- Configuración principal
+CREATE TABLE crane_quote_config (
+  id UUID PRIMARY KEY,
+  price_per_kilometer DECIMAL(10, 2) DEFAULT 2000,
+  price_per_passenger DECIMAL(10, 2) DEFAULT 3000,
+  price_per_trailer DECIMAL(10, 2) DEFAULT 600,
+  whatsapp_number VARCHAR(20) DEFAULT '+5492245506078',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tipos de vehículos
+CREATE TABLE crane_vehicle_types (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  base_price DECIMAL(10, 2) DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Opciones adicionales
+CREATE TABLE crane_additional_options (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  price DECIMAL(10, 2) DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### API Endpoints
+
+**GET `/api/crane-quote`**
+- Retorna configuración completa con vehículos y opciones
+
+**PUT `/api/crane-quote`**
+- Actualiza configuración principal
+- Gestiona CRUD de vehículos y opciones
+- Maneja IDs temporales del frontend
+
+---
+
+## 📱 Progressive Web App (PWA)
+
+### Implementación
+
+La aplicación es una PWA completa con:
+- Manifest dinámico (`manifest.json`)
+- Service Worker (`public/sw.js`)
+- Prompt de instalación (`components/InstallPrompt.tsx`)
+- Iconos para diferentes tamaños
+
+### Características PWA
+
+1. **Instalable**: Los usuarios pueden instalar la app en su dispositivo
+2. **Offline**: Service Worker cachea recursos esenciales
+3. **Actualización dinámica**: El manifest se actualiza según configuración del sitio
+4. **Iconos**: Soporte para iconos de 192x192 y 512x512
+
+### Configuración Dinámica
+
+El nombre del sitio y logo se pueden configurar desde `/admin/settings`, y se actualizan automáticamente en:
+- Título de la página
+- Manifest de PWA
+- Meta tags
+
+### Archivos Clave
+
+- `public/manifest.json`: Configuración base de PWA
+- `public/sw.js`: Service Worker con estrategia "Network First"
+- `components/InstallPrompt.tsx`: Componente para mostrar prompt de instalación
+- `main.tsx`: Registra el Service Worker al iniciar
+
+---
+
+## ⚙️ Configuración del Sitio
+
+### Funcionalidades
+
+Desde `/admin/settings` → Tab "Configuración del Sitio":
+
+1. **Nombre del Sitio**: Se actualiza en título y PWA manifest
+2. **Logo del Sitio**: Se muestra en header y PWA
+3. **Imagen Hero**: Imagen principal de la página de inicio
+4. **Número de WhatsApp**: Para comunicaciones generales
+
+### Actualización Dinámica
+
+- `App.tsx` actualiza el título de la página dinámicamente
+- `updateManifest()` actualiza el manifest de PWA
+- Los cambios se guardan en la tabla `settings` de Supabase
+
+---
+
+## 🎯 Sistema de Ofertas y Descuentos
+
+### Funcionalidades
+
+1. **Productos en Oferta**: Campo `is_on_sale` en tabla `products`
+2. **Precio de Oferta**: Campo `sale_price` (debe ser menor que precio regular)
+3. **Porcentaje de Descuento**: Campo `discount_percentage` (calculado automáticamente)
+4. **Validación**: El sistema valida que el precio de oferta sea menor que el regular
+
+### Lógica de Cálculo
+
+- Si se ingresa `sale_price`, se calcula `discount_percentage`
+- Si se ingresa `discount_percentage`, se calcula `sale_price`
+- Si solo se marca "en oferta" sin valores, se aplica 10% de descuento por defecto
+
+### Zona de Ofertas
+
+Configuración especial en `/admin/settings` → Tab "Zona de Ofertas":
+- Imagen de fondo personalizable
+- Color de fondo alternativo
+- Texto de descuento
+- Fecha límite de oferta
+- Botón con texto personalizable
+
+---
+
+## 🎨 Sistema de Popups Configurables
+
+### Funcionalidades
+
+Desde `/admin/settings` → Tab "Popups / Modales":
+
+1. **Crear/Editar Popups**: Título, mensaje, imagen, botones
+2. **Configuración avanzada**:
+   - Auto-cierre (segundos)
+   - Prioridad (mayor número = mayor prioridad)
+   - Fechas de inicio y fin
+   - Mostrar al cargar página
+   - Mostrar solo una vez por sesión
+   - Estado activo/inactivo
+
+3. **Gestión**: Lista de todos los popups con acciones editar/eliminar
+
+### Base de Datos
+
+```sql
+CREATE TABLE popups (
+  id UUID PRIMARY KEY,
+  title TEXT NOT NULL,
+  message TEXT,
+  image_url TEXT,
+  button_text TEXT,
+  button_link TEXT,
+  is_active BOOLEAN DEFAULT true,
+  auto_close_seconds INTEGER,
+  show_on_page_load BOOLEAN DEFAULT true,
+  show_once_per_session BOOLEAN DEFAULT true,
+  priority INTEGER DEFAULT 0,
+  start_date TIMESTAMPTZ,
+  end_date TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Lógica de Mostrado
+
+- Solo se muestran popups activos
+- Se ordenan por prioridad (mayor primero)
+- Se verifica fecha de inicio/fin si existen
+- Se respeta `show_once_per_session` usando `localStorage`
 
 ---
 

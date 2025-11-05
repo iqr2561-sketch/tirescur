@@ -11,8 +11,23 @@ CREATE TABLE IF NOT EXISTS crane_quote_config (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Crear indice unico para asegurar una sola configuracion
-CREATE UNIQUE INDEX IF NOT EXISTS idx_crane_quote_config_single ON crane_quote_config((1));
+-- Crear trigger para asegurar una sola configuracion (usando un constraint funcional)
+-- Nota: PostgreSQL no permite indices unicos en constantes, usaremos un trigger en su lugar
+CREATE OR REPLACE FUNCTION ensure_single_crane_quote_config()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (SELECT COUNT(*) FROM crane_quote_config) > 1 THEN
+    RAISE EXCEPTION 'Solo puede haber una configuracion de cotizacion de grua';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_ensure_single_crane_quote_config ON crane_quote_config;
+CREATE TRIGGER trigger_ensure_single_crane_quote_config
+  AFTER INSERT ON crane_quote_config
+  FOR EACH ROW
+  EXECUTE FUNCTION ensure_single_crane_quote_config();
 
 -- Crear tabla para tipos de vehiculos
 CREATE TABLE IF NOT EXISTS crane_vehicle_types (

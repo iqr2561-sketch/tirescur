@@ -1107,7 +1107,12 @@ const App: React.FC = () => {
   ];
   
   const adminMenusFromDB = finalMenus.filter(m => m.location === 'admin-sidebar').sort((a,b) => a.order - b.order);
-  const adminMenus = adminMenusFromDB.length > 0 ? adminMenusFromDB : defaultAdminMenus;
+  // Asegurar que "Cotización de Grúa" siempre esté presente
+  const craneQuoteMenu = defaultAdminMenus.find(m => m.id === 'admin-crane-quote');
+  const hasCraneQuoteInDB = adminMenusFromDB.some(m => m.id === 'admin-crane-quote');
+  const adminMenus = adminMenusFromDB.length > 0 
+    ? (hasCraneQuoteInDB ? adminMenusFromDB : [...adminMenusFromDB, craneQuoteMenu!].sort((a,b) => a.order - b.order))
+    : defaultAdminMenus;
   
   const footerInfoMenus = finalMenus.filter(m => m.location === 'footer-info').sort((a,b) => a.order - b.order);
   const footerAccountMenus = finalMenus.filter(m => m.location === 'footer-account').sort((a,b) => a.order - b.order);
