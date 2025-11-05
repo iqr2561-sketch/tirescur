@@ -3,6 +3,8 @@ import allowCors from '../lib/cors.js';
 import { ensureSupabase } from '../lib/supabase.js';
 import { Product } from '../types';
 
+// Consolidated API endpoint - handles all product operations to stay within Vercel Hobby limit
+
 export default allowCors(async function handler(req, res) {
   try {
     const supabase = ensureSupabase();
