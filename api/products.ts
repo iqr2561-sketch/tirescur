@@ -16,17 +16,42 @@ export default allowCors(async function handler(req, res) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     let productId: string | undefined = Array.isArray(query.id) ? query.id[0] : query.id;
     
-    // Si no está en query, intentar extraerlo del pathname
-    if (!productId && pathname) {
-      const pathParts = pathname.split('/').filter(p => p);
-      const productsIndex = pathParts.indexOf('products');
-      if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
-        const potentialId = pathParts[productsIndex + 1];
-        // Solo usar si parece un UUID válido (no es "bulk" u otra palabra)
-        if (uuidRegex.test(potentialId)) {
-          productId = potentialId;
+    // Logging para debugging
+    console.log('[Products API] Request details:', {
+      method: req.method,
+      url: req.url,
+      pathname: pathname,
+      query: query,
+      queryId: productId
+    });
+    
+    // Si no está en query, intentar extraerlo del pathname o de la URL completa
+    if (!productId) {
+      // Primero intentar desde pathname
+      if (pathname) {
+        const pathParts = pathname.split('/').filter(p => p);
+        const productsIndex = pathParts.indexOf('products');
+        if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
+          const potentialId = pathParts[productsIndex + 1];
+          // Solo usar si parece un UUID válido (no es "bulk" u otra palabra)
+          if (uuidRegex.test(potentialId)) {
+            productId = potentialId;
+            console.log('[Products API] Found productId from pathname:', productId);
+          }
         }
       }
+      
+      // Si todavía no tenemos ID, intentar desde la URL completa
+      if (!productId && req.url) {
+        // Buscar UUID en la URL completa
+        const urlMatch = req.url.match(uuidRegex);
+        if (urlMatch) {
+          productId = urlMatch[0];
+          console.log('[Products API] Found productId from full URL:', productId);
+        }
+      }
+    } else {
+      console.log('[Products API] Using productId from query:', productId);
     }
 
     if (req.method === 'GET') {
@@ -304,11 +329,20 @@ export default allowCors(async function handler(req, res) {
 
       // PUT individual: actualizar un producto por ID
       if (!productId) {
+        console.error('[Products API] PUT request without productId. URL:', req.url, 'Pathname:', pathname, 'Query:', query);
         res.statusCode = 400;
-        res.json({ error: 'Product ID is required for update. Use /api/products/[id] or include ID in URL path.' });
+        res.json({ 
+          error: 'Product ID is required for update. Use /api/products/[id] or include ID in URL path.',
+          debug: {
+            url: req.url,
+            pathname: pathname,
+            query: query
+          }
+        });
         return;
       }
 
+      console.log('[Products API] Updating individual product:', productId);
       const updated = await updateSingleProduct(supabase, productId, body as Product);
       res.statusCode = 200;
       res.json(toClientProduct(updated));
@@ -385,6 +419,13 @@ async function updateSingleProduct(supabase: any, productId: string, product: Pr
     }
   }
 
+  console.log('[Products API] updateSingleProduct called:', {
+    productId: productId,
+    sku: product.sku,
+    name: product.name,
+    brand: product.brand
+  });
+
   const { data, error } = await supabase
     .from('products')
     .update(mapProductForInsert(product, { id: brandId, logo_url: brandLogo }))
@@ -393,7 +434,19 @@ async function updateSingleProduct(supabase: any, productId: string, product: Pr
     .single();
 
   if (error || !data) {
-    console.error('[Products API] Error actualizando producto:', error);
+    console.error('[Products API] Error actualizando producto:', {
+      productId: productId,
+      error: error,
+      errorMessage: error?.message,
+      errorCode: error?.code,
+      errorDetails: error?.details
+    });
+    
+    // Si el producto no existe (error 404 equivalente en Supabase)
+    if (error?.code === 'PGRST116' || error?.message?.includes('No rows')) {
+      throw new Error(`Producto con ID "${productId}" no encontrado en la base de datos`);
+    }
+    
     const errorMessage = error?.message || 'Error desconocido al actualizar producto';
     // Si el error es sobre una columna que no existe, dar mensaje más claro
     if (errorMessage.includes('column') || errorMessage.includes('schema') || errorMessage.includes('is_active')) {
@@ -401,6 +454,12 @@ async function updateSingleProduct(supabase: any, productId: string, product: Pr
     }
     throw new Error(errorMessage);
   }
+
+  console.log('[Products API] Product updated successfully:', {
+    productId: data.id,
+    sku: data.sku,
+    name: data.name
+  });
 
   return data;
 }
