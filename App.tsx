@@ -592,60 +592,54 @@ const App: React.FC = () => {
 
   const updateProductsBulk = useCallback(async (newProductsArray: Product[]) => {
     try {
-      // For bulk update, we send an array of products, expecting `id` to be present for filtering
-      const res = await fetch(`${API_BASE_URL}/products/bulk`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProductsArray),
-      });
+      console.log('[App] Bulk update: Updating', newProductsArray.length, 'products individually');
       
-      // Check if response is valid JSON
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        let errorMessage = 'Error al conectar con la API';
+      // SOLUCIÓN DRASTICA: Actualizar productos uno por uno para evitar problemas de routing
+      // Esto garantiza que cada actualización use el endpoint correcto /api/products/[id]
+      const updateResults = [];
+      const errors = [];
+      
+      for (let i = 0; i < newProductsArray.length; i++) {
+        const product = newProductsArray[i];
         try {
-          const text = await res.text();
-          if (text.includes('error') || text.includes('Error')) {
-            errorMessage = `Error del servidor: ${res.status} ${res.statusText}`;
+          if (!product.id) {
+            errors.push(`Producto ${i + 1}: Falta ID (SKU: ${product.sku || 'N/A'})`);
+            continue;
           }
-        } catch (e) {
-          // Ignore text parsing errors
+          
+          // Usar el endpoint individual que sabemos que funciona
+          const { id, ...productDataToSend } = product;
+          const url = `${API_BASE_URL}/products/${id}`;
+          
+          const res = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(productDataToSend),
+          });
+          
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
+            throw new Error(errorData.error || errorData.message || `Error ${res.status}: ${res.statusText}`);
+          }
+          
+          const updatedProduct = await res.json();
+          updateResults.push(updatedProduct);
+          
+          // Log progress every 10 products
+          if ((i + 1) % 10 === 0) {
+            console.log(`[App] Bulk update progress: ${i + 1}/${newProductsArray.length} products updated`);
+          }
+        } catch (error: any) {
+          console.error(`[App] Error updating product ${i + 1} (${product.id}):`, error);
+          errors.push(`Producto ${i + 1} (${product.sku || product.name || 'N/A'}): ${error?.message || 'Error desconocido'}`);
         }
-        throw new Error(errorMessage);
       }
       
-      // Read response data first
-      let responseData: any = {};
-      try {
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          responseData = await res.json();
-        } else {
-          const text = await res.text();
-          responseData = { error: text || `Error ${res.status}: ${res.statusText}` };
-        }
-      } catch (parseError) {
-        responseData = { error: `Error ${res.status}: ${res.statusText}` };
-      }
-      
-      // Handle errors (but not partial success 207)
-      if (!res.ok && res.status !== 207) {
-        // Construir mensaje de error más detallado
-        const errorMessage = responseData.error || responseData.message || `Error ${res.status}: ${res.statusText}`;
-        const errorDetails = responseData.details || responseData.errorDetails || '';
-        const errorCode = responseData.code || '';
-        const errorHint = responseData.hint || '';
-        
-        const fullError = new Error(errorMessage);
-        (fullError as any).details = errorDetails;
-        (fullError as any).code = errorCode;
-        (fullError as any).hint = errorHint;
-        (fullError as any).status = res.status;
-        (fullError as any).updated = responseData.updated || 0;
-        (fullError as any).errors = responseData.errors || 0;
-        
-        throw fullError;
-      }
+      console.log('[App] Bulk update completed:', {
+        total: newProductsArray.length,
+        updated: updateResults.length,
+        errors: errors.length
+      });
       
       // Re-fetch products to ensure state is fully consistent after bulk operation
       const productsRes = await fetch(`${API_BASE_URL}/products`);
@@ -668,56 +662,35 @@ const App: React.FC = () => {
       }));
       setProducts(mappedUpdatedProducts);
       
-      // Show appropriate message based on response status
-      if (res.status === 207) {
-        // Partial success
-        const updatedCount = responseData.updated || 0;
-        const errorCount = responseData.errors || 0;
-        if (updatedCount > 0) {
-          showSuccess(`✅ ${updatedCount} productos actualizados${errorCount > 0 ? `, ${errorCount} con errores` : ''}`);
+      // Show appropriate message
+      if (errors.length > 0) {
+        if (updateResults.length > 0) {
+          showWarning(`⚠️ Actualización parcial: ${updateResults.length} productos actualizados, ${errors.length} errores`);
+        } else {
+          showError(`❌ No se pudieron actualizar los productos. Errores: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? `... y ${errors.length - 3} más` : ''}`);
         }
+        // Re-throw with error details
+        const error = new Error(`Actualización parcial: ${updateResults.length} actualizados, ${errors.length} errores`);
+        (error as any).updated = updateResults.length;
+        (error as any).errors = errors.length;
+        (error as any).errorDetails = errors;
+        throw error;
       } else {
-        showSuccess('Precios actualizados masivamente con éxito!');
+        showSuccess(`✅ ${updateResults.length} productos actualizados masivamente con éxito!`);
       }
     } catch (err: any) {
       console.error('Error bulk updating products:', err);
-      console.error('Error details:', {
-        message: err?.message,
-        details: err?.details,
-        code: err?.code,
-        hint: err?.hint,
-        status: err?.status,
-        updated: err?.updated,
-        errors: err?.errors
-      });
       
-      const errorMessage = err?.message || 'Error desconocido al actualizar productos';
-      const errorDetails = err?.details || '';
-      const errorCode = err?.code || '';
-      const errorHint = err?.hint || '';
-      const updatedCount = err?.updated || 0;
-      const errorCount = err?.errors || 0;
-      
-      // Construir mensaje de error más detallado
-      let userMessage = '';
-      
-      if (err?.status === 207 && updatedCount > 0) {
-        // Partial success - some products were updated
-        userMessage = `⚠️ Actualización parcial: ${updatedCount} productos actualizados, ${errorCount} errores`;
-        if (errorDetails) {
-          userMessage += `\n\nErrores:\n${Array.isArray(errorDetails) ? errorDetails.join('\n') : errorDetails}`;
-        }
-      } else {
-        userMessage = `❌ No se pudieron actualizar los precios: ${errorMessage}`;
-        if (errorDetails) userMessage += `\n\nDetalles: ${errorDetails}`;
-        if (errorHint) userMessage += `\n\n💡 Sugerencia: ${errorHint}`;
-        if (errorCode) userMessage += `\n\nCódigo de error: ${errorCode}`;
+      // Si el error ya tiene detalles, usarlos
+      if (err?.errorDetails) {
+        throw err;
       }
       
-      showError(userMessage);
+      const errorMessage = err?.message || 'Error desconocido al actualizar productos';
+      showError(`❌ No se pudieron actualizar los precios: ${errorMessage}`);
       throw err;
     }
-  }, [showSuccess, showError]);
+  }, [showSuccess, showError, showWarning]);
 
   const addProductsBulk = useCallback(async (newProductsArray: Omit<Product, 'id'>[]) => {
     if (newProductsArray.length === 0) return [];
