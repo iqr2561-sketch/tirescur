@@ -599,35 +599,60 @@ const App: React.FC = () => {
   const updateProductsBulk = useCallback(async (newProductsArray: Product[]) => {
     try {
       console.log('[App] Bulk update: Updating', newProductsArray.length, 'products individually');
+      console.log('[App] Sample products received:', newProductsArray.slice(0, 3).map(p => ({
+        sku: p.sku,
+        id: p.id,
+        idType: typeof p.id,
+        isValid: p.id ? isValidUUID(p.id) : false
+      })));
       
       // SOLUCIÓN DRASTICA: Actualizar productos uno por uno para evitar problemas de routing
       // Esto garantiza que cada actualización use el endpoint correcto /api/products/[id]
       const updateResults = [];
       const errors = [];
       
-      for (let i = 0; i < newProductsArray.length; i++) {
-        const product = newProductsArray[i];
+      // FILTRO INICIAL: Remover productos con IDs inválidos ANTES de procesar
+      const productsWithValidIds = newProductsArray.filter(product => {
+        if (!product.id) {
+          console.warn(`[App] PRE-FILTER: Removing product without ID:`, product);
+          errors.push(`Producto sin ID (SKU: ${product.sku || 'N/A'})`);
+          return false;
+        }
+        if (!isValidUUID(product.id)) {
+          console.error(`[App] PRE-FILTER: Removing product with invalid ID "${product.id}":`, product);
+          errors.push(`Producto con ID inválido "${product.id}" (SKU: ${product.sku || 'N/A'})`);
+          return false;
+        }
+        return true;
+      });
+      
+      console.log('[App] After pre-filter:', {
+        original: newProductsArray.length,
+        valid: productsWithValidIds.length,
+        removed: newProductsArray.length - productsWithValidIds.length
+      });
+      
+      for (let i = 0; i < productsWithValidIds.length; i++) {
+        const product = productsWithValidIds[i];
         try {
-          // Validar que el producto tenga ID y que sea un UUID válido
-          if (!product.id) {
-            errors.push(`Producto ${i + 1}: Falta ID (SKU: ${product.sku || 'N/A'})`);
-            console.warn(`[App] Skipping product ${i + 1}: Missing ID`, product);
-            continue;
-          }
-          
-          // VALIDACIÓN CRÍTICA: Verificar que el ID sea un UUID válido
-          if (!isValidUUID(product.id)) {
-            const errorMsg = `Producto ${i + 1}: ID inválido "${product.id}" (SKU: ${product.sku || 'N/A'}). Se espera un UUID válido.`;
+          // DOBLE VALIDACIÓN: Verificar nuevamente (por si acaso)
+          if (!product.id || !isValidUUID(product.id)) {
+            const errorMsg = `Producto ${i + 1}: ID inválido "${product.id}" (SKU: ${product.sku || 'N/A'}) después del pre-filtro`;
             errors.push(errorMsg);
-            console.error(`[App] ${errorMsg}`, product);
-            continue; // Saltar este producto y continuar con los demás
+            console.error(`[App] CRITICAL: ${errorMsg}`, product);
+            continue;
           }
           
           // Usar el endpoint individual que sabemos que funciona
           const { id, ...productDataToSend } = product;
           const url = `${API_BASE_URL}/products/${id}`;
           
-          console.log(`[App] Updating product ${i + 1}/${newProductsArray.length}: ${product.sku || product.name} (ID: ${id})`);
+          console.log(`[App] Updating product ${i + 1}/${productsWithValidIds.length}: ${product.sku || product.name} (ID: ${id})`);
+          
+          // VALIDACIÓN FINAL ANTES DE FETCH: Asegurarse de que el ID sigue siendo válido
+          if (!id || !isValidUUID(id)) {
+            throw new Error(`ID "${id}" no es un UUID válido`);
+          }
           
           const res = await fetch(url, {
             method: 'PUT',
@@ -637,7 +662,14 @@ const App: React.FC = () => {
           
           if (!res.ok) {
             const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
-            throw new Error(errorData.error || errorData.message || `Error ${res.status}: ${res.statusText}`);
+            const errorMessage = errorData.error || errorData.message || `Error ${res.status}: ${res.statusText}`;
+            
+            // Si el error es sobre UUID inválido, agregar más contexto
+            if (errorMessage.includes('uuid') || errorMessage.includes('invalid input')) {
+              throw new Error(`ID inválido detectado: "${id}" (SKU: ${product.sku || 'N/A'}). ${errorMessage}`);
+            }
+            
+            throw new Error(errorMessage);
           }
           
           const updatedProduct = await res.json();
@@ -645,7 +677,7 @@ const App: React.FC = () => {
           
           // Log progress every 10 products
           if ((i + 1) % 10 === 0) {
-            console.log(`[App] Bulk update progress: ${i + 1}/${newProductsArray.length} products updated`);
+            console.log(`[App] Bulk update progress: ${i + 1}/${productsWithValidIds.length} products updated`);
           }
         } catch (error: any) {
           console.error(`[App] Error updating product ${i + 1} (${product.id}):`, error);
@@ -654,7 +686,8 @@ const App: React.FC = () => {
       }
       
       console.log('[App] Bulk update completed:', {
-        total: newProductsArray.length,
+        original: newProductsArray.length,
+        afterPreFilter: productsWithValidIds.length,
         updated: updateResults.length,
         errors: errors.length
       });

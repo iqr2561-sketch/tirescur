@@ -19,7 +19,27 @@ export default allowCors(async function handler(req, res) {
         throw new Error(error.message);
       }
 
-      const formatted = (data || []).map(toClientProduct);
+      // Validar UUID antes de formatear productos
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isValidUUID = (str: string): boolean => {
+        return str && typeof str === 'string' && uuidRegex.test(str);
+      };
+
+      // Filtrar productos con IDs inválidos
+      const validProducts = (data || []).filter((row: any) => {
+        if (!isValidUUID(row.id)) {
+          console.warn(`[Products API] Filtering out product with invalid ID: "${row.id}" (SKU: ${row.sku || row.name || 'N/A'})`);
+          return false;
+        }
+        return true;
+      });
+
+      const formatted = validProducts.map(toClientProduct);
+      
+      if (validProducts.length < (data || []).length) {
+        console.warn(`[Products API] Filtered out ${(data || []).length - validProducts.length} products with invalid IDs`);
+      }
+      
       res.statusCode = 200;
       res.json(formatted);
       return;

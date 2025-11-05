@@ -446,6 +446,29 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
               invalid: productsToUpdate.length - validProductsToUpdate.length
             });
             
+            // LOGGING DETALLADO: Mostrar todos los productos que se intentarán actualizar
+            console.log('[Excel Import] Valid products to update (IDs):', 
+              validProductsToUpdate.map(p => ({ sku: p.sku, id: p.id, name: p.name }))
+            );
+            
+            // VALIDACIÓN EXTRA: Verificar que TODOS los productos tengan IDs válidos
+            const invalidProducts = validProductsToUpdate.filter(p => !p.id || !isValidUUID(p.id));
+            if (invalidProducts.length > 0) {
+              console.error('[Excel Import] CRITICAL BUG: Found invalid products in validProductsToUpdate!', invalidProducts);
+              // Remover los inválidos
+              const reallyValidProducts = validProductsToUpdate.filter(p => p.id && isValidUUID(p.id));
+              console.log('[Excel Import] After removing invalid products:', {
+                before: validProductsToUpdate.length,
+                after: reallyValidProducts.length
+              });
+              
+              if (reallyValidProducts.length > 0) {
+                // Usar solo los productos realmente válidos
+                validProductsToUpdate.length = 0;
+                validProductsToUpdate.push(...reallyValidProducts);
+              }
+            }
+            
             if (validProductsToUpdate.length > 0) {
               try {
                 await onUpdateProductsBulk(validProductsToUpdate);
