@@ -11,23 +11,9 @@ CREATE TABLE IF NOT EXISTS crane_quote_config (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Crear trigger para asegurar una sola configuracion (usando un constraint funcional)
--- Nota: PostgreSQL no permite indices unicos en constantes, usaremos un trigger en su lugar
-CREATE OR REPLACE FUNCTION ensure_single_crane_quote_config()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF (SELECT COUNT(*) FROM crane_quote_config) > 1 THEN
-    RAISE EXCEPTION 'Solo puede haber una configuracion de cotizacion de grua';
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trigger_ensure_single_crane_quote_config ON crane_quote_config;
-CREATE TRIGGER trigger_ensure_single_crane_quote_config
-  AFTER INSERT ON crane_quote_config
-  FOR EACH ROW
-  EXECUTE FUNCTION ensure_single_crane_quote_config();
+-- Crear constraint para asegurar una sola configuracion usando exclusion constraint
+-- Alternativa: usar un trigger o simplemente manejar en la aplicacion
+-- Por ahora, no limitamos a nivel de BD, se maneja en la aplicacion
 
 -- Crear tabla para tipos de vehiculos
 CREATE TABLE IF NOT EXISTS crane_vehicle_types (
@@ -53,13 +39,9 @@ INSERT INTO crane_quote_config (
   price_per_passenger,
   price_per_trailer,
   whatsapp_number
-) VALUES (
-  2000,
-  3000,
-  600,
-  '+5492245506078'
 )
-ON CONFLICT DO NOTHING;
+SELECT 2000, 3000, 600, '+5492245506078'
+WHERE NOT EXISTS (SELECT 1 FROM crane_quote_config LIMIT 1);
 
 -- Insertar tipos de vehiculos por defecto si no existen
 INSERT INTO crane_vehicle_types (name, base_price)

@@ -107,7 +107,7 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
         const opt = config.additionalOptions.find((o: AdditionalOption) => o.id === optId);
         return opt ? `• ${opt.name}` : '';
       }).filter(Boolean).join('\n')}\n` : '') +
-      `\n💰 *Precio Total:* $${totalPrice.toLocaleString('es-AR')}\n\n` +
+      `\n💰 *Precio Total:* $${(Number(totalPrice) || 0).toLocaleString('es-AR')}\n\n` +
       `¿Desea confirmar esta cotización?`;
 
     const phoneNumber = whatsappNumber || config.whatsappNumber || '+5492245506078';
@@ -141,7 +141,7 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
               <option value="">Seleccione un tipo de vehículo</option>
                 {config.vehicleTypes.map((vehicle: VehicleType) => (
                   <option key={vehicle.id || `vehicle-${vehicle.name}`} value={vehicle.id || ''}>
-                    {vehicle.name} - ${vehicle.basePrice.toLocaleString('es-AR')}
+                    {vehicle.name} - ${(Number(vehicle.basePrice) || 0).toLocaleString('es-AR')}
                   </option>
                 ))}
             </select>
@@ -258,7 +258,7 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
                       {option.name}
                     </span>
                     <span className="ml-2 text-sm font-semibold text-red-600">
-                      ${option.price.toLocaleString('es-AR')}
+                      ${(Number(option.price) || 0).toLocaleString('es-AR')}
                     </span>
                   </div>
                 </label>
@@ -282,7 +282,7 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
             </div>
             <div className="text-right">
               <span className="text-3xl sm:text-4xl font-bold text-red-600 dark:text-red-400">
-                ${totalPrice.toLocaleString('es-AR')}
+                ${(Number(totalPrice) || 0).toLocaleString('es-AR')}
               </span>
             </div>
           </div>

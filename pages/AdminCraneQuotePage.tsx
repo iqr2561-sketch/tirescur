@@ -254,7 +254,7 @@ const AdminCraneQuotePage: React.FC = () => {
                   className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                 >
                   <span className="text-gray-800 dark:text-gray-200">
-                    {vehicle.name} - $ {vehicle.basePrice.toLocaleString('es-AR')}
+                    {vehicle.name} - $ {(Number(vehicle.basePrice) || 0).toLocaleString('es-AR')}
                   </span>
                   <button
                     onClick={() => handleDeleteVehicle(vehicle.id || '')}
@@ -330,7 +330,7 @@ const AdminCraneQuotePage: React.FC = () => {
                   className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                 >
                   <span className="text-gray-800 dark:text-gray-200">
-                    {option.name} - $ {option.price.toLocaleString('es-AR')}
+                    {option.name} - $ {(Number(option.price) || 0).toLocaleString('es-AR')}
                   </span>
                   <button
                     onClick={() => handleDeleteOption(option.id || '')}

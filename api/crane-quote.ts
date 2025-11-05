@@ -42,27 +42,51 @@ export default allowCors(async function handler(req, res) {
 
       // Si no hay configuración, retornar valores por defecto
       if (!configData) {
+        const mappedVehicleTypes = (vehicleTypesData || []).map((vt: any) => ({
+          id: vt.id,
+          name: vt.name,
+          basePrice: parseFloat(vt.base_price || 0),
+        }));
+
+        const mappedAdditionalOptions = (additionalOptionsData || []).map((opt: any) => ({
+          id: opt.id,
+          name: opt.name,
+          price: parseFloat(opt.price || 0),
+        }));
+
         res.statusCode = 200;
         res.json({
           pricePerKilometer: 2000,
           pricePerPassenger: 3000,
           pricePerTrailer: 600,
           whatsappNumber: '+5492245506078',
-          vehicleTypes: vehicleTypesData || [],
-          additionalOptions: additionalOptionsData || [],
+          vehicleTypes: mappedVehicleTypes,
+          additionalOptions: mappedAdditionalOptions,
         });
         return;
       }
 
       // Mapear datos de Supabase a formato cliente
+      const mappedVehicleTypes = (vehicleTypesData || []).map((vt: any) => ({
+        id: vt.id,
+        name: vt.name,
+        basePrice: parseFloat(vt.base_price || 0),
+      }));
+
+      const mappedAdditionalOptions = (additionalOptionsData || []).map((opt: any) => ({
+        id: opt.id,
+        name: opt.name,
+        price: parseFloat(opt.price || 0),
+      }));
+
       res.statusCode = 200;
       res.json({
         pricePerKilometer: parseFloat(configData.price_per_kilometer || 2000),
         pricePerPassenger: parseFloat(configData.price_per_passenger || 3000),
         pricePerTrailer: parseFloat(configData.price_per_trailer || 600),
         whatsappNumber: configData.whatsapp_number || '+5492245506078',
-        vehicleTypes: vehicleTypesData || [],
-        additionalOptions: additionalOptionsData || [],
+        vehicleTypes: mappedVehicleTypes,
+        additionalOptions: mappedAdditionalOptions,
       });
       return;
     }
@@ -266,14 +290,27 @@ export default allowCors(async function handler(req, res) {
         .select('*')
         .order('created_at', { ascending: true });
 
+      // Mapear datos para asegurar que los precios sean números
+      const mappedVehicleTypes = (updatedVehicleTypes || []).map((vt: any) => ({
+        id: vt.id,
+        name: vt.name,
+        basePrice: parseFloat(vt.base_price || 0),
+      }));
+
+      const mappedAdditionalOptions = (updatedAdditionalOptions || []).map((opt: any) => ({
+        id: opt.id,
+        name: opt.name,
+        price: parseFloat(opt.price || 0),
+      }));
+
       res.statusCode = 200;
       res.json({
-        pricePerKilometer: parseFloat(configResult.price_per_kilometer),
-        pricePerPassenger: parseFloat(configResult.price_per_passenger),
-        pricePerTrailer: parseFloat(configResult.price_per_trailer),
-        whatsappNumber: configResult.whatsapp_number,
-        vehicleTypes: updatedVehicleTypes || [],
-        additionalOptions: updatedAdditionalOptions || [],
+        pricePerKilometer: parseFloat(configResult.price_per_kilometer || 2000),
+        pricePerPassenger: parseFloat(configResult.price_per_passenger || 3000),
+        pricePerTrailer: parseFloat(configResult.price_per_trailer || 600),
+        whatsappNumber: configResult.whatsapp_number || '+5492245506078',
+        vehicleTypes: mappedVehicleTypes,
+        additionalOptions: mappedAdditionalOptions,
       });
       return;
     }
