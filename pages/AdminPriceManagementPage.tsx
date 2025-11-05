@@ -188,14 +188,20 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
         // Create a map for efficient lookup of existing products by SKU or combination
         const existingProductsMap = new Map<string, Product>();
         const safeProducts = products || [];
+        console.log('[Excel Import] Building existing products map from', safeProducts.length, 'products');
         safeProducts.forEach(p => {
-            if (p.sku) existingProductsMap.set((p.sku || '').toLowerCase(), p);
+            // Store by SKU (normalized to lowercase)
+            if (p.sku) {
+              const normalizedSku = (p.sku || '').trim().toLowerCase();
+              existingProductsMap.set(normalizedSku, p);
+            }
             // Also store by a combined key for dimensional match if SKU fails
-            const brand = (p.brand || '').toLowerCase();
-            const name = (p.name || '').toLowerCase();
+            const brand = (p.brand || '').toLowerCase().trim();
+            const name = (p.name || '').toLowerCase().trim();
             const dimensionalKey = `${brand}-${name}-${p.width || ''}-${p.profile || ''}-${p.diameter || ''}`;
             existingProductsMap.set(dimensionalKey, p);
         });
+        console.log('[Excel Import] Existing products map size:', existingProductsMap.size, 'keys');
 
         // Create a map for brands to get logo URLs for new products
         const brandsMap = new Map<string, Brand>();
@@ -226,12 +232,21 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
                 continue;
             }
 
+            // Generate the SKU that would be used for this product
+            const brandInfo = brandsMap.get(brandName.toLowerCase());
+            const brandPrefix = brandName.length >= 3 ? brandName.substring(0, 3).toUpperCase() : brandName.toUpperCase();
+            const productPrefix = productName.length >= 3 ? productName.substring(0, 3).toUpperCase() : productName.toUpperCase();
+            const generatedSku = `SKU: ${brandPrefix}-${productPrefix}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
+            const normalizedGeneratedSku = generatedSku.trim().toLowerCase();
+            
             let foundProduct: Product | undefined = undefined;
 
-            // Try to match by SKU first
-            if (productName && productName.startsWith('SKU: ')) {
-              const skuToMatch = productName.substring(5).toLowerCase();
-              foundProduct = existingProductsMap.get(skuToMatch);
+            // Try to match by generated SKU first (most reliable)
+            if (normalizedGeneratedSku) {
+              foundProduct = existingProductsMap.get(normalizedGeneratedSku);
+              if (foundProduct) {
+                console.log(`[Excel Import] Found product by SKU: ${normalizedGeneratedSku}`);
+              }
             }
             
             // If not found by SKU, try by full dimensions, brand and name
@@ -239,9 +254,16 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
               const dimensionalKey = `${brandName.toLowerCase()}-${productName.toLowerCase()}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
               foundProduct = existingProductsMap.get(dimensionalKey);
             }
+            
+            // Also try to match if the product name in Excel starts with "SKU: "
+            if (!foundProduct && productName && productName.startsWith('SKU: ')) {
+              const skuFromName = productName.substring(5).toLowerCase();
+              foundProduct = existingProductsMap.get(skuFromName);
+            }
 
             if (foundProduct) {
               // Product found, update it
+              console.log(`[Excel Import] Product found for update: ${foundProduct.sku || foundProduct.name} (SKU: ${generatedSku})`);
               const updatedProduct = {
                 ...foundProduct,
                 price: newPrice,
@@ -251,13 +273,9 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
               updatedCount++;
             } else {
               // Product not found, create a new one
-              const brandInfo = brandsMap.get(brandName.toLowerCase());
-              const brandPrefix = brandName.length >= 3 ? brandName.substring(0, 3).toUpperCase() : brandName.toUpperCase();
-              const productPrefix = productName.length >= 3 ? productName.substring(0, 3).toUpperCase() : productName.toUpperCase();
-              const newSku = `SKU: ${brandPrefix}-${productPrefix}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
-
+              console.log(`[Excel Import] Creating new product: ${generatedSku}`);
               productsToCreate.push({
-                sku: newSku,
+                sku: generatedSku,
                 name: productName,
                 brand: brandName,
                 brandLogoUrl: brandInfo?.logoUrl,
