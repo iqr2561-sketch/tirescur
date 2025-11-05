@@ -787,21 +787,26 @@ const App: React.FC = () => {
   const deleteBrand = useCallback(async (brandId: string) => {
     try {
       const deletedBrandName = brands?.find(b => b.id === brandId)?.name;
-      const res = await fetch(`${API_BASE_URL}/brands/${brandId}`, {
+      const res = await fetch(`${API_BASE_URL}/brands?id=${brandId}`, {
         method: 'DELETE',
       });
-      if (!res.ok) throw new Error('Failed to delete brand');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
+        throw new Error(errorData.error || errorData.message || `Error ${res.status}: ${res.statusText}`);
+      }
+      
       setBrands(prevBrands => prevBrands ? prevBrands.filter(b => b.id !== brandId) : []);
-      // Find the name of the deleted brand to update products
-      setProducts(prevProducts => prevProducts ? prevProducts.map(p => {
-        return (deletedBrandName && p.brand === deletedBrandName)
-          ? { ...p, brandId: undefined, brandLogoUrl: undefined }
-          : p;
-      }) : []);
-      showSuccess(deletedBrandName ? `Marca "${deletedBrandName}" eliminada.` : 'Marca eliminada correctamente.');
-    } catch (err) {
+      // Update products that reference this brand
+      setProducts(prevProducts => prevProducts ? prevProducts.map(p =>
+        (deletedBrandName && p.brand === deletedBrandName)
+          ? { ...p, brand: '', brandId: undefined, brandLogoUrl: undefined }
+          : p
+      ) : []);
+      showSuccess(`✅ Marca "${deletedBrandName || 'eliminada'}" eliminada correctamente`, 5000);
+    } catch (err: any) {
       console.error('Error deleting brand:', err);
-      showError('Error al eliminar la marca.');
+      showError(`❌ Error al eliminar la marca: ${err?.message || 'Error desconocido'}`);
     }
   }, [brands, showSuccess, showError]);
 
