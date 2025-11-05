@@ -1054,7 +1054,14 @@ const App: React.FC = () => {
     message += 'Por favor, confírmame la disponibilidad y cómo puedo proceder con el pago. ¡Gracias!';
 
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${whatsappPhoneNumber}?text=${encodedMessage}`;
+    
+    // Asegurarse de que el número de teléfono sea siempre una cadena válida
+    const phoneNumber = String(
+      (typeof whatsappPhoneNumber === 'string' && whatsappPhoneNumber) || 
+      '+5492245506078'
+    );
+    const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 
     window.open(whatsappUrl, '_blank');
 
@@ -1079,7 +1086,11 @@ const App: React.FC = () => {
   const finalMenus = menus ?? [];
   const finalCategories = categories ?? [];
   const finalHeroImageUrl = heroImageUrl || DEFAULT_HERO_IMAGE_URL;
-  const finalWhatsappPhoneNumber = whatsappPhoneNumber || DEFAULT_WHATSAPP_PHONE_NUMBER;
+  // Asegurarse de que finalWhatsappPhoneNumber sea siempre una cadena válida
+  const finalWhatsappPhoneNumber = String(
+    (typeof whatsappPhoneNumber === 'string' && whatsappPhoneNumber) || 
+    (DEFAULT_WHATSAPP_PHONE_NUMBER || '+5492245506078')
+  );
   const finalFooterContent: FooterContent = footerContent ? {
     aboutUsText: footerContent.aboutUsText || DEFAULT_FOOTER_CONTENT.aboutUsText,
     contactAddress: footerContent.contactAddress || DEFAULT_FOOTER_CONTENT.contactAddress,
