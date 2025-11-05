@@ -1098,6 +1098,7 @@ const App: React.FC = () => {
     { id: 'admin-users', name: 'Usuarios', path: '/admin/users', isExternal: false, order: 70, location: 'admin-sidebar', type: 'route' },
     { id: 'admin-settings', name: 'Configuración', path: '/admin/settings', isExternal: false, order: 50, location: 'admin-sidebar', type: 'route' },
     { id: 'admin-menus', name: 'Menús', path: '/admin/menus', isExternal: false, order: 60, location: 'admin-sidebar', type: 'route' },
+    { id: 'admin-crane-quote', name: 'Cotización de Grúa', path: '/admin/crane-quote', isExternal: false, order: 65, location: 'admin-sidebar', type: 'route' },
   ];
   
   const adminMenusFromDB = finalMenus.filter(m => m.location === 'admin-sidebar').sort((a,b) => a.order - b.order);

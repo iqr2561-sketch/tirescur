@@ -1,6 +1,18 @@
--- Script para agregar item de menu "Servicio de Grúas" al header desktop y mobile navbar
+-- Script para agregar items de menu relacionados con servicio de grua
 
--- Agregar al header desktop
+-- Agregar "Cotización de Grúa" al admin sidebar
+INSERT INTO menu_items (name, path, is_external, "order", location, "type")
+VALUES (
+    'Cotización de Grúa',
+    '/admin/crane-quote',
+    false,
+    65, -- Orden después de "Menús"
+    'admin-sidebar',
+    'route'
+)
+ON CONFLICT DO NOTHING;
+
+-- Agregar "Servicio de Grúas" al header desktop
 INSERT INTO menu_items (name, path, is_external, "order", location, "type")
 VALUES (
     'Servicio de Grúas',
@@ -12,7 +24,7 @@ VALUES (
 )
 ON CONFLICT DO NOTHING;
 
--- Agregar al mobile navbar
+-- Agregar "Servicio de Grúas" al mobile navbar
 INSERT INTO menu_items (name, path, is_external, "order", location, "type")
 VALUES (
     'Servicio de Grúas',
