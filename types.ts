@@ -192,6 +192,7 @@ export interface CraneQuoteRequest {
 
 // For Excel Import
 export interface ExcelProductRow {
+  SKU?: string; // Optional SKU for direct product matching
   Marca: string;
   Modelo: string;
   Size: string; // e.g., "155/70R12" - might contain width/profile/diameter

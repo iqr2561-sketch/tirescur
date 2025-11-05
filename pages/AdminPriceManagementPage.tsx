@@ -78,6 +78,64 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
     }
   }, []);
 
+  const handleDownloadTemplate = useCallback(() => {
+    try {
+      // Preparar datos para Excel con SKU incluido
+      const excelData = products.map(product => {
+        // Construir Size desde width y profile (ej: "155/70")
+        const size = product.width && product.profile 
+          ? `${product.width}/${product.profile}${product.diameter ? `R${product.diameter}` : ''}`
+          : '';
+        
+        return {
+          'SKU': product.sku || '',
+          'Marca': product.brand || '',
+          'Modelo': product.name || '',
+          'Size': size,
+          'RIM': product.diameter || '',
+          'Precio': product.price || 0,
+          'Imagen': product.imageUrl || ''
+        };
+      });
+
+      // Crear workbook y worksheet
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
+
+      // Ajustar ancho de columnas
+      const columnWidths = [
+        { wch: 30 }, // SKU
+        { wch: 20 }, // Marca
+        { wch: 30 }, // Modelo
+        { wch: 15 }, // Size
+        { wch: 10 }, // RIM
+        { wch: 12 }, // Precio
+        { wch: 40 }  // Imagen
+      ];
+      worksheet['!cols'] = columnWidths;
+
+      // Generar archivo Excel
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      // Descargar archivo
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `plantilla_productos_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      showSuccess(`✅ Plantilla descargada con ${products.length} productos. Edita los precios y vuelve a subir el archivo.`);
+    } catch (error: any) {
+      console.error('Error al generar plantilla Excel:', error);
+      showError(`❌ Error al generar la plantilla: ${error?.message || 'Error desconocido'}`);
+    }
+  }, [products, showSuccess, showError]);
+
   const handleUploadExcel = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
@@ -258,7 +316,11 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
                 continue;
             }
 
-            // Generate the SKU that would be used for this product
+            // Get SKU from Excel row if present (from template download)
+            const excelSku = (row.SKU || '').toString().trim();
+            const normalizedExcelSku = excelSku ? excelSku.toLowerCase() : '';
+            
+            // Generate the SKU that would be used for this product (fallback)
             const brandInfo = brandsMap.get(brandName.toLowerCase());
             const brandPrefix = brandName.length >= 3 ? brandName.substring(0, 3).toUpperCase() : brandName.toUpperCase();
             const productPrefix = productName.length >= 3 ? productName.substring(0, 3).toUpperCase() : productName.toUpperCase();
@@ -267,21 +329,29 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
             
             let foundProduct: Product | undefined = undefined;
 
-            // Try to match by generated SKU first (most reliable)
-            if (normalizedGeneratedSku) {
+            // PRIORIDAD 1: Try to match by SKU from Excel (if provided in template)
+            if (normalizedExcelSku) {
+              foundProduct = existingProductsMap.get(normalizedExcelSku);
+              if (foundProduct) {
+                console.log(`[Excel Import] Found product by Excel SKU: ${normalizedExcelSku}`);
+              }
+            }
+
+            // PRIORIDAD 2: Try to match by generated SKU (most reliable for new uploads)
+            if (!foundProduct && normalizedGeneratedSku) {
               foundProduct = existingProductsMap.get(normalizedGeneratedSku);
               if (foundProduct) {
-                console.log(`[Excel Import] Found product by SKU: ${normalizedGeneratedSku}`);
+                console.log(`[Excel Import] Found product by generated SKU: ${normalizedGeneratedSku}`);
               }
             }
             
-            // If not found by SKU, try by full dimensions, brand and name
+            // PRIORIDAD 3: If not found by SKU, try by full dimensions, brand and name
             if (!foundProduct && brandName && productName) {
               const dimensionalKey = `${brandName.toLowerCase()}-${productName.toLowerCase()}-${parsedSize.width}-${parsedSize.profile}-${diameter}`;
               foundProduct = existingProductsMap.get(dimensionalKey);
             }
             
-            // Also try to match if the product name in Excel starts with "SKU: "
+            // PRIORIDAD 4: Also try to match if the product name in Excel starts with "SKU: "
             if (!foundProduct && productName && productName.startsWith('SKU: ')) {
               const skuFromName = productName.substring(5).toLowerCase();
               foundProduct = existingProductsMap.get(skuFromName);
@@ -718,7 +788,20 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
 
       {/* Importar Precios desde Excel/CSV */}
       <div className="p-6 rounded-lg shadow-md bg-white dark:bg-gray-800">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 dark:text-gray-100">Importar Precios por Excel/CSV</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Importar Precios por Excel/CSV</h2>
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
+            title="Descargar plantilla Excel con todos los productos actuales"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>Descargar Plantilla</span>
+          </button>
+        </div>
         <form onSubmit={handleUploadExcel} className="space-y-4">
           <div>
             <label htmlFor="excelFile" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -740,7 +823,10 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
               required
             />
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Sube un archivo Excel (.xlsx) o CSV con las columnas: Marca, Modelo, Size, RIM, Precio, Imagen.
+              <strong>Opción 1:</strong> Descarga la plantilla arriba para obtener todos los productos con sus SKUs. Edita los precios y vuelve a subir.
+            </p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <strong>Opción 2:</strong> Sube un archivo Excel (.xlsx) o CSV con las columnas: <strong>SKU</strong>, Marca, Modelo, Size, RIM, Precio, Imagen.
             </p>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               El formato de 'Size' debe ser como '155/70R12'. 'Modelo' debería coincidir con el nombre del producto o el SKU. 'RIM' el diámetro de la llanta.
