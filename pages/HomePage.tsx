@@ -72,15 +72,28 @@ const HomePage: React.FC<HomePageProps> = ({ onAddToCart, heroImageUrl, whatsapp
           </button>
           <button
             onClick={() => handleCardClick('soporte')}
-            className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer group relative"
+            className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer group relative overflow-visible"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3 group-hover:scale-110 transition-transform animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4v2m0 4v2m0 4a1 1 0 100-2 1 1 0 000 2z" /></svg>
-            <span className="absolute top-2 right-2 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-            </span>
+            {/* Notificación grande y vistosa */}
+            <div className="absolute -top-2 -right-2 z-10">
+              <div className="relative">
+                <div className="absolute inset-0 animate-ping bg-red-500 rounded-full opacity-75"></div>
+                <div className="relative bg-gradient-to-r from-red-500 to-red-600 rounded-full px-3 py-1 shadow-lg border-2 border-white dark:border-gray-800">
+                  <span className="text-xs font-bold text-white whitespace-nowrap">¡NUEVO!</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="relative">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 mb-3 group-hover:scale-110 transition-transform animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4v2m0 4v2m0 4a1 1 0 100-2 1 1 0 000 2z" /></svg>
+              {/* Efecto de brillo alrededor del icono */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute w-16 h-16 bg-red-500/20 rounded-full blur-xl animate-pulse"></div>
+              </div>
+            </div>
+            
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 group-hover:text-red-600 transition-colors">Soporte 24/7</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">Servicio de Grúa</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Servicio de Grúa</p>
           </button>
           <button
             onClick={() => handleCardClick('seguridad')}
