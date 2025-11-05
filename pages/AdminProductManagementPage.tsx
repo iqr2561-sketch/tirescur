@@ -237,21 +237,38 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       return;
     }
 
-    // Validate sale price if product is on sale (ANTES de setIsSaving)
+    // Validate sale price or discount percentage if product is on sale (ANTES de setIsSaving)
     if (formData.isOnSale) {
-      if (!formData.salePrice || formData.salePrice.trim() === '') {
-        showError('Si el producto está en oferta, debes ingresar un precio de oferta.');
+      const hasSalePrice = formData.salePrice && formData.salePrice.trim() !== '';
+      const hasDiscountPercentage = formData.discountPercentage && formData.discountPercentage.trim() !== '';
+      
+      // Debe tener al menos uno: precio de oferta O porcentaje de descuento
+      if (!hasSalePrice && !hasDiscountPercentage) {
+        showError('Si el producto está en oferta, debes ingresar un precio de oferta o un porcentaje de descuento.');
         return;
       }
-      const salePrice = parseFloat(formData.salePrice);
-      const regularPrice = parseFloat(formData.price);
-      if (isNaN(salePrice) || salePrice <= 0) {
-        showError('El precio de oferta debe ser un número positivo.');
-        return;
+      
+      // Validar precio de oferta si está presente
+      if (hasSalePrice) {
+        const salePrice = parseFloat(formData.salePrice);
+        const regularPrice = parseFloat(formData.price);
+        if (isNaN(salePrice) || salePrice <= 0) {
+          showError('El precio de oferta debe ser un número positivo.');
+          return;
+        }
+        if (salePrice >= regularPrice) {
+          showError('El precio de oferta debe ser menor que el precio regular.');
+          return;
+        }
       }
-      if (salePrice >= regularPrice) {
-        showError('El precio de oferta debe ser menor que el precio regular.');
-        return;
+      
+      // Validar porcentaje de descuento si está presente
+      if (hasDiscountPercentage) {
+        const discountPercentage = parseFloat(formData.discountPercentage);
+        if (isNaN(discountPercentage) || discountPercentage <= 0 || discountPercentage >= 100) {
+          showError('El porcentaje de descuento debe ser un número entre 0 y 100.');
+          return;
+        }
       }
     }
 
@@ -276,16 +293,31 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       diameter: formData.diameter,
       // Deal/Offer fields
       isOnSale: formData.isOnSale || false,
-      salePrice: formData.isOnSale && formData.salePrice ? parseFloat(formData.salePrice) : undefined,
+      salePrice: formData.isOnSale && formData.salePrice && formData.salePrice.trim() !== '' 
+        ? parseFloat(formData.salePrice) 
+        : (formData.isOnSale && formData.discountPercentage && formData.discountPercentage.trim() !== ''
+          ? (() => {
+              // Calcular precio de oferta desde porcentaje de descuento
+              const regularPrice = parseFloat(formData.price);
+              const discount = parseFloat(formData.discountPercentage);
+              return regularPrice * (1 - discount / 100);
+            })()
+          : undefined),
       discountPercentage: (() => {
         if (!formData.isOnSale) return undefined;
-        // Calculate discount if salePrice is provided and discountPercentage is not
-        if (formData.salePrice && !formData.discountPercentage) {
+        // Si hay porcentaje de descuento, usarlo
+        if (formData.discountPercentage && formData.discountPercentage.trim() !== '') {
+          return parseFloat(formData.discountPercentage);
+        }
+        // Si hay precio de oferta pero no porcentaje, calcularlo
+        if (formData.salePrice && formData.salePrice.trim() !== '') {
           const regularPrice = parseFloat(formData.price);
           const salePrice = parseFloat(formData.salePrice);
-          return Math.round(((regularPrice - salePrice) / regularPrice) * 100);
+          if (regularPrice > 0 && salePrice < regularPrice) {
+            return Math.round(((regularPrice - salePrice) / regularPrice) * 100);
+          }
         }
-        return formData.discountPercentage ? parseFloat(formData.discountPercentage) : undefined;
+        return undefined;
       })(),
       categoryId: formData.categoryId || undefined,
       isActive: formData.isActive !== undefined ? formData.isActive : true,
