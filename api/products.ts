@@ -169,11 +169,13 @@ export default allowCors(async function handler(req, res) {
     if (req.method === 'PUT') {
       const body = await parseBody(req);
 
-      // Detectar bulk update: verificar si la URL contiene 'bulk' o si el body es un array con productos que tienen id
-      const isBulkUpdate = pathname?.includes('/bulk') || 
+      // Detectar bulk update: PRIMERO verificar query parameter, luego URL, luego estructura del body
+      // Priorizar query.bulk para evitar conflictos con [id].ts
+      const isBulkUpdate = query?.bulk === 'true' ||
+                          query?.bulk === true ||
+                          pathname?.includes('/bulk') || 
                           req.url?.includes('/bulk') || 
-                          query?.bulk === 'true' ||
-                          (Array.isArray(body) && body.length > 0 && body[0]?.id);
+                          (Array.isArray(body) && body.length > 0 && body[0]?.id && !body[0].id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));
 
       if (isBulkUpdate) {
         console.log('[Products API] Detected bulk-update request:', {
