@@ -788,20 +788,7 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
 
       {/* Importar Precios desde Excel/CSV */}
       <div className="p-6 rounded-lg shadow-md bg-white dark:bg-gray-800">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Importar Precios por Excel/CSV</h2>
-          <button
-            type="button"
-            onClick={handleDownloadTemplate}
-            className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
-            title="Descargar plantilla Excel con todos los productos actuales"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span>Descargar Plantilla</span>
-          </button>
-        </div>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4 dark:text-gray-100">Importar Precios por Excel/CSV</h2>
         <form onSubmit={handleUploadExcel} className="space-y-4">
           <div>
             <label htmlFor="excelFile" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -823,23 +810,33 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
               required
             />
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              <strong>Opción 1:</strong> Descarga la plantilla arriba para obtener todos los productos con sus SKUs. Edita los precios y vuelve a subir.
-            </p>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              <strong>Opción 2:</strong> Sube un archivo Excel (.xlsx) o CSV con las columnas: <strong>SKU</strong>, Marca, Modelo, Size, RIM, Precio, Imagen.
+              Sube un archivo Excel (.xlsx) o CSV con las columnas: <strong>SKU</strong>, Marca, Modelo, Size, RIM, Precio, Imagen.
             </p>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               El formato de 'Size' debe ser como '155/70R12'. 'Modelo' debería coincidir con el nombre del producto o el SKU. 'RIM' el diámetro de la llanta.
             </p>
           </div>
-          <button
-            type="submit"
-            className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
-            disabled={!file || excelStatus === 'processing'}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            <span>{excelStatus === 'processing' ? 'Subiendo...' : 'Subir Excel/CSV'}</span>
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              title="Descargar plantilla Excel con todos los productos actuales"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Descargar Plantilla</span>
+            </button>
+            <button
+              type="submit"
+              className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
+              disabled={!file || excelStatus === 'processing'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              <span>{excelStatus === 'processing' ? 'Subiendo...' : 'Subir Excel/CSV'}</span>
+            </button>
+          </div>
           {excelStatus !== 'idle' && excelMessage && (
             <p className={`mt-4 text-sm ${excelStatus === 'error' ? 'text-red-600' : 'text-green-600'}`}>
               {excelMessage}
