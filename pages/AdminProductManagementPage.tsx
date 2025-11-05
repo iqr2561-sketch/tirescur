@@ -277,17 +277,18 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     const selectedBrand = safeBrands.find(b => b.name === formData.brand);
 
     const baseProduct: Omit<Product, 'id'> = { // Base object without 'id'
-      sku: formData.sku,
-      name: formData.name,
+      sku: formData.sku.trim(),
+      name: formData.name.trim(),
       brand: formData.brand,
-      brandLogoUrl: selectedBrand?.logoUrl,
+      brandId: selectedBrand?.id, // Incluir brandId para mejor referencia
+      brandLogoUrl: selectedBrand?.logoUrl || '',
       price: parseFloat(formData.price),
       rating: parseFloat(formData.rating),
-      reviews: parseInt(formData.reviews),
+      reviews: parseInt(formData.reviews) || 0,
       imageUrl: formData.imageUrl.trim(),
-      description: formData.description,
-      tags: formData.tags ? formData.tags.split(',').map((tag) => tag.trim()) : [],
-      stock: parseInt(formData.stock),
+      description: formData.description.trim(),
+      tags: formData.tags ? formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean) : [],
+      stock: parseInt(formData.stock) || 0,
       width: formData.width,
       profile: formData.profile,
       diameter: formData.diameter,
@@ -322,12 +323,37 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       categoryId: formData.categoryId || undefined,
       isActive: formData.isActive !== undefined ? formData.isActive : true,
     };
+    
+    console.log('[AdminProductManagement] Preparing product to save:', {
+      isEdit: !!editingProduct,
+      productId: editingProduct?.id,
+      productName: baseProduct.name,
+      isOnSale: baseProduct.isOnSale,
+      salePrice: baseProduct.salePrice,
+      discountPercentage: baseProduct.discountPercentage,
+      isActive: baseProduct.isActive,
+      brand: baseProduct.brand,
+      brandId: baseProduct.brandId
+    });
 
     try {
       if (editingProduct) {
         // For update, we need the existing ID
         const productToUpdate: Product = { ...baseProduct, id: editingProduct.id };
+        
+        console.log('[AdminProductManagement] Calling onUpdateProduct with:', {
+          id: productToUpdate.id,
+          name: productToUpdate.name,
+          isOnSale: productToUpdate.isOnSale,
+          salePrice: productToUpdate.salePrice,
+          discountPercentage: productToUpdate.discountPercentage,
+          isActive: productToUpdate.isActive,
+          brand: productToUpdate.brand,
+          brandId: productToUpdate.brandId
+        });
+        
         await onUpdateProduct(productToUpdate);
+        console.log('[AdminProductManagement] Product update completed successfully');
         // La notificación se muestra en App.tsx después de que onUpdateProduct complete
       } else {
         // For add, we pass the product without ID

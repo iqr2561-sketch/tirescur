@@ -542,13 +542,27 @@ const App: React.FC = () => {
         brand: updatedProductResponse.brand_name || updatedProductResponse.brand,
         brandId: updatedProductResponse.brand_id || updatedProductResponse.brandId,
         brandLogoUrl: updatedProductResponse.brand_logo_url || updatedProductResponse.brandLogoUrl,
-        isActive: updatedProductResponse.is_active !== undefined ? updatedProductResponse.is_active : updatedProductResponse.isActive !== undefined ? updatedProductResponse.isActive : true,
+        isActive: updatedProductResponse.is_active !== undefined ? updatedProductResponse.is_active : (updatedProductResponse.isActive !== undefined ? updatedProductResponse.isActive : true),
         isOnSale: updatedProductResponse.is_on_sale || false,
         salePrice: updatedProductResponse.sale_price ? Number(updatedProductResponse.sale_price) : undefined,
-        discountPercentage: updatedProductResponse.discount_percentage || undefined,
+        discountPercentage: updatedProductResponse.discount_percentage ? Number(updatedProductResponse.discount_percentage) : undefined,
       };
       
-      setProducts(prevProducts => prevProducts ? prevProducts.map(p => p.id === updatedProduct.id ? mappedProduct : p) : []);
+      console.log('[App] Mapped product after update:', {
+        id: mappedProduct.id,
+        name: mappedProduct.name,
+        isActive: mappedProduct.isActive,
+        isOnSale: mappedProduct.isOnSale,
+        salePrice: mappedProduct.salePrice,
+        discountPercentage: mappedProduct.discountPercentage
+      });
+      
+      setProducts(prevProducts => {
+        if (!prevProducts) return [mappedProduct];
+        const updated = prevProducts.map(p => p.id === updatedProduct.id ? mappedProduct : p);
+        console.log('[App] Products state updated, total products:', updated.length, 'updated product ID:', mappedProduct.id);
+        return updated;
+      });
       showSuccess(`✅ Producto "${mappedProduct.name}" guardado y actualizado correctamente`, 6000);
     } catch (err: any) {
       console.error('[App] Error updating product:', err);

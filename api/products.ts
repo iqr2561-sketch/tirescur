@@ -465,10 +465,13 @@ async function updateSingleProduct(supabase: any, productId: string, product: Pr
 }
 
 function mapProductForInsert(product: any, brand: any) {
+  // Si isOnSale es false, asegurar que sale_price y discount_percentage sean null
+  const isOnSale = product.isOnSale || false;
+  
   return {
-    sku: product.sku,
-    name: product.name,
-    brand_name: product.brand,
+    sku: product.sku || '',
+    name: product.name || '',
+    brand_name: product.brand || '',
     brand_id: brand?.id || product.brandId || null,
     brand_logo_url: brand?.logo_url || product.brandLogoUrl || '',
     price: Number(product.price || 0).toString(),
@@ -481,9 +484,10 @@ function mapProductForInsert(product: any, brand: any) {
     width: product.width || '',
     profile: product.profile || '',
     diameter: product.diameter || '',
-    is_on_sale: product.isOnSale || false,
-    sale_price: product.salePrice ? Number(product.salePrice).toString() : null,
-    discount_percentage: product.discountPercentage || null,
+    is_on_sale: isOnSale,
+    // Si no está en oferta, forzar null para limpiar los valores
+    sale_price: isOnSale && product.salePrice ? Number(product.salePrice).toString() : null,
+    discount_percentage: isOnSale && product.discountPercentage ? Number(product.discountPercentage) : null,
     category_id: product.categoryId || null,
     is_active: product.isActive !== undefined ? product.isActive : true
   };
