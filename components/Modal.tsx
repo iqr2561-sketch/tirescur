@@ -13,8 +13,14 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="rounded-2xl shadow-2xl w-full sm:w-11/12 md:max-w-lg lg:max-w-2xl relative z-50 max-h-[95vh] overflow-y-auto
-                  bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 transform transition-all duration-300 scale-100">
+      <div 
+        className="rounded-2xl shadow-2xl w-full sm:w-11/12 md:max-w-lg lg:max-w-2xl relative z-50 max-h-[95vh] overflow-y-auto
+                  bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 transform transition-all duration-300 scale-100"
+        onClick={(e) => {
+          // Prevenir que el clic dentro del modal cierre el modal
+          e.stopPropagation();
+        }}
+      >
         <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 sm:px-6 py-4 rounded-t-2xl sticky top-0 z-10">
           <div className="flex justify-between items-center">
             <h2 className="text-xl sm:text-2xl font-bold">{title}</h2>

@@ -129,10 +129,11 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     setIsModalOpen(true);
   }, []);
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
+    console.log('[AdminProductManagement] handleCloseModal called');
     setIsModalOpen(false);
     setEditingProduct(null);
-  };
+  }, []);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -201,10 +202,23 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
   }, []);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    console.log('[AdminProductManagement] handleSubmit called', {
+      isSaving,
+      editingProduct: !!editingProduct,
+      formData: {
+        name: formData.name,
+        sku: formData.sku,
+        brand: formData.brand,
+        price: formData.price,
+        isOnSale: formData.isOnSale,
+      }
+    });
+    
     e.preventDefault();
 
     // Prevenir múltiples envíos
     if (isSaving) {
+      console.log('[AdminProductManagement] Submit prevented - already saving');
       return;
     }
 
@@ -233,17 +247,30 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     }
     
     if (errors.length > 0) {
+      console.log('[AdminProductManagement] Validation errors:', errors);
       showError(`Por favor, corrige los siguientes errores:\n${errors.join('\n')}`);
       return;
     }
+    
+    console.log('[AdminProductManagement] Validation passed, proceeding to save...');
 
     // Validate sale price or discount percentage if product is on sale (ANTES de setIsSaving)
     if (formData.isOnSale) {
+      console.log('[AdminProductManagement] Validating sale fields...');
       const hasSalePrice = formData.salePrice && formData.salePrice.trim() !== '';
       const hasDiscountPercentage = formData.discountPercentage && formData.discountPercentage.trim() !== '';
       
+      console.log('[AdminProductManagement] Sale validation:', {
+        isOnSale: formData.isOnSale,
+        hasSalePrice,
+        hasDiscountPercentage,
+        salePrice: formData.salePrice,
+        discountPercentage: formData.discountPercentage
+      });
+      
       // Debe tener al menos uno: precio de oferta O porcentaje de descuento
       if (!hasSalePrice && !hasDiscountPercentage) {
+        console.log('[AdminProductManagement] Sale validation failed - missing both price and percentage');
         showError('Si el producto está en oferta, debes ingresar un precio de oferta o un porcentaje de descuento.');
         return;
       }
@@ -272,9 +299,16 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       }
     }
 
+    console.log('[AdminProductManagement] All validations passed, setting isSaving to true');
     setIsSaving(true);
 
     const selectedBrand = safeBrands.find(b => b.name === formData.brand);
+    
+    console.log('[AdminProductManagement] Selected brand:', {
+      brandName: formData.brand,
+      foundBrand: selectedBrand,
+      allBrands: safeBrands.map(b => b.name)
+    });
 
     const baseProduct: Omit<Product, 'id'> = { // Base object without 'id'
       sku: formData.sku.trim(),
@@ -371,7 +405,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
     } finally {
       setIsSaving(false);
     }
-  }, [formData, editingProduct, onAddProduct, onUpdateProduct, handleCloseModal, brands, WIDTHS, PROFILES, DIAMETERS, showSuccess, showError, isSaving]);
+  }, [formData, editingProduct, onAddProduct, onUpdateProduct, handleCloseModal, safeBrands, showError, isSaving]);
 
   const handleDeleteProduct = useCallback((id: string) => {
     setConfirmModal({ isOpen: true, productId: id });
@@ -764,7 +798,7 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
       )}
 
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingProduct ? 'Editar Producto' : 'Añadir Nuevo Producto'}>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form id="product-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Nombre del Producto<span className="text-red-500">*</span></label>
             <input
@@ -1062,6 +1096,15 @@ const AdminProductManagementPage: React.FC<AdminProductManagementPageProps> = ({
             <button
               type="submit"
               disabled={isSaving}
+              onClick={(e) => {
+                console.log('[AdminProductManagement] Submit button clicked', {
+                  isSaving,
+                  type: e.currentTarget.type,
+                  disabled: e.currentTarget.disabled,
+                  form: e.currentTarget.form ? 'form exists' : 'no form'
+                });
+                // No prevenir el comportamiento por defecto - dejar que el formulario maneje el submit
+              }}
               className={`py-2 px-4 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-opacity-50 flex items-center justify-center space-x-2 ${
                 isSaving 
                   ? 'bg-gray-400 cursor-not-allowed text-white' 
