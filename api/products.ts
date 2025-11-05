@@ -102,11 +102,29 @@ export default allowCors(async function handler(req, res) {
         if (error) {
           console.error('[Products API] Error en bulk-create:', error);
           const errorMessage = error.message || 'Error desconocido al crear productos';
-          // Si el error es sobre una columna que no existe, dar mensaje más claro
+          const errorCode = error.code || '';
+          const errorDetails = error.details || '';
+          const errorHint = error.hint || '';
+          
+          // Mensajes más específicos según el tipo de error
           if (errorMessage.includes('column') || errorMessage.includes('schema') || errorMessage.includes('is_active')) {
             throw new Error(`Error de configuración: La columna 'is_active' no existe en la tabla 'products'. Ejecuta la migración: migrations/add_is_active_to_products.sql`);
           }
-          throw new Error(errorMessage);
+          if (errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint') || errorCode === '23505') {
+            throw new Error(`Error: Productos duplicados detectados. Verifica que los SKUs sean únicos. Detalles: ${errorMessage}`);
+          }
+          if (errorMessage.includes('foreign key') || errorCode === '23503') {
+            throw new Error(`Error: Marca no encontrada. Verifica que todas las marcas existan antes de importar. Detalles: ${errorMessage}`);
+          }
+          if (errorMessage.includes('null value') || errorCode === '23502') {
+            throw new Error(`Error: Campos requeridos faltantes. Verifica que todos los productos tengan SKU, nombre y marca. Detalles: ${errorMessage}`);
+          }
+          
+          // Error genérico con más detalles
+          const fullErrorMessage = errorDetails || errorHint 
+            ? `${errorMessage}${errorDetails ? ` | Detalles: ${errorDetails}` : ''}${errorHint ? ` | Sugerencia: ${errorHint}` : ''}`
+            : errorMessage;
+          throw new Error(fullErrorMessage);
         }
 
         const formatted = (data || []).map(toClientProduct);
@@ -228,8 +246,26 @@ export default allowCors(async function handler(req, res) {
     res.json({ error: 'Método no permitido' });
   } catch (error: any) {
     console.error('[Products API] Error en endpoint:', error);
+    console.error('[Products API] Error details:', {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+      stack: error?.stack
+    });
+    
+    // Si el error ya tiene un mensaje específico, usarlo
+    const errorMessage = error?.message || 'Error interno del servidor';
+    const errorCode = error?.code || '';
+    const errorDetails = error?.details || '';
+    
     res.statusCode = 500;
-    res.json({ message: error?.message || 'Error interno del servidor' });
+    res.json({ 
+      error: errorMessage,
+      code: errorCode,
+      details: errorDetails,
+      hint: error?.hint || undefined
+    });
   }
 });
 

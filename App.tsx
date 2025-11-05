@@ -692,12 +692,32 @@ const App: React.FC = () => {
         } catch (e) {
           // Ignore text parsing errors
         }
-        throw new Error(errorMessage);
+        const error = new Error(errorMessage);
+        (error as any).status = res.status;
+        throw error;
       }
       
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: `Error ${res.status}: ${res.statusText}` }));
-        throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
+        let errorData: any = {};
+        try {
+          errorData = await res.json();
+        } catch (parseError) {
+          errorData = { error: `Error ${res.status}: ${res.statusText}` };
+        }
+        
+        // Construir mensaje de error más detallado
+        const errorMessage = errorData.error || errorData.message || `Error ${res.status}: ${res.statusText}`;
+        const errorDetails = errorData.details || '';
+        const errorCode = errorData.code || '';
+        const errorHint = errorData.hint || '';
+        
+        const fullError = new Error(errorMessage);
+        (fullError as any).details = errorDetails;
+        (fullError as any).code = errorCode;
+        (fullError as any).hint = errorHint;
+        (fullError as any).status = res.status;
+        
+        throw fullError;
       }
       
       const addedProducts = await res.json();
@@ -707,19 +727,71 @@ const App: React.FC = () => {
         brandId: p.brand_id || p.brandId,
         brandLogoUrl: p.brand_logo_url || p.brandLogoUrl,
       }));
-      setProducts(prevProducts => prevProducts ? [...prevProducts, ...mappedAddedProducts] : [...mappedAddedProducts]);
+      
+      // Re-fetch products to ensure state is fully consistent after bulk create
+      // This ensures all products are up-to-date and properly formatted
+      try {
+        const productsRes = await fetch(`${API_BASE_URL}/products`);
+        const productsContentType = productsRes.headers.get('content-type');
+        
+        if (productsContentType && productsContentType.includes('application/json') && productsRes.ok) {
+          const fetchedProductsData = await productsRes.json();
+          const mappedAllProducts: Product[] = fetchedProductsData.map((p: any) => ({
+            ...p,
+            brand: p.brand_name || p.brand,
+            brandId: p.brand_id || p.brandId,
+            brandLogoUrl: p.brand_logo_url || p.brandLogoUrl,
+          }));
+          setProducts(mappedAllProducts);
+          console.log('[App] Products refreshed after bulk create:', mappedAllProducts.length, 'total products');
+        } else {
+          // Fallback: add the new products to existing state if re-fetch fails
+          console.warn('[App] Re-fetch failed, using fallback state update');
+          setProducts(prevProducts => prevProducts ? [...prevProducts, ...mappedAddedProducts] : [...mappedAddedProducts]);
+        }
+      } catch (fetchError) {
+        // Fallback: add the new products to existing state if re-fetch fails
+        console.error('[App] Error re-fetching products after bulk create:', fetchError);
+        setProducts(prevProducts => prevProducts ? [...prevProducts, ...mappedAddedProducts] : [...mappedAddedProducts]);
+      }
+      
       return mappedAddedProducts;
     } catch (err: any) {
       console.error('Error bulk creating products:', err);
+      console.error('Error details:', {
+        message: err?.message,
+        details: err?.details,
+        code: err?.code,
+        hint: err?.hint,
+        status: err?.status
+      });
+      
       const errorMessage = err?.message || 'Error desconocido al crear productos';
-      // Mensajes más específicos según el tipo de error
+      const errorDetails = err?.details || '';
+      const errorCode = err?.code || '';
+      const errorHint = err?.hint || '';
+      
+      // Construir mensaje de error más detallado
+      let userMessage = '';
+      
       if (errorMessage.includes('405') || errorMessage.includes('Method not allowed')) {
-        showError(`❌ Error de conexión: El servidor rechazó la petición. Verifica que el endpoint esté disponible.`);
-      } else if (errorMessage.includes('is_active') || errorMessage.includes('column')) {
-        showError(`❌ Error de configuración: La columna 'is_active' no existe. Ejecuta la migración en Supabase.`);
+        userMessage = `❌ Error de conexión: El servidor rechazó la petición. Verifica que el endpoint esté disponible.`;
+      } else if (errorMessage.includes('is_active') || errorMessage.includes('column') || errorMessage.includes('schema')) {
+        userMessage = `❌ Error de configuración: La columna 'is_active' no existe. Ejecuta la migración en Supabase.`;
+      } else if (errorMessage.includes('duplicate') || errorMessage.includes('SKUs sean únicos')) {
+        userMessage = `❌ ${errorMessage}${errorDetails ? `\n\nDetalles: ${errorDetails}` : ''}`;
+      } else if (errorMessage.includes('Marca no encontrada') || errorMessage.includes('foreign key')) {
+        userMessage = `❌ ${errorMessage}${errorDetails ? `\n\nDetalles: ${errorDetails}` : ''}`;
+      } else if (errorMessage.includes('Campos requeridos') || errorMessage.includes('null value')) {
+        userMessage = `❌ ${errorMessage}${errorDetails ? `\n\nDetalles: ${errorDetails}` : ''}`;
       } else {
-        showError(`❌ No se pudieron crear los productos: ${errorMessage}`);
+        userMessage = `❌ No se pudieron crear los productos: ${errorMessage}`;
+        if (errorDetails) userMessage += `\n\nDetalles: ${errorDetails}`;
+        if (errorHint) userMessage += `\n\n💡 Sugerencia: ${errorHint}`;
+        if (errorCode) userMessage += `\n\nCódigo de error: ${errorCode}`;
       }
+      
+      showError(userMessage);
       throw err;
     }
   }, [showError]);

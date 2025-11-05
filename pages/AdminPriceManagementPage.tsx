@@ -291,8 +291,27 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
               console.log('[Excel Import] Bulk update completed successfully');
             } catch (updateError: any) {
               console.error('[Excel Import] Error in bulk update:', updateError);
+              console.error('[Excel Import] Update error details:', {
+                message: updateError?.message,
+                details: updateError?.details,
+                code: updateError?.code,
+                hint: updateError?.hint
+              });
+              
+              const errorMessage = updateError?.message || 'Error desconocido';
+              const errorDetails = updateError?.details || '';
+              const errorHint = updateError?.hint || '';
+              
+              let detailedError = `Error al actualizar ${productsToUpdate.length} productos: ${errorMessage}`;
+              if (errorDetails) {
+                detailedError += `\n\nDetalles: ${errorDetails}`;
+              }
+              if (errorHint) {
+                detailedError += `\n\n💡 Sugerencia: ${errorHint}`;
+              }
+              
               errorCount += productsToUpdate.length;
-              errors.push(`Error al actualizar ${productsToUpdate.length} productos: ${updateError?.message || 'Error desconocido'}`);
+              errors.push(detailedError);
             }
         }
 
@@ -307,34 +326,81 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
               isActive: productsToCreate[0].isActive
             } : null);
             try {
-              await onAddProductsBulk(productsToCreate);
-              console.log('[Excel Import] Bulk create completed successfully');
+              const createdProducts = await onAddProductsBulk(productsToCreate);
+              console.log('[Excel Import] Bulk create completed successfully,', createdProducts?.length || 0, 'products created');
             } catch (createError: any) {
               console.error('[Excel Import] Error in bulk create:', createError);
+              console.error('[Excel Import] Error details:', {
+                message: createError?.message,
+                details: createError?.details,
+                code: createError?.code,
+                hint: createError?.hint,
+                status: createError?.status
+              });
+              
+              const errorMessage = createError?.message || 'Error desconocido';
+              const errorDetails = createError?.details || '';
+              const errorHint = createError?.hint || '';
+              
+              // Construir mensaje de error más detallado
+              let detailedError = `Error al crear ${productsToCreate.length} productos: ${errorMessage}`;
+              if (errorDetails) {
+                detailedError += `\n\nDetalles: ${errorDetails}`;
+              }
+              if (errorHint) {
+                detailedError += `\n\n💡 Sugerencia: ${errorHint}`;
+              }
+              
               errorCount += productsToCreate.length;
-              errors.push(`Error al crear ${productsToCreate.length} productos: ${createError?.message || 'Error desconocido'}`);
+              errors.push(detailedError);
             }
         }
 
         setExcelStatus('success');
-        const successMessage = errorCount > 0 
-          ? `✅ Actualización completada: ${updatedCount} productos actualizados, ${createdCount} productos creados, ${errorCount} ${errorCount === 1 ? 'error' : 'errores'}. Consulta la consola para detalles.`
-          : `✅ ¡Actualización exitosa! ${updatedCount} productos actualizados, ${createdCount} productos creados.`;
+        
+        // Construir mensaje detallado con todos los errores
+        let successMessage = '';
+        if (errorCount > 0) {
+          successMessage = `✅ Actualización completada:\n\n` +
+            `• ${updatedCount} productos actualizados\n` +
+            `• ${createdCount} productos creados\n` +
+            `• ${errorCount} ${errorCount === 1 ? 'error encontrado' : 'errores encontrados'}\n\n` +
+            `Errores detallados:\n${errors.map((e, i) => `${i + 1}. ${e}`).join('\n\n')}`;
+        } else {
+          successMessage = `✅ ¡Actualización exitosa!\n\n` +
+            `• ${updatedCount} productos actualizados\n` +
+            `• ${createdCount} productos creados`;
+        }
         setExcelMessage(successMessage);
         
         // Mostrar notificación toast también
         if (errorCount === 0) {
           showSuccess(`✅ ${updatedCount} productos actualizados, ${createdCount} productos creados`, 7000);
         } else {
-          showWarning(`⚠️ Actualización con errores: ${updatedCount} actualizados, ${createdCount} creados, ${errorCount} errores`, 8000);
+          // Mostrar un resumen y los primeros errores en la notificación
+          const errorSummary = errors.length > 0 
+            ? `\n\nPrimeros errores:\n${errors.slice(0, 3).map((e, i) => `${i + 1}. ${e.split('\n')[0]}`).join('\n')}${errors.length > 3 ? `\n... y ${errors.length - 3} más (ver detalles abajo)` : ''}`
+            : '';
+          showWarning(`⚠️ Actualización con errores: ${updatedCount} actualizados, ${createdCount} creados, ${errorCount} errores${errorSummary}`, 10000);
         }
         if (errors.length > 0) {
           console.error('Errores de Excel:', errors);
         }
       } catch (error: any) {
         console.error('Error al leer el archivo Excel:', error);
+        console.error('Error details:', {
+          message: error?.message,
+          details: error?.details,
+          code: error?.code,
+          hint: error?.hint,
+          stack: error?.stack
+        });
+        
         setExcelStatus('error');
         const errorMessage = error?.message || 'Error desconocido al leer el archivo';
+        const errorDetails = error?.details || '';
+        const errorHint = error?.hint || '';
+        
         let userMessage = `Error al procesar el archivo: ${errorMessage}`;
         
         // Mensajes más específicos según el tipo de error
@@ -342,6 +408,12 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
           userMessage = '❌ Error de conexión: El servidor rechazó la petición. Verifica que el endpoint esté disponible.';
         } else if (errorMessage.includes('is_active') || errorMessage.includes('column') || errorMessage.includes('schema')) {
           userMessage = '❌ Error de configuración: La columna \'is_active\' no existe en la base de datos. Ejecuta la migración: migrations/add_is_active_to_products.sql en Supabase.';
+        } else if (errorMessage.includes('duplicate') || errorMessage.includes('SKUs sean únicos')) {
+          userMessage = `❌ ${errorMessage}${errorDetails ? `\n\nDetalles: ${errorDetails}` : ''}${errorHint ? `\n\n💡 Sugerencia: ${errorHint}` : ''}`;
+        } else if (errorMessage.includes('Marca no encontrada') || errorMessage.includes('foreign key')) {
+          userMessage = `❌ ${errorMessage}${errorDetails ? `\n\nDetalles: ${errorDetails}` : ''}${errorHint ? `\n\n💡 Sugerencia: ${errorHint}` : ''}`;
+        } else if (errorMessage.includes('Campos requeridos') || errorMessage.includes('null value')) {
+          userMessage = `❌ ${errorMessage}${errorDetails ? `\n\nDetalles: ${errorDetails}` : ''}${errorHint ? `\n\n💡 Sugerencia: ${errorHint}` : ''}`;
         } else if (errorMessage.includes('toLowerCase') || errorMessage.includes('toUpperCase')) {
           userMessage = '❌ Error: El archivo contiene datos incompletos. Verifica que todas las columnas (Marca, Modelo, Size, RIM, Precio) tengan valores válidos.';
         } else if (errorMessage.includes('no contiene datos')) {
@@ -352,6 +424,8 @@ const AdminPriceManagementPage: React.FC<AdminPriceManagementPageProps> = ({ pro
           userMessage = '❌ Error de formato en el archivo. Asegúrate de que sea un archivo .xlsx o .csv válido.';
         } else {
           userMessage = `❌ ${errorMessage}`;
+          if (errorDetails) userMessage += `\n\nDetalles: ${errorDetails}`;
+          if (errorHint) userMessage += `\n\n💡 Sugerencia: ${errorHint}`;
         }
         
         setExcelMessage(`${userMessage}\n\n📋 Formato esperado:\n• Marca: Nombre de la marca\n• Modelo: Nombre del producto\n• Size: Formato "155/70R12"\n• RIM: Diámetro (ej: "12" o "R12")\n• Precio: Número válido\n• Imagen: URL (opcional)`);
