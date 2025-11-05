@@ -70,6 +70,7 @@ export default allowCors(async function handler(req, res) {
     if (req.method === 'PUT') {
       // Actualizar configuración
       const body = await parseBody(req);
+      console.log('[Crane Quote API] PUT request body:', JSON.stringify(body, null, 2));
 
       // 1. Actualizar o crear configuración principal
       const { data: existingConfig, error: fetchError } = await supabase
@@ -136,35 +137,51 @@ export default allowCors(async function handler(req, res) {
         }
 
         // Actualizar o crear vehículos
+        const vehicleErrors: string[] = [];
         for (const vehicle of body.vehicleTypes) {
           // Ignorar IDs temporales (empiezan con 'temp-')
           if (vehicle.id && !vehicle.id.toString().startsWith('temp-') && existingIds.includes(vehicle.id)) {
             // Actualizar existente
-            const { error: updateError } = await supabase
+            const { data: updatedVehicle, error: updateError } = await supabase
               .from('crane_vehicle_types')
               .update({
                 name: vehicle.name,
                 base_price: vehicle.basePrice,
                 updated_at: new Date().toISOString(),
               })
-              .eq('id', vehicle.id);
+              .eq('id', vehicle.id)
+              .select()
+              .single();
             
             if (updateError) {
-              console.error('[Crane Quote API] Error updating vehicle:', updateError);
+              console.error('[Crane Quote API] Error updating vehicle:', vehicle, updateError);
+              vehicleErrors.push(`Error actualizando ${vehicle.name}: ${updateError.message}`);
+            } else {
+              console.log('[Crane Quote API] Vehicle updated:', updatedVehicle);
             }
           } else {
             // Crear nuevo (o si tiene ID temporal)
-            const { error: insertError } = await supabase
+            const { data: insertedVehicle, error: insertError } = await supabase
               .from('crane_vehicle_types')
               .insert({
                 name: vehicle.name,
                 base_price: vehicle.basePrice,
-              });
+              })
+              .select()
+              .single();
             
             if (insertError) {
-              console.error('[Crane Quote API] Error inserting vehicle:', insertError);
+              console.error('[Crane Quote API] Error inserting vehicle:', vehicle, insertError);
+              vehicleErrors.push(`Error creando ${vehicle.name}: ${insertError.message}`);
+            } else {
+              console.log('[Crane Quote API] Vehicle inserted:', insertedVehicle);
             }
           }
+        }
+        
+        if (vehicleErrors.length > 0) {
+          console.warn('[Crane Quote API] Vehicle errors:', vehicleErrors);
+          // No lanzar error, solo registrar - continuar con el proceso
         }
       }
 
@@ -190,35 +207,51 @@ export default allowCors(async function handler(req, res) {
         }
 
         // Actualizar o crear opciones
+        const optionErrors: string[] = [];
         for (const option of body.additionalOptions) {
           // Ignorar IDs temporales (empiezan con 'temp-')
           if (option.id && !option.id.toString().startsWith('temp-') && existingOptionIds.includes(option.id)) {
             // Actualizar existente
-            const { error: updateError } = await supabase
+            const { data: updatedOption, error: updateError } = await supabase
               .from('crane_additional_options')
               .update({
                 name: option.name,
                 price: option.price,
                 updated_at: new Date().toISOString(),
               })
-              .eq('id', option.id);
+              .eq('id', option.id)
+              .select()
+              .single();
             
             if (updateError) {
-              console.error('[Crane Quote API] Error updating option:', updateError);
+              console.error('[Crane Quote API] Error updating option:', option, updateError);
+              optionErrors.push(`Error actualizando ${option.name}: ${updateError.message}`);
+            } else {
+              console.log('[Crane Quote API] Option updated:', updatedOption);
             }
           } else {
             // Crear nuevo (o si tiene ID temporal)
-            const { error: insertError } = await supabase
+            const { data: insertedOption, error: insertError } = await supabase
               .from('crane_additional_options')
               .insert({
                 name: option.name,
                 price: option.price,
-              });
+              })
+              .select()
+              .single();
             
             if (insertError) {
-              console.error('[Crane Quote API] Error inserting option:', insertError);
+              console.error('[Crane Quote API] Error inserting option:', option, insertError);
+              optionErrors.push(`Error creando ${option.name}: ${insertError.message}`);
+            } else {
+              console.log('[Crane Quote API] Option inserted:', insertedOption);
             }
           }
+        }
+        
+        if (optionErrors.length > 0) {
+          console.warn('[Crane Quote API] Option errors:', optionErrors);
+          // No lanzar error, solo registrar - continuar con el proceso
         }
       }
 

@@ -46,22 +46,28 @@ const AdminCraneQuotePage: React.FC = () => {
   const handleSave = async () => {
     try {
       setIsSaving(true);
+      console.log('[AdminCraneQuotePage] Saving config:', JSON.stringify(config, null, 2));
+      
       const res = await fetch(`${API_BASE_URL}/crane-quote`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
 
+      console.log('[AdminCraneQuotePage] Response status:', res.status, res.statusText);
+
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Error desconocido' }));
+        console.error('[AdminCraneQuotePage] Error response:', errorData);
         throw new Error(errorData.error || errorData.message || 'Error al guardar configuración');
       }
 
       const updatedConfig = await res.json();
+      console.log('[AdminCraneQuotePage] Updated config received:', updatedConfig);
       setConfig(updatedConfig); // Actualizar con los datos del servidor (incluye IDs generados)
       showSuccess('✅ Configuración guardada correctamente', 5000);
     } catch (err: any) {
-      console.error('Error saving config:', err);
+      console.error('[AdminCraneQuotePage] Error saving config:', err);
       showError(`❌ Error al guardar la configuración: ${err?.message || 'Error desconocido'}`);
     } finally {
       setIsSaving(false);
