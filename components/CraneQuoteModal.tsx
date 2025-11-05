@@ -110,7 +110,12 @@ const CraneQuoteModal: React.FC<CraneQuoteModalProps> = ({
       `\n💰 *Precio Total:* $${(Number(totalPrice) || 0).toLocaleString('es-AR')}\n\n` +
       `¿Desea confirmar esta cotización?`;
 
-    const phoneNumber = whatsappNumber || config.whatsappNumber || '+5492245506078';
+    // Asegurarse de que phoneNumber sea siempre una cadena
+    const phoneNumber = String(
+      (typeof whatsappNumber === 'string' && whatsappNumber) || 
+      (typeof config.whatsappNumber === 'string' && config.whatsappNumber) || 
+      '+5492245506078'
+    );
     const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 
